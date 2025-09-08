@@ -1,0 +1,45 @@
+name: 'qbot'
+version: '1.0.0'
+config-version: 2
+
+# Profile name can be overridden via DBT_PROFILE_NAME environment variable
+# This enables profile-based configurations in profiles/{profile_name}/
+profile: "{{ env_var('DBT_PROFILE_NAME', 'qbot') }}"
+
+# Path configuration
+model-paths: 
+  - "profiles/{{ env_var('DBT_PROFILE_NAME', 'qbot') }}/models"  # Profile-specific models
+  - ".qbot/profiles/{{ env_var('DBT_PROFILE_NAME', 'qbot') }}/models"  # User-specific profile models
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: 
+  - "profiles/{{ env_var('DBT_PROFILE_NAME', 'qbot') }}/macros"  # Profile-specific macros
+  - ".qbot/profiles/{{ env_var('DBT_PROFILE_NAME', 'qbot') }}/macros"  # User-specific profile macros
+snapshot-paths: ["snapshots"]
+
+# Profile-specific output directories are configured via environment variables
+# DBT_LOG_PATH and DBT_TARGET_PATH set by QBot based on profile
+
+clean-targets:
+  - "target"                           # Legacy target directory
+  - "logs"                             # Legacy logs directory
+  - "dbt_packages"
+  - "models/qbot_temp_*.sql"
+  - "models/temp_user_display_*.sql"
+  - "profiles/*/models/temp/"
+  - ".qbot/profiles/*/models/temp/"
+  - "profiles/*/logs/"                 # Profile-specific logs
+  - "profiles/*/target/"               # Profile-specific target
+  - ".qbot/profiles/*/logs/"           # User-specific logs
+  - ".qbot/profiles/*/target/"         # User-specific target
+
+vars:
+  # Custom variables for qbot
+  company_name: "Your Company"
+  analysis_date: "{{ var('current_date', '2024-01-01') }}"
+  max_records: 1000
+
+models:
+  qbot:
+    +materialized: view

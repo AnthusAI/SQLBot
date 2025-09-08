@@ -1,0 +1,13 @@
+# Additional requirements for QBot integration tests
+# These are separate from core requirements to avoid forcing users
+# to install database drivers they don't need
+
+# SQLite support (recommended for integration testing)
+# SQLite is lightweight, requires no setup, and perfect for testing
+# The dbt-sqlite adapter enables dbt functionality with SQLite databases
+
+# dbt adapters for different database backends
+dbt-sqlite>=1.0.0      # SQLite adapter (recommended for testing)
+
+# Test utilities
+pytest-timeout>=2.1.0  # Test timeouts

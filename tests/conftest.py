@@ -1,0 +1,110 @@
+"""Pytest configuration and shared fixtures for QBot tests."""
+
+import pytest
+import os
+import sys
+from unittest.mock import Mock, patch, MagicMock
+from pathlib import Path
+
+# Add the project root to Python path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+@pytest.fixture
+def mock_env():
+    """Mock environment variables for testing."""
+    with patch.dict(os.environ, {
+        'OPENAI_API_KEY': 'test-api-key',
+        'QBOT_LLM_MODEL': 'gpt-5',
+        'QBOT_LLM_MAX_TOKENS': '1000'
+    }):
+        yield
+
+@pytest.fixture
+def mock_database():
+    """Mock database connection and responses."""
+    mock_conn = Mock()
+    mock_cursor = Mock()
+    
+    # Mock successful connection
+    mock_cursor.description = [('count', None)]
+    mock_cursor.fetchall.return_value = [(1458,)]  # Mock table count
+    mock_conn.cursor.return_value = mock_cursor
+    
+    with patch('pyodbc.connect', return_value=mock_conn):
+        yield mock_conn
+
+@pytest.fixture
+def mock_llm():
+    """Mock LLM responses for testing."""
+    mock_response = Mock()
+    mock_response.content = "I'll help you query the database. Let me run a query to count the tables."
+    
+    mock_llm_instance = Mock()
+    mock_llm_instance.invoke.return_value = mock_response
+    
+    with patch('qbot.llm_integration.ChatOpenAI', return_value=mock_llm_instance):
+        yield mock_llm_instance
+
+@pytest.fixture
+def mock_dbt():
+    """Mock dbt runner and responses."""
+    mock_result = Mock()
+    mock_result.success = True
+    mock_result.returncode = 0
+    
+    mock_runner = Mock()
+    mock_runner.invoke.return_value = mock_result
+    
+    with patch('qbot.repl.dbtRunner', return_value=mock_runner):
+        yield mock_runner
+
+@pytest.fixture
+def qbot_instance(mock_env, mock_database, mock_llm, mock_dbt):
+    """Create a QBot instance with all dependencies mocked."""
+    # Import after mocking to ensure mocks are in place
+    from qbot import repl
+    
+    # Mock the LLM_AVAILABLE flag
+    repl.LLM_AVAILABLE = True
+    
+    return repl
+
+@pytest.fixture
+def cli_runner():
+    """Provide a CLI test runner."""
+    from click.testing import CliRunner
+    return CliRunner()
+
+@pytest.fixture
+def temp_project_dir(tmp_path):
+    """Create a temporary project directory for testing."""
+    # Create basic dbt project structure
+    (tmp_path / "models").mkdir()
+    (tmp_path / "macros").mkdir()
+    
+    # Create basic dbt_project.yml
+    dbt_project = """
+name: 'test_qbot'
+version: '1.0.0'
+config-version: 2
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: "target"
+
+target: dev
+"""
+    (tmp_path / "dbt_project.yml").write_text(dbt_project)
+    
+    return tmp_path
+
+@pytest.fixture(autouse=True)
+def setup_test_environment(monkeypatch, temp_project_dir):
+    """Set up the test environment for all tests."""
+    # Change to temp directory for dbt operations
+    monkeypatch.chdir(temp_project_dir)
+    
+    # Mock the PROJECT_ROOT to point to temp directory
+    with patch('qbot.repl.PROJECT_ROOT', temp_project_dir):
+        yield

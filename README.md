@@ -1,16 +1,74 @@
-# QBot: AI-Powered Database Query Bot
+# QBot: Agent-Driven Database Programming
 
-QBot is a database query bot with AI-powered natural language processing. It provides both a CLI interface and interactive REPL for executing SQL/dbt queries and natural language questions using LangChain and OpenAI's GPT-5 models.
+> **A New Paradigm**: Instead of writing explicit code, give an AI agent the right tools and context, then let it reason, act, and self-correct to accomplish complex database tasks.
 
-## 🚀 Key Features
+QBot demonstrates a revolutionary approach to programming: **Tool + Context + Feedback Loop = Intelligent Automation**. Rather than manually writing SQL queries or complex data analysis scripts, you provide an AI agent with database tools (dbt, SQL execution) and rich context (schema descriptions, business logic), then engage in natural conversation to accomplish sophisticated data tasks.
 
-- **GPT-5 Natural Language Processing** - Ask questions in plain English with advanced reasoning
-- **Direct SQL and dbt execution** - Run queries with full dbt processing
-- **Interactive REPL** - Rich terminal interface with slash commands
-- **Profile-based configuration** - Support multiple database environments with isolated schemas
-- **Multi-database support** - SQL Server, PostgreSQL, Snowflake, SQLite, and more
-- **Rich terminal output** - Beautiful formatted results and error handling
-- **Modular architecture** - Core SDK separated from presentation layers for multiple deployment modes
+## 🧠 The Agent Programming Model
+
+### Traditional Programming
+```
+Developer → Explicit Instructions → Code → Database → Results
+```
+
+### Agent-Driven Programming  
+```
+Developer → Natural Intent → AI Agent → Tool Selection → Context Analysis → Action → Self-Correction → Results
+```
+
+**Key Insight**: When you give an agent powerful tools and comprehensive context, it becomes capable of reasoning about complex problems and correcting its own mistakes - essentially programming itself to solve your specific needs.
+
+## 🚀 Agent Capabilities
+
+- **Contextual Reasoning** - Understands your database schema, relationships, and business logic
+- **Tool Orchestration** - Intelligently combines SQL, dbt macros, and data analysis tools
+- **Self-Correction** - Learns from errors and refines approaches in real-time
+- **Natural Communication** - Translates business questions into technical implementations
+- **Adaptive Learning** - Builds understanding of your data patterns and preferences
+- **Multi-Modal Execution** - Seamlessly switches between SQL, natural language, and dbt templating
+- **Profile Intelligence** - Adapts behavior based on different database environments and schemas
+
+## 🔧 How Agent Programming Works
+
+### The Three Pillars
+
+#### 1. **Tools** - Powerful Capabilities
+The agent has access to sophisticated database tools:
+- **dbt Integration** - Template processing, macro expansion, source resolution
+- **SQL Execution** - Direct database queries with safety analysis  
+- **Schema Analysis** - Understanding table relationships and data types
+- **Result Formatting** - Rich console output and error handling
+
+#### 2. **Context** - Rich Understanding
+You provide the agent with comprehensive context:
+- **Schema Descriptions** - What each table and column represents
+- **Business Logic** - Custom macros encoding domain knowledge
+- **Data Relationships** - How tables connect and relate to each other
+- **Environment Profiles** - Different database configurations and rules
+
+#### 3. **Feedback Loop** - Continuous Learning
+The agent learns and adapts through interaction:
+- **Error Analysis** - When queries fail, it understands why and tries alternatives
+- **Result Validation** - Checks if results make sense given the context
+- **Conversation Memory** - Builds understanding of your preferences and patterns
+- **Iterative Refinement** - Improves approaches based on your feedback
+
+### Example: Agent Reasoning in Action
+
+**Your Request**: "Show me our top customers by revenue this quarter"
+
+**Agent's Internal Process**:
+1. **Context Analysis**: Reads schema to find customer and order tables
+2. **Tool Selection**: Chooses dbt templating for clean, reusable SQL
+3. **Query Generation**: Creates SQL using `{{ source() }}` syntax for proper table references
+4. **Execution**: Runs query through dbt compilation pipeline
+5. **Result Validation**: Checks if results are reasonable (positive revenue, realistic numbers)
+6. **Self-Correction**: If something looks wrong, investigates and refines the approach
+7. **Presentation**: Formats results in a clear, readable table
+
+**What You See**: A simple conversation that produces sophisticated, correct results.
+
+**What's Revolutionary**: The agent programmed itself to solve your specific problem using the tools and context you provided.
 
 ## 📦 Quick Install
 
@@ -232,54 +290,111 @@ Create `profiles/qbot/macros/report_lookups.sql` (or your custom profile) for re
 {% endmacro %}
 ```
 
-## 🎯 Usage
+## 🎯 Usage: Conversing with Your Database Agent
 
 ### Command Line Interface
 ```bash
-# Interactive mode (default profile)
+# Interactive mode - start a conversation with your database
 qbot
 
-# Single query execution
+# Single query - the agent analyzes and responds
 qbot "How many records are in the main table?"
 
-# Use custom profile
+# Use custom profile - agent adapts to different environments
 qbot --profile mycompany "What tables are available?"
 
-# Interactive mode with custom profile
-qbot --profile production
-
-# Show LLM conversation context
+# Show agent reasoning - see how it thinks through problems
 qbot --context "your query"
 ```
 
-### Interactive REPL
+### Agent Conversations in Action
 
-#### Natural Language Queries (Default)
+#### Example 1: Business Intelligence Query
 ```
-> How many customers do we have?
-> Show me top 5 customers by revenue
-> What were our sales last month?
+You: "Show me our top customers by revenue this quarter"
+
+Agent: I'll analyze your customer and order data to find top revenue generators.
+       Let me check the schema for the right tables and date fields...
+
+       [Generates optimized SQL with proper date filtering]
+       
+       ┌─────────────────┬──────────────┬─────────────┐
+       │ Customer Name   │ Total Revenue│ Order Count │
+       ├─────────────────┼──────────────┼─────────────┤
+       │ Acme Corp       │ $125,430.50  │ 23          │
+       │ Global Tech     │ $98,250.75   │ 18          │
+       └─────────────────┴──────────────┴─────────────┘
+
+You: "What about last quarter for comparison?"
+
+Agent: I'll modify the date range to show Q2 data for comparison...
+       [Automatically adjusts the previous query logic]
 ```
 
-#### SQL/dbt Queries (End with semicolon)
+#### Example 2: Agent Self-Correction
 ```
+You: "Show me customer retention rates"
+
+Agent: I need to calculate retention rates. Let me find customers who made 
+       repeat purchases...
+       
+       [First attempt fails - missing date logic]
+       
+       I see the issue - I need to define a time window for retention.
+       Let me recalculate using monthly cohorts...
+       
+       [Generates corrected analysis with proper cohort logic]
+       
+       ✅ Monthly Customer Retention Analysis
+       [Shows detailed retention metrics]
+```
+
+#### Example 3: Complex Analysis with Tool Orchestration
+```
+You: "I need a sales performance dashboard"
+
+Agent: I'll create a comprehensive sales analysis using multiple data sources.
+       This requires several queries - let me break this down:
+       
+       1. Overall sales trends (using sales macro)
+       2. Top products by category (joining product and order data)  
+       3. Geographic performance (analyzing by region)
+       4. Sales rep performance (if available in schema)
+       
+       [Executes multiple coordinated queries]
+       [Combines results into formatted dashboard view]
+       
+       📊 Sales Performance Dashboard
+       [Rich formatted output with multiple data views]
+```
+
+#### Direct SQL and Macro Usage
+```
+# The agent also handles direct SQL when you need precise control
 > SELECT COUNT(*) FROM {{ source('my_database', 'customers') }};
+
+# And can execute your custom macros intelligently  
 > {{ get_customer_orders(12345) }}
+
+# Agent understands context even in SQL mode
+> SELECT * FROM orders WHERE customer_id = 12345;
+Agent: I notice you're looking at the same customer. Would you like me to 
+       analyze their purchase patterns or order history trends?
 ```
 
-#### Slash Commands
-- `/help` - Show available commands
-- `/tables` - List database tables  
-- `/debug` - Run dbt debug
-- `/run [model]` - Execute dbt models
-- `/history` - Show command history
-- `exit` - Exit REPL
+#### Agent Commands and Introspection
+- `/help` - Agent explains its capabilities and available tools
+- `/tables` - Agent analyzes and describes your database schema
+- `/debug` - Agent runs diagnostics and reports system health  
+- `/run [model]` - Agent executes dbt models with intelligent dependency handling
+- `/history` - Agent shows conversation context and learning patterns
+- `exit` - End the agent session
 
-## 🧪 Testing
+## 🧪 Testing the Agent
 
-### Integration Testing Setup
+### Agent Validation with Real Data
 
-QBot includes a simple setup script for integration testing with the Sakila sample database. This provides a realistic dataset for testing database queries and dbt functionality.
+QBot includes comprehensive testing that validates the agent's reasoning capabilities using the Sakila sample database. This provides a realistic environment for testing how the agent handles complex queries, error correction, and tool orchestration.
 
 #### Quick Setup (Recommended)
 ```bash
@@ -349,140 +464,159 @@ pytest tests/integration/ -v
 pytest --cov=qbot --cov-report=html
 ```
 
-### Test Coverage
-- **150+ passing tests** across unit and BDD scenarios
-- **GPT-5 Integration** - Configuration, query handling, error scenarios, Responses API
-- **SQL Execution** - Direct queries, dbt compilation, error handling  
-- **REPL Commands** - Slash commands, history, interactive features
-- **CLI Interface** - Argument parsing, help, module execution
-- **Database Integration** - Real database queries with sample data
-- **Core SDK** - Business logic independent of presentation layers
+### Agent Testing Coverage
+- **150+ passing tests** validating agent intelligence and reliability
+- **Reasoning Validation** - Tests agent's ability to understand context and generate appropriate queries
+- **Error Recovery** - Validates self-correction when queries fail or produce unexpected results
+- **Tool Orchestration** - Tests intelligent combination of SQL, dbt, and analysis tools
+- **Context Adaptation** - Ensures agent adapts behavior based on different schemas and profiles
+- **Conversation Memory** - Validates learning and adaptation over multi-turn conversations
+- **Safety Analysis** - Tests agent's ability to detect and prevent dangerous operations
+- **Multi-Modal Execution** - Validates seamless switching between natural language and SQL modes
 
-## 🔧 Development
+## 🔧 Development: Building Agent-Driven Systems
 
-### Project Structure
+### Agent Architecture
 ```
 qbot/
-├── core/                     # Core SDK (business logic)
+├── core/                     # Agent Intelligence Layer
 │   ├── __init__.py
-│   ├── agent.py             # Main QBotAgent class
-│   ├── config.py            # Configuration management
-│   ├── types.py             # Data types and enums
-│   ├── llm.py              # LLM integration
-│   ├── dbt.py              # dbt integration
-│   ├── safety.py           # SQL safety analysis
-│   └── schema.py           # Schema and macro loading
-├── interfaces/              # Presentation layers
-│   └── repl/               # Rich console REPL
+│   ├── agent.py             # Main QBotAgent - orchestrates reasoning and tool usage
+│   ├── config.py            # Agent configuration and behavior settings
+│   ├── types.py             # Data structures for agent communication
+│   ├── llm.py              # Language model integration for reasoning
+│   ├── dbt.py              # Database tool integration and execution
+│   ├── safety.py           # Agent safety analysis and guardrails
+│   └── schema.py           # Context loading and understanding
+├── interfaces/              # Human-Agent Interaction Layer
+│   └── repl/               # Conversational interface
 │       ├── __init__.py
-│       ├── console.py
-│       ├── commands.py
-│       └── formatting.py
+│       ├── console.py      # Rich conversation display
+│       ├── commands.py     # Agent command interpretation
+│       └── formatting.py   # Agent response formatting
 ├── __init__.py             # Package initialization
 ├── __version__.py          # Version information
 ├── repl.py                # Legacy REPL entry point
 └── llm_integration.py     # Legacy LLM integration
 
 profiles/
-├── qbot/                   # Default profile
+├── qbot/                   # Default agent context
 │   ├── models/
-│   │   ├── schema.yml     # Schema definitions
-│   │   └── temp/          # Temporary model files
-│   ├── macros/*.sql       # dbt macros
-│   ├── logs/              # dbt logs
-│   └── target/            # dbt artifacts
-└── [custom]/              # Custom profiles
+│   │   ├── schema.yml     # Database context for agent understanding
+│   │   └── temp/          # Agent-generated temporary models
+│   ├── macros/*.sql       # Business logic tools for agent
+│   ├── logs/              # Agent execution logs
+│   └── target/            # Agent compilation artifacts
+└── [custom]/              # Environment-specific agent contexts
     ├── models/
-    │   ├── schema.yml
-    │   └── temp/
-    ├── macros/*.sql
-    ├── logs/
-    └── target/
+    │   ├── schema.yml     # Custom database context
+    │   └── temp/          # Environment-specific temp files
+    ├── macros/*.sql       # Environment-specific tools
+    ├── logs/              # Environment logs
+    └── target/            # Environment artifacts
 
 tests/
-├── unit/                  # Unit tests
-│   └── core/             # Core SDK tests
-├── interfaces/           # Interface-specific tests
-├── step_defs/core/      # BDD step definitions
-├── features/core/       # Gherkin feature files
-└── conftest.py          # Test fixtures and configuration
+├── unit/                  # Agent component tests
+│   └── core/             # Core agent intelligence tests
+├── interfaces/           # Human-agent interaction tests
+├── step_defs/core/      # Agent behavior validation (BDD)
+├── features/core/       # Agent capability specifications (Gherkin)
+└── conftest.py          # Agent testing framework
 ```
 
-### Development Workflow
-1. **Run Tests** - `pytest` to verify everything works
-2. **Make Changes** - Edit code in `qbot/` directory
-3. **Test Changes** - `pytest` after each change (or use `ptw` for continuous)
-4. **Test CLI** - `qbot --help` to verify installation
+### Agent Development Workflow
+1. **Validate Agent** - `pytest` to ensure agent reasoning works correctly
+2. **Enhance Capabilities** - Add new tools or improve context understanding
+3. **Test Behavior** - `pytest` after changes (or `ptw` for continuous validation)
+4. **Interact with Agent** - `qbot --help` to test conversational interface
+5. **Refine Context** - Update schemas and macros to improve agent performance
 
-## 🐛 Troubleshooting
+## 🐛 Agent Troubleshooting
 
-### Common Issues
+### Agent Behavior Issues
 
-**"LLM integration not available"**
-- Check `.env` file exists and contains `OPENAI_API_KEY`
-- Verify API key is valid and has credits
+**"Agent seems confused or gives wrong answers"**
+- Check that your `schema.yml` has detailed, accurate descriptions
+- Verify table and column descriptions match your actual data
+- The agent's intelligence depends heavily on context quality
 
-**"Profile 'qbot' not found"**
-- Check that `~/.dbt/profiles.yml` exists and has the correct profile name
-- Verify the profile name matches `profile: 'qbot'` in `dbt_project.yml`
+**"Agent can't find tables or data"**
+- Ensure your profile's `schema.yml` source names are correct
+- Verify table names exist in your actual database  
+- Check that schema names (dbo, public, etc.) match your database
+- Run `/tables` command to see what the agent can access
 
-**"Could not connect to database"**
+**"Agent reasoning seems broken"**
+- Check `.env` file exists and contains valid `OPENAI_API_KEY`
+- Verify API key has sufficient credits and GPT-5 access
+- Try `--context` flag to see agent's internal reasoning process
+
+**"Agent can't connect to database"**
 - Verify your `.env` file has correct database credentials
-- Run `dbt debug` to test connection
+- Run `/debug` command to test connection through the agent
 - Check that required database drivers are installed
+- Ensure `~/.dbt/profiles.yml` exists with correct profile configuration
 
-**"Source not found" errors**
-- Make sure your profile's `schema.yml` source names match what you use in queries
-- Verify table names exist in your actual database
-- Check schema names (dbo, public, etc.) are correct
+**"Agent gives inconsistent results"**
+- This may indicate ambiguous schema descriptions
+- Add more specific column descriptions to improve context
+- Check for naming conflicts in your database schema
 
-**Import errors**  
-- Ensure `pip install -e .` was run successfully
-- Check Python version (requires 3.11+)
-
-### Debug Commands
+### Agent Diagnostic Commands
 ```bash
-# Test package import
-python -c "import qbot; print('✅ Working')"
+# Test agent system health
+python -c "import qbot; print('✅ Agent system ready')"
 
-# Verify CLI installation  
+# Verify agent CLI installation  
 which qbot
 
-# Check dbt configuration
+# Interactive agent diagnostics
 qbot
-/debug
+/debug    # Agent runs comprehensive system check
+/tables   # Agent analyzes available database context
+/help     # Agent explains its current capabilities
 ```
 
-## 🔒 Security
+## 🔒 Agent Security & Safety
 
-- **SQL Injection Prevention** - Always uses parameterized queries
-- **API Key Security** - Loads from environment variables, never committed
-- **Database Permissions** - Read-only access recommended
-- **Profile Isolation** - Client-specific configurations are gitignored
+- **SQL Injection Prevention** - Agent uses parameterized queries and safety analysis
+- **API Key Security** - Agent credentials loaded from environment, never committed
+- **Database Permissions** - Agent operates with read-only access (recommended)
+- **Query Safety Analysis** - Agent analyzes queries for potential risks before execution
+- **Profile Isolation** - Agent contexts are environment-specific and gitignored
+- **Conversation Privacy** - Agent interactions can be configured for data privacy compliance
 
-## ⚡ Performance
+## ⚡ Agent Performance & Optimization
 
-- **Query Timeouts** - 60-second default timeout for long-running queries
-- **Result Limits** - Paginates large result sets (default 1000 rows)
-- **Connection Pooling** - Reuses database connections where possible
-- **LLM Caching** - Consider caching frequent query patterns
+- **Intelligent Caching** - Agent learns and caches frequent query patterns
+- **Query Optimization** - Agent generates efficient SQL based on schema understanding
+- **Connection Management** - Agent reuses database connections intelligently
+- **Result Streaming** - Agent handles large datasets with pagination (default 1000 rows)
+- **Context Efficiency** - Agent loads only relevant schema information per conversation
+- **Adaptive Timeouts** - Agent adjusts query timeouts based on complexity (60s default)
 
-## 📋 Requirements
+## 📋 Agent System Requirements
 
-- **Python 3.11+**
-- **OpenAI API Key** with GPT-5 access
-- **Database** (SQL Server, PostgreSQL, Snowflake, SQLite, etc.)
-- **dbt** for query compilation
-- **LangChain 0.3.27+** and **LangChain-OpenAI 0.3.32+** for GPT-5 support
+- **Python 3.11+** - Modern Python for optimal agent performance
+- **OpenAI API Key** with GPT-5 access - Powers agent reasoning and conversation
+- **Database** (SQL Server, PostgreSQL, Snowflake, SQLite, etc.) - Agent data source
+- **dbt** for query compilation - Agent's primary database tool
+- **LangChain 0.3.27+** and **LangChain-OpenAI 0.3.32+** - Agent framework and LLM integration
 
-## 🤝 Contributing
+## 🤝 Contributing to Agent Development
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+2. Create a feature branch for agent enhancements
+3. Implement new agent capabilities or improve existing reasoning
+4. Add tests that validate agent behavior and intelligence
+5. Ensure all agent validation tests pass
+6. Submit a pull request with clear description of agent improvements
+
+### Areas for Agent Enhancement
+- **New Tool Integration** - Add capabilities like data visualization, export, or advanced analytics
+- **Improved Reasoning** - Enhance context understanding and query generation logic
+- **Better Error Recovery** - Improve agent's ability to self-correct and learn from mistakes
+- **Extended Context** - Support for more database types, schema patterns, or business domains
 
 ## 📄 License
 
@@ -490,8 +624,10 @@ qbot
 
 ## 🙏 Acknowledgments
 
-Built with:
-- [LangChain](https://langchain.com/) for LLM integration
-- [dbt](https://www.getdbt.com/) for SQL compilation and execution
-- [Rich](https://rich.readthedocs.io/) for beautiful terminal output
-- [OpenAI](https://openai.com/) for natural language processing
+This agent-driven programming paradigm is built on:
+- [LangChain](https://langchain.com/) - Agent framework and tool orchestration
+- [dbt](https://www.getdbt.com/) - Powerful database tooling for agent execution
+- [Rich](https://rich.readthedocs.io/) - Beautiful agent-human conversation interface
+- [OpenAI](https://openai.com/) - Advanced reasoning capabilities via GPT-5
+
+**Special Recognition**: The concept of giving agents tools + context + feedback loops to create intelligent automation represents a fundamental shift in how we think about programming and human-computer interaction.

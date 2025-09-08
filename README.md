@@ -1,50 +1,78 @@
-# QBot: Agent-Driven Database Programming
+# QBot: Agent-Driven Database Queries
 
-Give an AI agent tools and context. Let it program itself.
+Relational databases are powerful. Writing SQL is tedious. QBot adds AI that writes SQL for you and runs it with dbt.
 
-QBot shows a different way to work with databases. Instead of writing SQL, you talk to an agent. The agent has tools: dbt, SQL execution, schema analysis. You give it context: table descriptions, business rules. It figures out the rest.
+Instead of a single query, you give QBot a task. It plans, writes, and runs a series of dbt queries against your database. It uses your schema and macros. It retries on errors and builds follow-ups.
 
-## The Agent Programming Model
+What is dbt? It's SQL plus Jinja templating. You can write macros and use them inside SQL. QBot uses that power to generate better queries.
+
+### A story (Sakila)
+
+You manage the Sakila video store. New release rentals are down. You ask:
+
+"Find the cause and tell me what to do."
+
+QBot reads your schema and macros. It runs a chain of dbt queries:
+1) Rentals by month for recent films, compared to last quarter
+2) Categories with the largest drop
+3) Inventory by store for those categories
+4) Customers who stopped renting them
+
+It returns a short summary and next steps:
+- Restock popular recent titles in Store 2
+- Run a weekend promo on Family titles
+- Email lapsed customers who liked Action
+
+You say: "Show me the customers list."
+
+QBot runs the follow-up query and prints the table.
+
+## The Agent Model
 
 ### Before
 ```
-You → Write Code → Database → Results
+You → Write SQL → Database → Results
 ```
 
 ### Now
 ```
-You → Ask Agent → Agent Uses Tools → Results
+You → Ask Agent → Agent Executes dbt Queries → Results
 ```
 
-The agent programs itself. You just talk.
+The agent writes queries itself. You just talk.
 
 ## What It Does
 
 - Reads your database schema
-- Understands table relationships  
-- Writes SQL queries
-- Fixes its own mistakes
+- Uses your dbt macros
+- Writes and runs SQL (dbt)
+- Retries errors and chains follow-ups
 - Learns your patterns
 - Works with multiple databases
 
 ## How It Works
 
-### Tools
-The agent uses dbt, SQL, and schema analysis.
+### Tool
+It executes dbt queries.
 
 ### Context  
-You describe your tables and business rules.
+Schema and macros describe your tables and rules.
 
-### Feedback
-It learns from mistakes and your corrections.
+### Loop
+It retries on errors and builds follow-up queries when needed.
 
-### Example
+### Example (Sakila)
 
-You: "Show me top customers by revenue this quarter"
+Task: "Find why new releases are down this quarter and suggest actions."
 
-Agent: Finds customer and order tables. Writes SQL. Runs query. Shows results.
+QBot:
+1) Checks film release counts by month vs last quarter
+2) Finds top-grossing categories and their recent trends
+3) Looks at inventory per store and stockouts
+4) Joins rentals to customers to see churn by category
+5) Produces a short summary and follow-up queries
 
-You get answers. No SQL required.
+It writes and runs multiple dbt queries, each using your schema and macros, and links results across steps.
 
 ## Install
 

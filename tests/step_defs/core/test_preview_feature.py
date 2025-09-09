@@ -179,6 +179,7 @@ def should_see_available_commands():
 def test_preview_functionality_integration():
     """Integration test for preview functionality."""
     from qbot.repl import preview_sql_compilation, execute_clean_sql
+    from qbot.core.types import CompilationResult
     import os
     
     # Set up environment
@@ -187,33 +188,38 @@ def test_preview_functionality_integration():
     # Test SQL compilation preview
     test_sql = "SELECT TOP 3 * FROM sakila.film"
     
-    # Mock the dbt compilation
-    with patch('subprocess.run') as mock_run:
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Compiled inline node is:\nSELECT TOP 3 * FROM \"sakila\".\"film\""
-        mock_run.return_value = mock_result
+    # Mock the dbt service compilation
+    mock_compilation_result = CompilationResult(
+        success=True,
+        compiled_sql='SELECT TOP 3 * FROM "sakila"."film"'
+    )
+    
+    with patch('qbot.core.dbt_service.DbtService.compile_query_preview') as mock_compile:
+        mock_compile.return_value = mock_compilation_result
         
         result = preview_sql_compilation(test_sql)
         
-        assert "Compiled inline node is:" in result
-        assert "SELECT TOP 3" in result
-        assert mock_run.called
+        assert 'SELECT TOP 3 * FROM "sakila"."film"' in result
+        assert mock_compile.called
 
 def test_preview_with_source_syntax():
     """Test preview with dbt source syntax."""
     from qbot.repl import preview_sql_compilation
+    from qbot.core.types import CompilationResult
     import os
     
     os.environ['DBT_PROFILE_NAME'] = 'Sakila'
     
     test_sql = "SELECT TOP 5 * FROM {{ source('sakila', 'film') }}"
     
-    with patch('subprocess.run') as mock_run:
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Compiled inline node is:\nSELECT TOP 5 * FROM \"sakila\".\"film\""
-        mock_run.return_value = mock_result
+    # Mock the dbt service compilation
+    mock_compilation_result = CompilationResult(
+        success=True,
+        compiled_sql='SELECT TOP 5 * FROM "sakila"."film"'
+    )
+    
+    with patch('qbot.core.dbt_service.DbtService.compile_query_preview') as mock_compile:
+        mock_compile.return_value = mock_compilation_result
         
         result = preview_sql_compilation(test_sql)
         

@@ -122,7 +122,7 @@ class QBotAgent:
                 )
             else:
                 # Execute query
-                result = self.dbt_executor.execute_sql(sql_query, limit=self.config.max_rows)
+                result = self.dbt_executor.execute_sql(sql_query)
                 result.safety_analysis = safety_analysis
                 return result
         

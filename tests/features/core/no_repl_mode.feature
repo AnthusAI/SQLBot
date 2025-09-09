@@ -23,11 +23,18 @@ Feature: No-REPL Mode
     And QBot should exit without starting interactive mode
     And the exit code should be 0
 
-  Scenario: Execute dangerous query with --no-repl and --read-only
-    When I run QBot with query "CREATE TABLE test_table (id INT);" and flags "--no-repl --read-only"
+  Scenario: Execute dangerous query with --no-repl (safeguards enabled by default)
+    When I run QBot with query "CREATE TABLE test_table (id INT);" and flag "--no-repl"
     Then I should see the ready banner
-    And I should see "Query blocked by read-only mode!"
-    And I should see "Dangerous operations detected: CREATE"
+    And I should see "✖ Query disallowed due to dangerous operations: CREATE"
+    And I should see "Exiting (--no-repl mode)"
+    And QBot should exit without starting interactive mode
+    And the exit code should be 0
+
+  Scenario: Execute dangerous query with --no-repl and --dangerous (safeguards disabled)
+    When I run QBot with query "CREATE TABLE test_table (id INT);" and flags "--no-repl --dangerous"
+    Then I should see the ready banner
+    And I should see "Dangerous Mode Enabled - Safeguards disabled, all operations allowed"
     And I should see "Exiting (--no-repl mode)"
     And QBot should exit without starting interactive mode
     And the exit code should be 0

@@ -20,6 +20,7 @@ class CommandHandler:
             'schema': self._cmd_schema,
             'profile': self._cmd_profile,
             'readonly': self._cmd_readonly,
+            'dangerous': self._cmd_dangerous,
             'preview': self._cmd_preview,
             'status': self._cmd_status,
             'exit': self._cmd_exit,
@@ -155,6 +156,37 @@ class CommandHandler:
         
         status = "enabled" if self.agent.config.read_only else "disabled"
         self.formatter.format_success(f"Read-only mode {status}")
+        return True
+    
+    def _cmd_dangerous(self, args: str) -> bool:
+        """Toggle dangerous mode (disables safeguards)"""
+        # Import the global safeguard state
+        import qbot.repl as repl_module
+        
+        if not args.strip():
+            # Show current status
+            if repl_module.READONLY_MODE:
+                # Safeguards are enabled (safe mode)
+                self.formatter.format_success("🔒 Safeguards are ENABLED")
+                self.formatter.format_system_message("Dangerous operations are blocked.")
+                self.formatter.format_system_message("Use '/dangerous on' to disable safeguards.")
+            else:
+                # Safeguards are disabled (dangerous mode)
+                self.formatter.format_error("⚠️  Dangerous mode is ENABLED")
+                self.formatter.format_system_message("All operations allowed - safeguards disabled.")
+                self.formatter.format_system_message("Use '/dangerous off' to re-enable safeguards.")
+        elif args.strip().lower() in ['on', 'enable', 'true']:
+            repl_module.READONLY_MODE = False  # Disable safeguards = enable dangerous mode
+            self.formatter.format_success("⚠️  Dangerous mode ENABLED")
+            self.formatter.format_system_message("Safeguards are DISABLED - all operations allowed.")
+        elif args.strip().lower() in ['off', 'disable', 'false']:
+            repl_module.READONLY_MODE = True   # Enable safeguards = disable dangerous mode
+            self.formatter.format_success("🔒 Safeguards ENABLED")
+            self.formatter.format_system_message("Dangerous operations blocked.")
+        else:
+            self.formatter.format_error(f"Unknown dangerous option: {args}")
+            self.formatter.format_system_message("Usage: /dangerous [on|off]")
+        
         return True
     
     def _cmd_preview(self, args: str) -> bool:

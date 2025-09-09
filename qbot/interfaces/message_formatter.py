@@ -266,7 +266,7 @@ def format_llm_response(raw_response: str) -> str:
             elif tool_calls:
                 return '\n'.join(tool_calls)
             else:
-                return f"{MessageSymbols.AI_RESPONSE} [Structured Response]"
+                return f"{MessageSymbols.AI_RESPONSE} Response received but could not be formatted properly."
         
         try:
             # Try to parse as JSON
@@ -310,7 +310,7 @@ def format_llm_response(raw_response: str) -> str:
                     if result_parts:
                         return '\n'.join(result_parts)
                     else:
-                        return f"{MessageSymbols.AI_RESPONSE} [Structured Response]"
+                        return f"{MessageSymbols.AI_RESPONSE} Response received but could not be formatted properly."
             
             else:
                 # Handle single JSON object - try with proper quote replacement
@@ -352,7 +352,7 @@ def format_llm_response(raw_response: str) -> str:
                             return f"{MessageSymbols.AI_RESPONSE} {response_data[field]}"
                     
                     # Fallback for unrecognized JSON structure
-                    return f"{MessageSymbols.AI_RESPONSE} [Structured Response]"
+                    return f"{MessageSymbols.AI_RESPONSE} Response received but could not be formatted properly."
                         
         except json.JSONDecodeError:
             # Not valid JSON, treat as plain text

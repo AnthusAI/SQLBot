@@ -192,14 +192,14 @@ class RichLoggingUI:
 
 [blue]Options:[/blue]
   --profile PROFILE    Use specific dbt profile (default: Sakila)
-  --read-only         Enable read-only mode (blocks dangerous operations)
+  --dangerous         Disable safeguards (allow dangerous operations)
   --preview           Preview compiled SQL without executing
   --context           Show conversation context after query
   --no-repl           Exit after single query (default for command line)
 
 [blue]Examples:[/blue]
   qbot --profile Sakila "SELECT 42 AS answer;"
-  qbot --read-only --context "How many films are in the database?"
+  qbot --dangerous --context "DELETE FROM films WHERE year < 2000;"
   qbot --preview "UPDATE customers SET email = 'new@email.com';"
 """
         self.console.print(Panel(help_text, title="Help", border_style="green"))

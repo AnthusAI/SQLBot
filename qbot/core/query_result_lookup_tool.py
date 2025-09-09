@@ -91,13 +91,15 @@ The tool will return the full query data including:
             
             # Return full result data as JSON
             if entry.result.success:
+                # Use serialized data to handle Decimal objects
+                serialized_data = entry.result._serialize_data(entry.result.data)
                 result_json = json.dumps({
                     "query_index": entry.index,
                     "timestamp": entry.timestamp.isoformat(),
                     "query_text": entry.query_text,
                     "success": True,
                     "columns": entry.result.columns,
-                    "data": entry.result.data,
+                    "data": serialized_data,
                     "row_count": entry.result.row_count,
                     "execution_time": entry.result.execution_time
                 }, indent=2)

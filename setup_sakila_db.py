@@ -205,11 +205,15 @@ class SakilaSetup:
             raise
     
     def install_sakila_sqlite(self, db_path: Path) -> bool:
-        """Install the Sakila SQLite database by copying it to the current directory."""
+        """Install the Sakila SQLite database by copying it to the Sakila profile directory."""
         try:
-            target_path = Path("sakila.db")
+            # Create profiles/Sakila/data directory if it doesn't exist
+            sakila_data_dir = Path("profiles/Sakila/data")
+            sakila_data_dir.mkdir(parents=True, exist_ok=True)
             
-            # Copy the database file to current directory
+            target_path = sakila_data_dir / "sakila.db"
+            
+            # Copy the database file to profile directory
             import shutil
             shutil.copy2(db_path, target_path)
             
@@ -225,7 +229,7 @@ class SakilaSetup:
         print("Verifying Sakila SQLite database installation...")
         
         if db_path is None:
-            db_path = Path("sakila.db")
+            db_path = Path("profiles/Sakila/data/sakila.db")
         
         if not db_path.exists():
             print(f"✗ Database file {db_path} not found")
@@ -499,9 +503,9 @@ class SakilaSetup:
             
             print("\n" + "=" * 50)
             print("✓ Sakila SQLite database setup completed successfully!")
-            print("Database file: sakila.db")
+            print("Database file: profiles/Sakila/data/sakila.db")
             print("You can now run integration tests against this SQLite database.")
-            print("Example: sqlite3 sakila.db \"SELECT COUNT(*) FROM film;\"")
+            print("Example: sqlite3 profiles/Sakila/data/sakila.db \"SELECT COUNT(*) FROM film;\"")
             print("=" * 50)
             return True
             

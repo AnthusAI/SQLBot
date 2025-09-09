@@ -70,8 +70,8 @@ HISTORY_LENGTH = 100
 DBT_PROFILE_NAME = 'qbot'  # Default profile name, can be overridden via --profile
 
 # Global flags
-READONLY_MODE = False
-READONLY_CLI_MODE = False  # Track if --read-only was used (no override allowed)
+READONLY_MODE = True  # Default to safeguard mode enabled
+READONLY_CLI_MODE = False  # Track if --dangerous was used to disable safeguards
 PREVIEW_MODE = False
 SHOW_HISTORY = False  # Show conversation history panel
 
@@ -185,82 +185,78 @@ def dbt_docs_serve():
     return run_dbt(["docs", "serve"])
 
 def execute_clean_sql(sql_query):
-    """Execute SQL query using dbt show --inline with TOP handling"""
-    import subprocess
-    import re
-    
-    # Get the current profile name - try to import from llm_integration if available
+    """Execute SQL query using dbt SDK (no subprocess)"""
     try:
-        from . import llm_integration
-        profile_name = llm_integration.get_current_profile()
-    except ImportError:
+        # Use dbt service SDK instead of subprocess
+        import os
+        from qbot.core.dbt_service import get_dbt_service
+        from qbot.core.config import QBotConfig
+        
+        # Get dbt service with current profile configuration
+        # Get the current profile name - try to import from llm_integration if available
         try:
-            import llm_integration
+            from . import llm_integration
             profile_name = llm_integration.get_current_profile()
         except ImportError:
-            profile_name = DBT_PROFILE_NAME
-    
-    try:
-        # Clean up query for dbt compatibility
-        clean_query = sql_query.strip()
-        # Remove semicolon - dbt show --inline doesn't like it
-        clean_query = clean_query.rstrip(';')
-        # Remove TOP to avoid OFFSET conflict with dbt show
-        clean_query = re.sub(r'\bSELECT\s+TOP\s+\d+\s+', 'SELECT ', clean_query, flags=re.IGNORECASE)
+            try:
+                import llm_integration
+                profile_name = llm_integration.get_current_profile()
+            except ImportError:
+                profile_name = os.getenv('QBOT_PROFILE', 'qbot')
         
-        # Use dbt show --inline with --quiet to suppress logs - handles both raw SQL and Jinja
-        result = subprocess.run([
-            'dbt', 'show', '--inline', clean_query,
-            '--profile', profile_name,
-            '--quiet'
-        ], capture_output=True, text=True, cwd=PROJECT_ROOT)
+        config = QBotConfig.from_env(profile=profile_name)
+        dbt_service = get_dbt_service(config)
         
-        if result.returncode == 0:
-            return result.stdout
-        else:
-            # Capture both stderr and stdout for comprehensive error info
-            error_details = []
-            if result.stderr and result.stderr.strip():
-                error_details.append(f"STDERR: {result.stderr.strip()}")
-            if result.stdout and result.stdout.strip():
-                error_details.append(f"STDOUT: {result.stdout.strip()}")
-            
-            if error_details:
-                full_error = "\n".join(error_details)
-                return f"Error executing query:\n{full_error}"
+        # Execute query using SDK
+        result = dbt_service.execute_query(sql_query)
+        
+        if result.success:
+            # Format results as table output
+            if result.data and result.columns:
+                # Create table output similar to dbt show
+                output_lines = []
+                
+                # Header row
+                header = "| " + " | ".join(result.columns) + " |"
+                output_lines.append(header)
+                
+                # Separator row
+                separator = "| " + " | ".join(["-" * len(col) for col in result.columns]) + " |"
+                output_lines.append(separator)
+                
+                # Data rows
+                for row in result.data:
+                    row_values = [str(row.get(col, "")) for col in result.columns]
+                    row_line = "| " + " | ".join(row_values) + " |"
+                    output_lines.append(row_line)
+                
+                return "\n".join(output_lines)
             else:
-                return f"Error executing query: dbt command failed with return code {result.returncode} but no error details were provided"
-            
+                return f"Query executed successfully. Rows affected: {result.row_count}"
+        else:
+            return f"Error executing query: {result.error}"
     except Exception as e:
         return f"Failed to execute query: {str(e)}"
 
 
 def preview_sql_compilation(sql_query):
-    """Preview compiled SQL without executing it"""
-    import subprocess
-    
-    # Get the current profile name - try to import from llm_integration if available
+    """Preview compiled SQL without executing it using dbt SDK"""
     try:
-        from . import llm_integration
-        profile_name = llm_integration.get_current_profile()
-    except ImportError:
-        try:
-            import llm_integration
-            profile_name = llm_integration.get_current_profile()
-        except ImportError:
-            profile_name = DBT_PROFILE_NAME
-    
-    try:
-        # Use dbt compile --inline to show the compiled SQL
-        result = subprocess.run([
-            'dbt', 'compile', '--inline', sql_query,
-            '--profile', profile_name
-        ], capture_output=True, text=True, cwd=PROJECT_ROOT)
+        # Use dbt service SDK for compilation preview
+        from qbot.core.dbt_service import get_dbt_service
+        from qbot.core.config import QBotConfig
         
-        if result.returncode == 0:
-            return result.stdout
+        # Get dbt service with current configuration
+        config = QBotConfig()
+        dbt_service = get_dbt_service(config)
+        
+        # Use the new SDK compilation method
+        result = dbt_service.compile_query_preview(sql_query)
+        
+        if result.success:
+            return result.compiled_sql
         else:
-            return f"Error compiling query: {result.stderr}"
+            return f"Error compiling query: {result.error}"
     except Exception as e:
         return f"Failed to compile query: {str(e)}"
 
@@ -343,61 +339,23 @@ def execute_safe_sql(sql_query, force_execute=False):
         
         rich_console.print("Executing SQL...")
     
-    # If readonly mode is disabled, execute directly
+    # If safeguard mode is disabled (dangerous mode), execute directly
     if not READONLY_MODE:
         return execute_clean_sql(sql_query)
     
     # Analyze query safety
-    rich_console.print("Read-only safeguard: Analyzing SQL for dangerous operations...")
     safety_analysis = analyze_sql_safety(sql_query)
     
     if not safety_analysis['is_safe'] and not force_execute:
         # Query contains dangerous operations
         operations = ', '.join(safety_analysis['dangerous_operations'])
         
-        if READONLY_CLI_MODE:
-            # CLI mode - no override allowed
-            rich_console.print("Query blocked by read-only mode!")
-            rich_console.print(f"[yellow]Dangerous operations detected: {operations}[/yellow]")
-            rich_console.print(f"[dim]Query: {sql_query}[/dim]")
-            rich_console.print("Query execution blocked for safety - no override available in read-only mode.")
-            return "Query blocked by read-only mode"
-        else:
-            # Interactive mode - allow admin override
-            rich_console.print("Query blocked by read-only safeguard!")
-            rich_console.print(f"[yellow]Dangerous operations detected: {operations}[/yellow]")
-            rich_console.print(f"[dim]Query: {sql_query}[/dim]")
-            
-            # Ask for admin override (skip in non-interactive environments)
-            # Check if we're in a subprocess with no real stdin (like tests)
-            try:
-                # Try to get terminal size - this will fail in non-interactive environments
-                os.get_terminal_size()
-                is_interactive = sys.stdin.isatty()
-            except OSError:
-                # No terminal available - definitely non-interactive
-                is_interactive = False
-                
-            if not is_interactive:
-                # Non-interactive environment - deny override
-                rich_console.print("\n[dim]Auto-denying override in non-interactive environment[/dim]")
-                rich_console.print("Query execution cancelled for safety.")
-                return "Query blocked by read-only safeguard"
-            else:
-                try:
-                    override = input("\n⚠️  Override safety check and execute anyway? (yes/no): ").strip().lower()
-                    if override in ['yes', 'y']:
-                        rich_console.print("Safety override granted. Executing query...")
-                        return execute_clean_sql(sql_query)
-                    else:
-                        rich_console.print("Query execution cancelled for safety.")
-                        return "Query blocked by read-only safeguard"
-                except (KeyboardInterrupt, EOFError):
-                    rich_console.print("\nQuery execution cancelled for safety.")
-                    return "Query blocked by read-only safeguard"
+        # Block dangerous operations - show only the clean safeguard message
+        rich_console.print(f"[red]✖[/red] Query disallowed due to dangerous operations: {operations}")
+        return "Query blocked by safeguard"
     else:
         # Query is safe, execute normally
-        rich_console.print("Read-only safeguard: Query is safe - no dangerous operations detected.")
+        rich_console.print(f"[green]✔[/green] Query passes safeguard against dangerous operations.")
         return execute_clean_sql(sql_query)
 
 def execute_dbt_sql(sql_query):
@@ -506,7 +464,7 @@ def handle_slash_command(line):
         help_table.add_row("[bold green]Natural language[/bold green]", "[bold green]Ask questions in plain English (default)[/bold green]")
         help_table.add_row("[bold blue]SQL with ;[/bold blue]", "[bold blue]End with semicolon to run as dbt SQL[/bold blue]")
         help_table.add_row("/preview", "Preview compiled SQL before execution")
-        help_table.add_row("/readonly", "Toggle read-only safeguard mode")
+        help_table.add_row("/dangerous", "Toggle dangerous mode (disables safeguards)")
         help_table.add_row("/history", "Toggle conversation history display")
         help_table.add_row("/help", "Show this help")
         help_table.add_row("/no-repl", "Exit interactive mode")
@@ -516,8 +474,8 @@ def handle_slash_command(line):
         return
     elif command == 'preview':
         return handle_preview_command(args)
-    elif command == 'readonly':
-        return handle_readonly_command(args)
+    elif command == 'dangerous':
+        return handle_dangerous_command(args)
     elif command == 'history':
         return handle_history_command(args)
     elif command == 'no-repl':
@@ -545,13 +503,13 @@ def handle_double_slash_command(line):
     
     if command == 'preview':
         return handle_preview_command(args)
-    elif command == 'readonly':
-        return handle_readonly_command(args)
+    elif command == 'dangerous':
+        return handle_dangerous_command(args)
     else:
         print(f"Unknown double-slash command: //{command}")
         print("Available double-slash commands:")
         print("  //preview - Preview compiled SQL before execution")
-        print("  //readonly - Toggle read-only safeguard mode")
+        print("  //dangerous - Toggle dangerous mode (disables safeguards)")
         return
 
 def handle_preview_command(args):
@@ -607,30 +565,58 @@ def handle_preview_command(args):
         rich_console.print("\n[yellow]Preview cancelled.[/yellow]")
         return
 
-def handle_readonly_command(args):
-    """Handle the //readonly command - toggle read-only safeguard mode."""
+def handle_dangerous_command(args):
+    """Handle the /dangerous command - toggle dangerous mode (disables safeguards)."""
     global READONLY_MODE
     
     if not args:
         # Show current status
-        status = "ON" if READONLY_MODE else "OFF"
-        rich_console.print(f"🔒 [bold blue]Read-only safeguard mode: {status}[/bold blue]")
         if READONLY_MODE:
-            rich_console.print("[dim]All queries will be checked for dangerous operations.[/dim]")
+            # Safeguards are enabled (safe mode)
+            rich_console.print("🔒 [bold green]Safeguards are ENABLED[/bold green]")
+            rich_console.print("[dim]Dangerous operations are blocked.[/dim]")
+            rich_console.print("[dim]Use '/dangerous on' to disable safeguards.[/dim]")
         else:
-            rich_console.print("[dim]Queries will execute without safety checks.[/dim]")
-        rich_console.print("[dim]Use '/readonly on' or '/readonly off' to change.[/dim]")
+            # Safeguards are disabled (dangerous mode)
+            rich_console.print("⚠️  [bold red]Dangerous mode is ENABLED[/bold red]")
+            rich_console.print("[dim]All operations allowed - safeguards disabled.[/dim]")
+            rich_console.print("[dim]Use '/dangerous off' to re-enable safeguards.[/dim]")
     elif args[0].lower() in ['on', 'enable', 'true']:
-        READONLY_MODE = True
-        rich_console.print("🔒 [bold green]Read-only safeguard mode ENABLED[/bold green]")
-        rich_console.print("[dim]All queries will be checked for dangerous operations.[/dim]")
+        READONLY_MODE = False  # Disable safeguards = enable dangerous mode
+        rich_console.print("⚠️  [bold red]Dangerous mode ENABLED[/bold red]")
+        rich_console.print("[dim]Safeguards are DISABLED - all operations allowed.[/dim]")
     elif args[0].lower() in ['off', 'disable', 'false']:
-        READONLY_MODE = False
-        rich_console.print("🔓 [bold yellow]Read-only safeguard mode DISABLED[/bold yellow]")
-        rich_console.print("[dim]Queries will execute without safety checks.[/dim]")
+        READONLY_MODE = True   # Enable safeguards = disable dangerous mode
+        rich_console.print("🔒 [bold green]Safeguards ENABLED[/bold green]")
+        rich_console.print("[dim]Dangerous operations blocked.[/dim]")
     else:
-        rich_console.print(f"[red]Unknown readonly option: {args[0]}[/red]")
-        rich_console.print("Usage: /readonly [on|off]")
+        rich_console.print(f"[red]Unknown dangerous option: {args[0]}[/red]")
+        rich_console.print("Usage: /dangerous [on|off]")
+
+# Safeguard command with opposite semantics from dangerous command
+def handle_safeguard_command(args):
+    """Handle the /safeguard command - toggle safeguard mode (opposite of dangerous command)."""
+    global READONLY_MODE
+    
+    if not args:
+        # Show current status
+        if READONLY_MODE:
+            rich_console.print("🔒 [bold green]Safeguards are ENABLED[/bold green]")
+            rich_console.print("[dim]Dangerous operations are blocked.[/dim]")
+        else:
+            rich_console.print("⚠️  [bold red]Safeguards are DISABLED[/bold red]")
+            rich_console.print("[dim]All operations allowed - dangerous mode active.[/dim]")
+    elif args[0].lower() in ['on', 'enable', 'true']:
+        READONLY_MODE = True   # Enable safeguards
+        rich_console.print("🔒 [bold green]Safeguards ENABLED[/bold green]")
+        rich_console.print("[dim]Dangerous operations blocked.[/dim]")
+    elif args[0].lower() in ['off', 'disable', 'false']:
+        READONLY_MODE = False  # Disable safeguards
+        rich_console.print("⚠️  [bold red]Safeguards DISABLED[/bold red]")
+        rich_console.print("[dim]All operations allowed - dangerous mode active.[/dim]")
+    else:
+        rich_console.print(f"[red]Unknown safeguard option: {args[0]}[/red]")
+        rich_console.print("Usage: /safeguard [on|off]")
 
 def handle_history_command(args):
     """Handle the /history command - toggle conversation history display."""
@@ -1001,7 +987,7 @@ def main():
     parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
     parser.add_argument('--profile', default='qbot', help='dbt profile name to use (default: qbot)')
     parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')
-    parser.add_argument('--read-only', action='store_true', help='Enable read-only safeguard to block dangerous SQL operations')
+    parser.add_argument('--dangerous', action='store_true', help='Disable safeguards and allow dangerous SQL operations')
     parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
     parser.add_argument('--text', action='store_true', help='Use text-based REPL with shared session (for debugging)')
     parser.add_argument('--history', action='store_true', help='Show conversation history panel (for debugging)')
@@ -1079,14 +1065,13 @@ def main():
             PREVIEW_MODE = True
             rich_console.print("Preview Mode Enabled - SQL will be shown before execution")
         
-        if args.read_only:
-            READONLY_MODE = True
-            READONLY_CLI_MODE = True  # CLI mode - no override allowed
-            rich_console.print("Read-Only Mode Enabled - Dangerous operations will be blocked")
+        if args.dangerous:
+            READONLY_MODE = False
+            READONLY_CLI_MODE = True  # CLI mode - safeguards explicitly disabled
+            rich_console.print("Dangerous Mode Enabled - Safeguards disabled, all operations allowed")
         
         if args.history:
             SHOW_HISTORY = True
-            rich_console.print("History Mode Enabled - Conversation history will be displayed")
         
         # Execute query using CLI text mode with unified display
         if args.text:
@@ -1161,46 +1146,90 @@ def _execute_query_cli_mode(query: str, console):
             result = handle_slash_command(query)
             if result == 'EXIT':
                 sys.exit(0)
+            return  # Important: Don't continue processing after slash command
         elif is_sql_query(query):
             # Treat as SQL/dbt (ends with semicolon)
             result = execute_dbt_sql_rich(query)
-            if result:
+            if result and not result.startswith("Query blocked by safeguard"):
                 console.print(f"\n[green]{result}[/green]")
+            elif result and result.startswith("Query blocked by safeguard"):
+                # Safeguard already printed the warning messages, don't print the result
+                pass
         elif LLM_AVAILABLE:
-            # Natural language query - use unified display system
+            # Natural language query - use unified display system with conversation history
             from qbot.conversation_memory import ConversationMemoryManager
-            from qbot.interfaces.unified_message_display import UnifiedMessageDisplay, CLIMessageDisplay
+            from qbot.interfaces.unified_display import execute_query_with_unified_display
             
-            memory_manager = ConversationMemoryManager()
+            # Use a global memory manager for CLI mode to persist conversation history
+            if not hasattr(_execute_query_cli_mode, '_cli_memory_manager'):
+                _execute_query_cli_mode._cli_memory_manager = ConversationMemoryManager()
+            memory_manager = _execute_query_cli_mode._cli_memory_manager
+            
+            # Sync conversation history BEFORE executing the query
+            try:
+                from . import llm_integration
+                _sync_conversation_history_to_memory(memory_manager, llm_integration.conversation_history)
+            except ImportError:
+                try:
+                    import llm_integration
+                    _sync_conversation_history_to_memory(memory_manager, llm_integration.conversation_history)
+                except ImportError:
+                    pass  # If we can't sync, continue without it
+            
+            # Set up unified message display for CLI mode
+            from qbot.interfaces.unified_message_display import UnifiedMessageDisplay, CLIMessageDisplay
             cli_display = CLIMessageDisplay(console)
+            cli_display.set_interactive_mode(False)  # Non-interactive CLI mode
             unified_display = UnifiedMessageDisplay(cli_display, memory_manager)
             
-            # Add user message to display
-            unified_display.add_user_message(query)
-            
-            # Show thinking indicator
-            unified_display.show_thinking_indicator("...")
-            
-            # Execute the query
-            try:
+            # Create execute_llm_func with conversation sync and unified display
+            def execute_llm_func(q: str) -> str:
                 timeout_seconds = int(os.getenv('QBOT_LLM_TIMEOUT', '120'))
                 max_retries = int(os.getenv('QBOT_LLM_RETRIES', '3'))
-                result = handle_llm_query(query, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display)
                 
-                if result:
-                    unified_display.add_ai_message(result)
-                    
-                    # Check if result indicates a dbt setup issue
-                    if ("dbt Profile Not Found" in result or "Database Connection Failed" in result or 
-                        "dbt Configuration Issue" in result or "dbt Not Installed" in result):
-                        console.print("\n[yellow]💡 Please fix the dbt setup issue above before using QBot.[/yellow]")
-                        sys.exit(1)
+                # Call handle_llm_query with unified_display for tool call display
+                result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY)
+                
+                # Sync the updated global conversation_history back to our memory_manager for next time
+                try:
+                    from . import llm_integration
+                    _sync_conversation_history_to_memory(memory_manager, llm_integration.conversation_history)
+                except ImportError:
+                    try:
+                        import llm_integration
+                        _sync_conversation_history_to_memory(memory_manager, llm_integration.conversation_history)
+                    except ImportError:
+                        pass  # If we can't sync, continue without it
+                
+                return result
+            
+            # Execute the query using unified display with conversation history
+            try:
+                result = execute_query_with_unified_display(
+                    query,
+                    memory_manager,
+                    execute_llm_func,
+                    console=console,
+                    show_history=SHOW_HISTORY,
+                    skip_user_message=False
+                )
+                
+                # Check if result indicates a dbt setup issue
+                if ("dbt Profile Not Found" in result or "Database Connection Failed" in result or 
+                    "dbt Configuration Issue" in result or "dbt Not Installed" in result):
+                    console.print("\n[yellow]💡 Please fix the dbt setup issue above before using QBot.[/yellow]")
+                    sys.exit(1)
             except Exception as e:
-                unified_display.add_error_message(f"Query failed: {e}")
+                console.print(f"[red]Query failed: {e}[/red]")
         else:
             # No LLM available, treat as SQL
             console.print("[yellow]LLM integration not available. Treating as SQL. End with ';' for SQL queries.[/yellow]")
             result = execute_dbt_sql_rich(query)
+            if result and not result.startswith("Query blocked by safeguard"):
+                console.print(f"\n[green]{result}[/green]")
+            elif result and result.startswith("Query blocked by safeguard"):
+                # Safeguard already printed the warning messages, don't print the result
+                pass
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
 
@@ -1219,9 +1248,31 @@ def _start_cli_interactive_mode(console):
 
 
 
+def _sync_conversation_history_to_memory(memory_manager, conversation_history):
+    """
+    Sync the conversation history from handle_llm_query back to our memory manager.
+    This ensures the memory manager sees the full conversation including tool calls and results.
+    """
+    # Debug: Print what we're syncing (disabled for production)
+    # print(f"\n🔍 DEBUG: Syncing {len(conversation_history)} messages to memory manager:")
+    # for i, msg in enumerate(conversation_history):
+    #     role = msg.get("role", "unknown")
+    #     content_preview = str(msg.get("content", ""))[:100] + "..." if len(str(msg.get("content", ""))) > 100 else str(msg.get("content", ""))
+    #     print(f"  [{i+1}] {role.upper()}: {content_preview}")
+    
+    # Clear and rebuild memory from the updated conversation history
+    memory_manager.clear_history()
+    
+    for msg in conversation_history:
+        if msg["role"] == "user":
+            memory_manager.add_user_message(msg["content"])
+        elif msg["role"] == "assistant":
+            memory_manager.add_assistant_message(msg["content"])
+
 def start_unified_repl(memory_manager, console):
     """Start unified interactive REPL using unified message display system"""
     from qbot.interfaces.unified_message_display import UnifiedMessageDisplay, CLIMessageDisplay
+    from qbot.interfaces.unified_display import execute_query_with_unified_display
     from qbot.interfaces.message_formatter import MessageSymbols
     import readline
     
@@ -1230,11 +1281,27 @@ def start_unified_repl(memory_manager, console):
     cli_display.set_interactive_mode(True)  # Enable prompt overwriting
     unified_display = UnifiedMessageDisplay(cli_display, memory_manager)
     
-    # Create execute_llm_func with access to unified_display
+    # Create execute_llm_func with access to unified_display and conversation sync
     def execute_llm_func(q: str) -> str:
         timeout_seconds = int(os.getenv('QBOT_LLM_TIMEOUT', '120'))
         max_retries = int(os.getenv('QBOT_LLM_RETRIES', '3'))
-        return handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display)
+        
+        # Call handle_llm_query which maintains its own global conversation_history
+        result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY)
+        
+        # Sync the updated global conversation_history back to our memory_manager
+        # This ensures the next query sees the full conversation including tool calls and results
+        try:
+            from . import llm_integration
+            _sync_conversation_history_to_memory(memory_manager, llm_integration.conversation_history)
+        except ImportError:
+            try:
+                import llm_integration
+                _sync_conversation_history_to_memory(memory_manager, llm_integration.conversation_history)
+            except ImportError:
+                pass  # If we can't sync, continue without it
+        
+        return result
     
     try:
         while True:
@@ -1254,17 +1321,41 @@ def start_unified_repl(memory_manager, console):
                 if user_input.lower() in ['exit', 'quit', 'q']:
                     break
                 
-                # Add user message and execute query (this will overwrite the prompt line)
-                unified_display.add_user_message(user_input)
-                
-                # Show thinking indicator before executing LLM query
-                unified_display.show_thinking_indicator("...")
-                
-                # Execute the query
+                # Route the query to appropriate handler (same logic as _execute_query_cli_mode)
                 try:
-                    result = execute_llm_func(user_input)
-                    if result:
-                        unified_display.add_ai_message(result)
+                    if user_input.startswith('/'):
+                        # Handle slash commands
+                        result = handle_slash_command(user_input)
+                        if result == 'EXIT':
+                            break
+                        # Slash commands are handled, don't continue processing
+                    elif is_sql_query(user_input):
+                        # Handle SQL queries
+                        result = execute_dbt_sql_rich(user_input)
+                        if result and not result.startswith("Query blocked by safeguard"):
+                            console.print(f"\n[green]{result}[/green]")
+                        elif result and result.startswith("Query blocked by safeguard"):
+                            # Safeguard already printed the warning messages, don't print the result
+                            pass
+                    elif LLM_AVAILABLE:
+                        # Handle natural language queries with unified display
+                        result = execute_query_with_unified_display(
+                            user_input,
+                            memory_manager,
+                            execute_llm_func,
+                            console=console,
+                            show_history=SHOW_HISTORY,
+                            skip_user_message=False
+                        )
+                        # Result is already displayed by execute_query_with_unified_display
+                    else:
+                        console.print("[yellow]LLM integration not available. End with ';' for SQL queries.[/yellow]")
+                        result = execute_dbt_sql_rich(user_input)
+                        if result and not result.startswith("Query blocked by safeguard"):
+                            console.print(f"\n[green]{result}[/green]")
+                        elif result and result.startswith("Query blocked by safeguard"):
+                            # Safeguard already printed the warning messages, don't print the result
+                            pass
                 except Exception as e:
                     unified_display.add_error_message(f"Query failed: {e}")
                 

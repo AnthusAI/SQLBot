@@ -94,63 +94,25 @@ class ConversationMemoryManager:
         """
         Add an assistant message to conversation history.
         
-        This method also extracts tool results from the assistant's response
-        and adds them as separate ToolMessage objects for better LLM context.
+        Since tool extraction is disabled to avoid tool call ID conflicts,
+        tool results are kept inline with the assistant message.
         """
-        # Check if this assistant message contains tool results
-        if "--- Query Details ---" in content:
-            # Split the response and tool results
-            parts = content.split("--- Query Details ---")
-            main_response = parts[0].strip()
-            tool_results_section = parts[1].strip() if len(parts) > 1 else ""
-            
-            # Add the main assistant response
-            if main_response:
-                ai_message = AIMessage(content=main_response)
-                self.history.add_message(ai_message)
-                logger.debug(f"Added assistant message: {main_response[:100]}...")
-            
-            # Parse and add tool results as separate ToolMessages
-            if tool_results_section:
-                self._extract_and_add_tool_results(tool_results_section)
-        else:
-            # Regular assistant message without tool results
-            ai_message = AIMessage(content=content)
-            self.history.add_message(ai_message)
-            logger.debug(f"Added assistant message: {content[:100]}...")
+        # Since tool extraction is disabled, keep the entire message intact
+        ai_message = AIMessage(content=content)
+        self.history.add_message(ai_message)
+        logger.debug(f"Added assistant message: {content[:100]}...")
             
     def _extract_and_add_tool_results(self, tool_results_section: str) -> None:
         """
         Extract tool results from assistant response and add as ToolMessages.
         
-        This ensures the LLM can see the actual tool execution results
-        in subsequent conversations.
+        DISABLED: This was causing tool call ID mismatches that broke follow-up questions.
+        The LLM agent handles tool calls internally, so we don't need to reconstruct them.
         """
-        # Split individual query results
-        query_blocks = tool_results_section.split("\n\nQuery:")
-        
-        for i, block in enumerate(query_blocks):
-            if not block.strip():
-                continue
-                
-            # Add "Query:" back to blocks after the first one
-            if i > 0:
-                block = "Query:" + block
-            
-            # Extract query and result
-            if "Result:" in block:
-                query_part, result_part = block.split("Result:", 1)
-                query_text = query_part.replace("Query:", "").strip()
-                result_text = result_part.strip()
-                
-                # Add as ToolMessage so LLM sees the actual tool results
-                tool_msg_content = f"Query executed: {query_text}\nResult: {result_text}"
-                tool_message = ToolMessage(
-                    content=tool_msg_content, 
-                    tool_call_id=f"query_{i}_{len(self.history.messages)}"
-                )
-                self.history.add_message(tool_message)
-                logger.debug(f"Added tool result: {query_text[:50]}...")
+        # DISABLED: Don't reconstruct tool messages to avoid tool call ID conflicts
+        # The assistant response already contains the tool execution context
+        # and the LLM can understand follow-up questions from the assistant message alone
+        pass
                 
     def get_conversation_context(self) -> List[BaseMessage]:
         """

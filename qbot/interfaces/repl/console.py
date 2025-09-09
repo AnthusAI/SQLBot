@@ -66,7 +66,7 @@ class QBotREPL:
                 "• [bold magenta2]/help[/bold magenta2] - Show all commands\n"
                 "• [bold magenta2]/tables[/bold magenta2] - List database tables\n"
                 "• [bold magenta2]/preview[/bold magenta2] - Preview SQL compilation before execution\n"
-                "• [bold magenta2]/readonly[/bold magenta2] - Toggle read-only safeguard mode\n"
+                "• [bold magenta2]/dangerous[/bold magenta2] - Toggle dangerous mode (disables safeguards)\n"
                 "• [bold magenta2]exit[/bold magenta2] - Quit\n\n"
                 "[dim purple]💡 Tips:[/dim purple]\n"
                 "• Use ↑/↓ arrows to navigate command history\n"

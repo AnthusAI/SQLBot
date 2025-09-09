@@ -1,4 +1,4 @@
-"""Step definitions for read-only safeguard BDD tests."""
+"""Step definitions for safeguard BDD tests."""
 
 import pytest
 from pytest_bdd import scenarios, given, when, then, parsers
@@ -28,17 +28,24 @@ def in_qbot_repl():
     # Set up REPL context
     pass
 
-@given('read-only mode is enabled')
-def readonly_mode_enabled():
-    """Enable read-only mode for testing."""
-    from qbot.repl import handle_readonly_command
-    handle_readonly_command(['on'])
+@given('safeguards are enabled by default')
+def safeguards_enabled_by_default():
+    """Ensure safeguards are enabled by default."""
+    # Safeguards are now enabled by default in READONLY_MODE = True
+    pass
 
-@given('read-only mode is disabled')
-def readonly_mode_disabled():
-    """Disable read-only mode for testing."""
-    from qbot.repl import handle_readonly_command
-    handle_readonly_command(['off'])
+@given('safeguard mode is disabled')
+def safeguard_mode_disabled():
+    """Disable safeguard mode for testing."""
+    from qbot.repl import handle_safeguard_command
+    handle_safeguard_command(['off'])
+
+@given('QBot is started with the --dangerous flag')
+def qbot_started_with_dangerous_flag():
+    """QBot is started with --dangerous flag to disable safeguards."""
+    import qbot.repl as repl_module
+    repl_module.READONLY_MODE = False
+    repl_module.READONLY_CLI_MODE = True
 
 @when(parsers.parse('I try to execute "{sql_query}"'))
 def try_execute_dangerous_query(sql_query):
@@ -82,7 +89,7 @@ def ctrl_c_at_override():
 @when(parsers.parse('I enter "{command}"'))
 def enter_command_step(command):
     """Enter a command in the REPL."""
-    from qbot.repl import handle_double_slash_command
+    from qbot.repl import handle_double_slash_command, handle_slash_command
     
     if command.startswith('//'):
         # Handle double-slash commands
@@ -94,12 +101,21 @@ def enter_command_step(command):
         else:
             result = handle_double_slash_command(command)
             pytest.command_result = result
+    elif command.startswith('/'):
+        # Handle single slash commands
+        result = handle_slash_command(command)
+        pytest.command_result = result
     else:
         pytest.command_input = command
 
-@then('I should see "Read-only safeguard mode ENABLED"')
+@then('I should see "Safeguard mode: ON"')
+def should_see_mode_on():
+    """Verify safeguard mode is on."""
+    pass
+
+@then('I should see "Safeguard mode ENABLED"')
 def should_see_mode_enabled():
-    """Verify read-only mode enabled message."""
+    """Verify safeguard mode enabled message."""
     pass
 
 @then('I should see "All queries will be checked for dangerous operations"')
@@ -107,9 +123,9 @@ def should_see_safety_message():
     """Verify safety check message."""
     pass
 
-@then('I should see "Read-only safeguard mode DISABLED"')
+@then('I should see "Safeguard mode DISABLED"')
 def should_see_mode_disabled():
-    """Verify read-only mode disabled message."""
+    """Verify safeguard mode disabled message."""
     pass
 
 @then('I should see "Queries will execute without safety checks"')
@@ -127,9 +143,24 @@ def should_see_usage_instructions():
     """Verify usage instructions are shown."""
     pass
 
-@then('I should see "Query blocked by read-only safeguard!"')
+@then('I should see "Query blocked by safeguard!"')
 def should_see_query_blocked():
     """Verify query blocked message."""
+    pass
+
+@then('I should see "✔ Query passes safeguard against dangerous operations."')
+def should_see_query_passes_safeguard():
+    """Verify query passes safeguard message."""
+    pass
+
+@then(parsers.parse('I should see "✖ Query disallowed due to dangerous operations: {operations}"'))
+def should_see_query_disallowed(operations):
+    """Verify query disallowed message with operations."""
+    pass
+
+@then('I should not see any safeguard messages')
+def should_not_see_safeguard_messages():
+    """Verify no safeguard messages are shown."""
     pass
 
 @then(parsers.parse('I should see "Dangerous operations detected: {operation}"'))
@@ -246,32 +277,32 @@ def test_sql_with_comments():
     assert result['is_safe'] == True
     assert len(result['dangerous_operations']) == 0
 
-def test_readonly_mode_toggle():
-    """Test read-only mode toggle functionality."""
-    from qbot.repl import handle_readonly_command, READONLY_MODE
+def test_safeguard_mode_toggle():
+    """Test safeguard mode toggle functionality."""
+    from qbot.repl import handle_safeguard_command, READONLY_MODE
     import qbot.repl as repl_module
     
     # Test enabling
-    handle_readonly_command(['on'])
+    handle_safeguard_command(['on'])
     assert repl_module.READONLY_MODE == True
     
     # Test disabling
-    handle_readonly_command(['off'])
+    handle_safeguard_command(['off'])
     assert repl_module.READONLY_MODE == False
     
     # Test status check (should not change state)
-    handle_readonly_command([])
+    handle_safeguard_command([])
     assert repl_module.READONLY_MODE == False
 
-def test_execute_safe_sql_when_readonly_disabled():
-    """Test that execute_safe_sql bypasses checks when readonly mode is disabled."""
-    from qbot.repl import execute_safe_sql, handle_readonly_command
+def test_execute_safe_sql_when_safeguards_disabled():
+    """Test that execute_safe_sql bypasses checks when safeguard mode is disabled."""
+    from qbot.repl import execute_safe_sql, handle_safeguard_command
     import os
     
     os.environ['DBT_PROFILE_NAME'] = 'Sakila'
     
-    # Disable readonly mode
-    handle_readonly_command(['off'])
+    # Disable safeguard mode
+    handle_safeguard_command(['off'])
     
     # Mock the clean execution
     with patch('qbot.repl.execute_clean_sql') as mock_execute:
@@ -281,17 +312,17 @@ def test_execute_safe_sql_when_readonly_disabled():
         assert result == "Query executed successfully"
         assert mock_execute.called
 
-def test_execute_safe_sql_blocks_when_readonly_enabled():
-    """Test that execute_safe_sql blocks dangerous queries when readonly mode is enabled."""
-    from qbot.repl import execute_safe_sql, handle_readonly_command
+def test_execute_safe_sql_blocks_when_safeguards_enabled():
+    """Test that execute_safe_sql blocks dangerous queries when safeguard mode is enabled."""
+    from qbot.repl import execute_safe_sql, handle_safeguard_command
     import os
     
     os.environ['DBT_PROFILE_NAME'] = 'Sakila'
     
-    # Enable readonly mode
-    handle_readonly_command(['on'])
+    # Enable safeguard mode (default)
+    handle_safeguard_command(['on'])
     
     # Mock user input to reject override
     with patch('builtins.input', return_value='no'):
         result = execute_safe_sql("DELETE FROM test_table")
-        assert "Query blocked by read-only safeguard" in result
+        assert "Query blocked by safeguard" in result

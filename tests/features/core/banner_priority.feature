@@ -24,13 +24,13 @@ Feature: Banner Display Priority
     Then the banner should be the first output
     And initialization messages should appear after the banner
 
-  Scenario: Banner appears first with read-only mode
-    When I run QBot with query "SELECT 42 AS Answer;" and flag "--read-only"  
+  Scenario: Banner appears first with dangerous mode
+    When I run QBot with query "SELECT 42 AS Answer;" and flag "--dangerous"  
     Then the banner should be the first output
     And initialization messages should appear after the banner
 
   Scenario: Banner appears first with combined flags
-    When I run QBot with query "SELECT 42 AS Answer;" and flags "--no-repl --preview --read-only"
+    When I run QBot with query "SELECT 42 AS Answer;" and flags "--no-repl --preview --dangerous"
     Then the banner should be the first output
     And I should see the "QBot CLI" banner
     And initialization messages should appear after the banner

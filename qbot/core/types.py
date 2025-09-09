@@ -59,13 +59,37 @@ class QueryResult:
     row_count: Optional[int] = None
     columns: Optional[List[str]] = None
     
+    def _serialize_data(self, data: Optional[List[Dict[str, Any]]]) -> Optional[List[Dict[str, Any]]]:
+        """Serialize data by converting non-JSON-serializable types"""
+        if not data:
+            return data
+        
+        from decimal import Decimal
+        import datetime
+        
+        def serialize_value(value):
+            """Convert non-JSON-serializable values to serializable ones"""
+            if isinstance(value, Decimal):
+                return float(value)
+            elif isinstance(value, datetime.datetime):
+                return value.isoformat()
+            elif isinstance(value, datetime.date):
+                return value.isoformat()
+            else:
+                return value
+        
+        return [
+            {key: serialize_value(value) for key, value in row.items()}
+            for row in data
+        ]
+    
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         result = {
             'success': self.success,
             'query_type': self.query_type.value,
             'execution_time': self.execution_time,
-            'data': self.data,
+            'data': self._serialize_data(self.data),
             'error': self.error,
             'compiled_sql': self.compiled_sql,
             'row_count': self.row_count,

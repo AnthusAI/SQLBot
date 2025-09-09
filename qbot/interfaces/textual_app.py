@@ -478,15 +478,27 @@ class QBotTextualApp(App):
             if not self.conversation_widget:
                 return
                 
+            # DEBUGGING: Add detailed logging to trace query routing
+            import sys
+            print(f"🔍 DEBUG: Raw query input: {repr(query)}", file=sys.stderr)
+            print(f"🔍 DEBUG: Query after strip(): {repr(query.strip())}", file=sys.stderr)
+            print(f"🔍 DEBUG: Ends with semicolon: {query.strip().endswith(';')}", file=sys.stderr)
+            print(f"🔍 DEBUG: Starts with slash: {query.startswith('/')}", file=sys.stderr)
+            print(f"🔍 DEBUG: First character: {repr(query[0]) if query else 'EMPTY'}", file=sys.stderr)
+            
             # Determine query type for different handling
             is_sql_query = query.strip().endswith(';')
             is_slash_command = query.startswith('/')
             
+            print(f"🔍 DEBUG: is_sql_query={is_sql_query}, is_slash_command={is_slash_command}", file=sys.stderr)
+            
             if is_sql_query or is_slash_command:
                 # Direct execution for SQL/commands - simple flow
+                print(f"🔍 DEBUG: Routing to _handle_direct_query", file=sys.stderr)
                 await self._handle_direct_query(query)
             else:
                 # Natural language query - needs real-time LLM feedback
+                print(f"🔍 DEBUG: Routing to _handle_llm_query_realtime", file=sys.stderr)
                 await self._handle_llm_query_realtime(query)
                 
             # Update conversation debug view if active
@@ -508,10 +520,15 @@ class QBotTextualApp(App):
     async def _handle_direct_query(self, query: str) -> None:
         """Handle SQL queries and slash commands using unified display logic"""
         try:
+            # DEBUGGING: Confirm this method is being called
+            import sys
+            print(f"🔍 DEBUG: _handle_direct_query called with: {repr(query)}", file=sys.stderr)
+            
             # Add user message to display first
             if self.conversation_widget:
                 self.conversation_widget.add_user_message(query)
                 # Show thinking indicator for SQL queries too
+                print(f"🔍 DEBUG: Showing thinking indicator for direct SQL query", file=sys.stderr)
                 self.conversation_widget.unified_display.show_thinking_indicator("...")
             
             # Execute query using session
@@ -540,10 +557,15 @@ class QBotTextualApp(App):
     async def _handle_llm_query_realtime(self, query: str) -> None:
         """Handle LLM queries using unified display system"""
         try:
+            # DEBUGGING: Confirm this method is being called
+            import sys
+            print(f"🔍 DEBUG: _handle_llm_query_realtime called with: {repr(query)}", file=sys.stderr)
+            
             # Add user message to display first
             if self.conversation_widget:
                 self.conversation_widget.add_user_message(query)
                 # Show thinking indicator
+                print(f"🔍 DEBUG: Showing thinking indicator for LLM query", file=sys.stderr)
                 self.conversation_widget.unified_display.show_thinking_indicator("...")
             
             # Execute LLM query using session

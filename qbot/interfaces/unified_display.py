@@ -48,13 +48,14 @@ def execute_query_with_unified_display(
     if not skip_user_message:
         # Add user message to memory if not skipped
         memory_manager.add_user_message(query)
+        
+        # Note: User message is added to global conversation history in llm_integration.py
+        # to avoid duplicates
     
-    # Display conversation history if enabled (text mode only)
-    if console and show_history:
-        _display_conversation_history(memory_manager, console)
+    # Note: Display conversation history AFTER query execution to include tool calls
     
     # Step 2: Add thinking indicator to memory (temporary) 
-    thinking_msg = f"{MessageSymbols.AI_THINKING} GPT-5 thinking..."
+    thinking_msg = f"{MessageSymbols.AI_THINKING} ..."
     memory_manager.add_assistant_message(thinking_msg)
     
     # Step 3: Display thinking and response with Live updates for text mode
@@ -107,6 +108,8 @@ def execute_query_with_unified_display(
                     live.update(response_text)
                     time.sleep(0.2)  # Brief pause to show response
                 
+                # History display moved to before each LLM call in llm_integration.py
+                
                 return result
                 
             except Exception as e:
@@ -145,6 +148,9 @@ def execute_query_with_unified_display(
                 
                 # Refresh display to show the response
                 display_refresh_func()
+                
+                # Display conversation history AFTER query execution (Textual mode doesn't show history in console)
+                # Textual mode handles its own history display
             
             return result
             
@@ -201,31 +207,121 @@ def _display_conversation_history(memory_manager, console: Console) -> None:
     from rich.panel import Panel
     from rich.text import Text
     
-    # Get conversation messages
-    messages = memory_manager.get_conversation_context()
-    
-    if not messages:
-        return
-    
-    # Build conversation history text
+    # Build conversation history text showing actual LLM conversation structure
     conversation_text = Text()
     
-    for i, message in enumerate(messages):
-        if hasattr(message, 'type'):
-            msg_type = message.type.upper()
-            content = str(message.content)
+    # 1. Show the system prompt that will be sent to LLM
+    try:
+        from qbot.llm_integration import build_system_prompt
+        system_prompt = build_system_prompt()
+        
+        # Truncate system prompt for display readability
+        if len(system_prompt) > 200:
+            system_prompt_display = system_prompt[:200] + "... [TRUNCATED - Full system prompt sent to LLM]"
+        else:
+            system_prompt_display = system_prompt
             
-            # Truncate long content for display
-            if len(content) > 500:
-                content = content[:500] + "..."
-            
-            conversation_text.append(f"[{i+1}] {msg_type} MESSAGE:\n", style="bold white")
-            conversation_text.append(f"{content}\n\n", style="white")
+        conversation_text.append("[1] SYSTEM MESSAGE:\n", style="bold yellow")
+        conversation_text.append(f"{system_prompt_display}\n\n", style="dim white")
+        
+        message_count = 2
+    except Exception as e:
+        conversation_text.append("[1] SYSTEM MESSAGE:\n", style="bold yellow")
+        conversation_text.append(f"[Error loading system prompt: {e}]\n\n", style="red")
+        message_count = 2
     
-    # Display in a panel
+    # 2. Show the chat history from global conversation_history (which contains tool calls)
+    try:
+        from qbot.llm_integration import conversation_history
+        global_messages = conversation_history
+    except ImportError:
+        try:
+            import llm_integration
+            global_messages = llm_integration.conversation_history
+        except ImportError:
+            # Fallback to memory manager if we can't access global history
+            global_messages = []
+            messages = memory_manager.get_filtered_context()
+            # Fallback to memory manager messages
+    
+    # Convert global conversation history to display format
+    if global_messages:
+        messages = []
+        for msg in global_messages:
+            # Create a simple object that mimics the memory manager message format
+            class SimpleMessage:
+                def __init__(self, msg_type, content):
+                    self.type = msg_type
+                    self.content = content
+            
+            if msg.get("role") == "user":
+                messages.append(SimpleMessage("human", msg.get("content", "")))
+            elif msg.get("role") == "assistant":
+                messages.append(SimpleMessage("ai", msg.get("content", "")))
+    else:
+        # Fallback to memory manager messages
+        messages = memory_manager.get_filtered_context()
+    
+    if messages:
+        for message in messages:
+            if hasattr(message, 'type'):
+                msg_type = message.type.upper()
+                content = str(message.content)
+                
+                conversation_text.append(f"[{message_count}] {msg_type} MESSAGE:\n", style="bold white")
+                
+                # Parse and format tool calls if this is an AI message with query details
+                if msg_type.upper() == "AI" and "--- Query Details ---" in content:
+                    parts = content.split("--- Query Details ---")
+                    if len(parts) == 2:
+                        # Show the main response
+                        main_response = parts[0].strip()
+                        conversation_text.append(f"{main_response}\n\n", style="white")
+                        
+                        # Parse and show tool calls
+                        tool_section = parts[1].strip()
+                        tool_calls = tool_section.split("\n\nQuery:")
+                        
+                        for i, tool_call in enumerate(tool_calls):
+                            if not tool_call.strip():
+                                continue
+                                
+                            # Add "Query:" back for calls after the first
+                            if i > 0:
+                                tool_call = "Query:" + tool_call
+                            
+                            if "Result:" in tool_call:
+                                query_part, result_part = tool_call.split("Result:", 1)
+                                query_text = query_part.replace("Query:", "").strip()
+                                result_text = result_part.strip()
+                                
+                                # Show tool call
+                                conversation_text.append(f"  🔧 TOOL CALL:\n", style="bold cyan")
+                                conversation_text.append(f"     {query_text}\n", style="cyan")
+                                
+                                # Show tool result
+                                conversation_text.append(f"  📊 TOOL RESULT:\n", style="bold yellow")
+                                conversation_text.append(f"     {result_text}\n", style="yellow")
+                        
+                        conversation_text.append("\n", style="white")
+                    else:
+                        # Fallback for malformed content
+                        conversation_text.append(f"{content}\n\n", style="white")
+                else:
+                    # Regular message without tool calls
+                    conversation_text.append(f"{content}\n\n", style="white")
+                
+                message_count += 1
+    
+    # If no messages yet, show placeholder
+    if not messages:
+        conversation_text.append(f"[{message_count}] CHAT HISTORY:\n", style="bold white")
+        conversation_text.append("(No previous conversation)\n\n", style="dim white")
+    
+    # Display in a panel - always show it
     panel = Panel(
         conversation_text,
-        title="Agent's Conversation History",
+        title="🤖 Complete LLM Conversation Context (sent to GPT-5)",
         border_style="red",
         width=120
     )

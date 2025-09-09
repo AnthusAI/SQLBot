@@ -327,6 +327,8 @@ class DbtQueryTool(BaseTool):
             # The final result will be shown in the AI response
             # console.print(f"\n📡 Database query: {query}")
             
+            # Execute the query AS-IS (do not normalize). The agent should learn from errors.
+
             # FIRST PRIORITY: Execute query and show results to USER using ccdbi directly
             # This ensures the user ALWAYS sees results regardless of what happens with LLM processing
             import sys
@@ -341,10 +343,21 @@ class DbtQueryTool(BaseTool):
                 from .core.dbt_service import get_dbt_service
                 from .interfaces.repl.formatting import ResultFormatter
                 
-                # Create config with current profile
+                # Create config with current profile and respect global safeguard setting
+                # Import the global safeguard setting
+                try:
+                    from . import repl
+                    safeguard_enabled = repl.READONLY_MODE
+                except ImportError:
+                    try:
+                        import repl
+                        safeguard_enabled = repl.READONLY_MODE
+                    except ImportError:
+                        safeguard_enabled = True  # Default to safeguards enabled
+                
                 config = QBotConfig(
                     profile=DBT_PROFILE_NAME,
-                    read_only=True,  # Default to read-only for LLM queries
+                    read_only=safeguard_enabled,  # Use global safeguard setting
                     max_rows=1000
                 )
                 
@@ -352,11 +365,49 @@ class DbtQueryTool(BaseTool):
                 dbt_service = get_dbt_service(config)
                 formatter = ResultFormatter(console)
                 
+                # Perform safety check if safeguards are enabled
+                safeguard_message = None
+                if safeguard_enabled:
+                    from .core.safety import analyze_sql_safety
+                    safety_analysis = analyze_sql_safety(query, read_only_mode=True)
+                    
+                    if safety_analysis.is_read_only and safety_analysis.level.value == "safe":
+                        # Query is safe
+                        safeguard_message = "✔ Query passes safeguard against dangerous operations."
+                        if self._unified_display:
+                            # Display safeguard message directly without any prefixes
+                            if hasattr(self._unified_display.display_impl, 'console'):
+                                self._unified_display.display_impl.console.print(f"[green]{safeguard_message}[/green]")
+                            else:
+                                # Textual interface - add to conversation log directly
+                                self._unified_display.display_impl.conversation_widget.conversation_log.write(f"[green]{safeguard_message}[/green]")
+                    else:
+                        # Query has dangerous operations
+                        operations_str = ", ".join(safety_analysis.dangerous_operations)
+                        safeguard_message = f"✖ Query disallowed due to dangerous operations: {operations_str}"
+                        
+                        if self._unified_display:
+                            # Display safeguard message directly without any prefixes
+                            if hasattr(self._unified_display.display_impl, 'console'):
+                                self._unified_display.display_impl.console.print(f"[red]{safeguard_message}[/red]")
+                            else:
+                                # Textual interface - add to conversation log directly
+                                self._unified_display.display_impl.conversation_widget.conversation_log.write(f"[red]{safeguard_message}[/red]")
+                        
+                        # Return error without executing the query
+                        import json
+                        return json.dumps({
+                            "query": query.strip(),
+                            "success": False,
+                            "error": f"Query blocked by safeguard: {operations_str}",
+                            "safeguard_message": safeguard_message
+                        }, indent=2)
+                
                 # Suppress results output to avoid interfering with thinking indicator
                 # console.print("📊 Results:")
                 
                 # Execute query and get structured results
-                result = dbt_service.execute_query(query.strip())
+                result = dbt_service.execute_query(query)
                 
                 # Record the result in the query result list
                 from .core.query_result_list import get_query_result_list
@@ -373,12 +424,14 @@ class DbtQueryTool(BaseTool):
                 if result.success and result.data:
                     # Return full JSON data for the LLM to see
                     import json
+                    # Use serialized data to handle Decimal objects
+                    serialized_data = result._serialize_data(result.data)
                     result_json = json.dumps({
                         "query_index": entry.index,
                         "query": query.strip(),
                         "success": True,
                         "columns": result.columns,
-                        "data": result.data,
+                        "data": serialized_data,
                         "row_count": result.row_count,
                         "execution_time": result.execution_time
                     }, indent=2)
@@ -398,8 +451,18 @@ class DbtQueryTool(BaseTool):
                     
                     return result_json
                 else:
-                    # Return error information with index
-                    error_msg = result.error if result.error else "No error details available"
+                    # Return error information with index - preserve all error details
+                    if result.error and result.error.strip():
+                        error_msg = result.error.strip()
+                    else:
+                        # Fallback: try to get error details from the result object itself
+                        error_msg = f"Query execution failed (success=False, execution_time={result.execution_time:.3f}s)"
+                        if hasattr(result, '__dict__'):
+                            # Include any other available error information
+                            result_details = {k: v for k, v in result.__dict__.items() if v is not None and k != 'data'}
+                            if result_details:
+                                error_msg += f" - Details: {result_details}"
+                    
                     error_result = f"Query #{entry.index} failed: {error_msg}"
                     
                     # Display tool result in real-time if we have unified display
@@ -702,7 +765,7 @@ def load_profile_system_prompt_template(profile_name: str) -> str:
                 print(f"Warning: Could not read system prompt template from {template_path}: {e}")
                 continue
     
-    # Ultimate fallback - basic hardcoded template
+    # Ultimate fallback - basic hardcoded template (with strict syntax guardrails)
     return """You are a helpful database analyst assistant. You help users query their database using SQL queries and dbt macros.
 
 KEY DATABASE TABLES:
@@ -711,10 +774,20 @@ KEY DATABASE TABLES:
 AVAILABLE DBT MACROS:
 {{ macro_info }}
 
+STRICT SYNTAX RULES (dbt + Jinja):
+• ALWAYS reference tables via dbt sources with EXACTLY double braces: {{ source('source_name', 'table_name') }}
+• NEVER output quadruple braces (e.g., {{{{ … }}}}) or single-brace forms (e.g., { source(…) }).
+• Do NOT end inline queries with a semicolon.
+• Do NOT include pagination keywords (TOP or LIMIT). Pagination is handled by the executor.
+• For counts, prefer: SELECT COUNT(*) AS row_count FROM {{ source('s', 't') }}
+• For sampling: SELECT * FROM {{ source('s', 't') }}  (no TOP/LIMIT)
+• Ensure Jinja braces are balanced and source names come from the provided schema.
+• If unsure about the exact source/table name, first run a small safe discovery query or ask for clarification rather than guessing.
+
 BEHAVIOR:
-• Always execute queries immediately - never provide SQL without running it
-• Use dbt source() syntax: {{ source('your_source', 'table_name') }}
-• Focus on analysis and follow-up suggestions rather than restating query results
+• Always execute queries immediately using the provided tool; do not just propose SQL.
+• Use dbt source() syntax for all table references.
+• Focus on concise analysis and actionable follow-ups rather than restating result rows.
 
 RESPONSE FORMAT:
 1. Briefly acknowledge the question
@@ -747,7 +820,45 @@ def log_llm_request():
 class LoggingChatOpenAI(ChatOpenAI):
     """Custom ChatOpenAI that logs each request with context and shows LLM reasoning to user"""
     
+    def __init__(self, *args, console=None, show_history=False, **kwargs):
+        # Remove our custom fields from kwargs before passing to parent
+        super().__init__(*args, **kwargs)
+        # Store as private attributes after initialization
+        self._console = console
+        self._show_history = show_history
+    
     def invoke(self, input, *args, **kwargs):
+        # Show conversation history before every LLM call if enabled
+        if self._show_history and self._console:
+            self._console.print(f"\n[bold yellow]🤖 LLM Call #{llm_request_count + 1} - Actual Prompt Context:[/bold yellow]")
+            
+            # Display the actual messages being sent to the LLM
+            from rich.panel import Panel
+            from rich.text import Text
+            
+            messages = input.messages if hasattr(input, 'messages') else input
+            if isinstance(messages, list):
+                conversation_text = Text()
+                for i, msg in enumerate(messages):
+                    role = getattr(msg, 'type', 'unknown')
+                    content = getattr(msg, 'content', str(msg))
+                    
+                    # Truncate very long content for readability
+                    if len(content) > 500:
+                        content = content[:500] + "... [TRUNCATED]"
+                    
+                    conversation_text.append(f"[{i+1}] {role.upper()} MESSAGE:\n", style="bold yellow")
+                    conversation_text.append(f"{content}\n\n", style="dim white")
+                
+                panel = Panel(conversation_text, title="🤖 Actual LLM Input", border_style="yellow")
+                self._console.print(panel)
+            else:
+                # Fallback to global conversation history display
+                from qbot.interfaces.unified_display import _display_conversation_history
+                from qbot.conversation_memory import ConversationMemoryManager
+                temp_memory_manager = ConversationMemoryManager()
+                _display_conversation_history(temp_memory_manager, self._console)
+        
         log_llm_request()
         
         # Display the full conversation being sent to the model
@@ -891,7 +1002,7 @@ def set_session_id(session_id: str):
     """Set the session ID for LLM agent creation"""
     create_llm_agent._session_id = session_id
 
-def create_llm_agent(unified_display=None):
+def create_llm_agent(unified_display=None, console=None, show_history=False):
     """
     Create LangChain agent with dbt query tool for database analysis.
     
@@ -929,7 +1040,7 @@ def create_llm_agent(unified_display=None):
                 "reasoning": {"effort": effort}
             }
         
-        llm = LoggingChatOpenAI(**llm_kwargs)
+        llm = LoggingChatOpenAI(console=console, show_history=show_history, **llm_kwargs)
         
         # Create tools - both query execution and result lookup
         from .core.query_result_lookup_tool import create_query_result_lookup_tool
@@ -958,9 +1069,15 @@ def create_llm_agent(unified_display=None):
         from langchain_core.callbacks import BaseCallbackHandler
         
         class ToolTrackingCallback(BaseCallbackHandler):
-            def __init__(self, unified_display=None):
+            def __init__(self, unified_display=None, console=None, show_history=False):
                 super().__init__()
                 self.unified_display = unified_display
+                self.console = console
+                self.show_history = show_history
+                
+            def on_llm_start(self, serialized, prompts, **kwargs):
+                """Called before every LLM API call - show conversation history here"""
+                pass  # History display now handled in LoggingChatOpenAI.invoke()
                 
             def on_tool_start(self, serialized, input_str, **kwargs):
                 global tool_execution_happened
@@ -988,7 +1105,7 @@ def create_llm_agent(unified_display=None):
             verbose=False,  # Disable verbose to prevent raw JSON output
             max_iterations=10,  # Allow more iterations but let agent decide when to stop
             handle_parsing_errors=True,
-            callbacks=[ToolTrackingCallback(unified_display)],
+            callbacks=[ToolTrackingCallback(unified_display, console, show_history)],
             return_intermediate_steps=True  # Ensure tool results are available to agent
         )
         
@@ -1002,7 +1119,7 @@ def create_llm_agent(unified_display=None):
 _dbt_setup_cache = None
 _dbt_setup_cache_time = 0
 
-def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None) -> str:
+def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False) -> str:
     """
     Handle natural language query via LLM agent with retry logic.
     
@@ -1039,7 +1156,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
             if attempt > 0:
                 console.print(f"🔄 [yellow]Retrying LLM request (attempt {attempt + 1}/{max_retries})...[/yellow]")
             
-            return _execute_llm_query(query_text, console, timeout_seconds, unified_display)
+            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history)
             
         except Exception as e:
             error_msg = str(e)
@@ -1061,7 +1178,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
                 console.print(f"❌ [red]LLM query failed after {attempt + 1} attempts: {error_msg}[/red]")
                 return f"LLM query failed: {error_msg}"
 
-def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None) -> str:
+def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False) -> str:
     """
     Execute the actual LLM query with timeout handling.
     
@@ -1085,8 +1202,10 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         llm_request_count = 0
         tool_execution_happened = False
         
-        # Add user query to conversation history
-        conversation_history.append({"role": "user", "content": query_text})
+        # Add user query to conversation history (check for duplicates)
+        # Check if the last message is already this same user message to avoid duplicates
+        if not conversation_history or conversation_history[-1].get("role") != "user" or conversation_history[-1].get("content") != query_text:
+            conversation_history.append({"role": "user", "content": query_text})
         
         # Use the new conversation memory manager
         from .conversation_memory import ConversationMemoryManager
@@ -1124,13 +1243,27 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         
         sys.stdout.flush()  # Force immediate display
         # Create agent (fresh instance ensures latest schema/macro info)  
-        agent = create_llm_agent(unified_display)
+        agent = create_llm_agent(unified_display, console, show_history)
         
-        # Execute query with chat history (temporarily without threading to test callbacks)
+        # Execute query with chat history (conversation history now shown by callback before each LLM call)
         result = agent.invoke({
             "input": query_text,
             "chat_history": chat_history
         })
+        
+        # Extract intermediate steps (tool calls and results) for conversation history
+        intermediate_steps = result.get("intermediate_steps", [])
+        
+        # Add tool calls and results to conversation history
+        for i, (action, observation) in enumerate(intermediate_steps):
+            tool_name = getattr(action, 'tool', 'unknown_tool')
+            tool_input = getattr(action, 'tool_input', {})
+            
+            # Add tool call to conversation history
+            conversation_history.append({
+                "role": "assistant", 
+                "content": f"🔧 TOOL CALL: {tool_name}\nInput: {tool_input}\n\n📊 TOOL RESULT:\n{observation}"
+            })
         
         # Extract the final answer and intermediate steps
         # Handle both string and list responses (Responses API may return different format)

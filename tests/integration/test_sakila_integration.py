@@ -53,7 +53,7 @@ class TestSakilaDatabase:
         """Test that the Sakila SQLite database file exists and is accessible."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         assert sakila_db_path.exists(), f"Sakila database file not found at {sakila_db_path}. Run setup_sakila_db.py first."
         
         # Test basic SQLite connectivity
@@ -71,7 +71,7 @@ class TestSakilaDatabase:
         """Test that Sakila database contains expected data."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         conn = sqlite3.connect(str(sakila_db_path))
         cursor = conn.cursor()
         
@@ -96,7 +96,7 @@ class TestSakilaDatabase:
         """Test that key tables have expected structure."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         conn = sqlite3.connect(str(sakila_db_path))
         cursor = conn.cursor()
         
@@ -332,7 +332,7 @@ class TestSakilaREPLIntegration:
         
         # This would normally be tested through the REPL, but we can test
         # the underlying functionality
-        sakila_db_path = Path("sakila.db")
+        sakila_db_path = Path("profiles/Sakila/data/sakila.db")
         if sakila_db_path.exists():
             conn = sqlite3.connect(str(sakila_db_path))
             cursor = conn.cursor()

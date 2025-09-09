@@ -1,82 +1,76 @@
-Feature: Read-Only Safeguard Feature
+Feature: Safeguard Feature
   As a user of QBot
-  I want read-only safeguard protection
+  I want safeguard protection by default
   So that I can prevent accidental data modifications and ensure safe query execution
 
   Background:
     Given QBot is running in interactive mode
     And the database is available
+    And safeguards are enabled by default
 
-  Scenario: Enable read-only safeguard mode
+  Scenario: Check default safeguard status
     Given I am in the QBot REPL
-    When I enter "//readonly on"
-    Then I should see "Read-only safeguard mode ENABLED"
+    When I enter "/safeguard"
+    Then I should see "Safeguard mode: ON"
     And I should see "All queries will be checked for dangerous operations"
 
-  Scenario: Disable read-only safeguard mode
+  Scenario: Disable safeguard mode
     Given I am in the QBot REPL
-    And read-only mode is enabled
-    When I enter "//readonly off"
-    Then I should see "Read-only safeguard mode DISABLED"
+    When I enter "/safeguard off"
+    Then I should see "Safeguard mode DISABLED"
     And I should see "Queries will execute without safety checks"
 
-  Scenario: Check read-only safeguard status
+  Scenario: Re-enable safeguard mode
     Given I am in the QBot REPL
-    When I enter "//readonly"
-    Then I should see the current safeguard status
-    And I should see usage instructions
+    And safeguard mode is disabled
+    When I enter "/safeguard on"
+    Then I should see "Safeguard mode ENABLED"
+    And I should see "All queries will be checked for dangerous operations"
 
-  Scenario: Block dangerous INSERT operation
+  Scenario: Block dangerous INSERT operation by default
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "INSERT INTO test_table VALUES (1, 'test')"
-    Then I should see "Query blocked by read-only safeguard!"
-    And I should see "Dangerous operations detected: INSERT"
+    Then I should see "Query blocked by safeguard!"
+    And I should see "✖ Query disallowed due to dangerous operations: INSERT"
     And I should be prompted for override confirmation
 
-  Scenario: Block dangerous DELETE operation
+  Scenario: Block dangerous DELETE operation by default
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "DELETE FROM test_table WHERE id = 1"
-    Then I should see "Query blocked by read-only safeguard!"
-    And I should see "Dangerous operations detected: DELETE"
+    Then I should see "Query blocked by safeguard!"
+    And I should see "✖ Query disallowed due to dangerous operations: DELETE"
     And I should be prompted for override confirmation
 
-  Scenario: Block dangerous UPDATE operation
+  Scenario: Block dangerous UPDATE operation by default
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "UPDATE test_table SET name = 'new' WHERE id = 1"
-    Then I should see "Query blocked by read-only safeguard!"
-    And I should see "Dangerous operations detected: UPDATE"
+    Then I should see "Query blocked by safeguard!"
+    And I should see "✖ Query disallowed due to dangerous operations: UPDATE"
     And I should be prompted for override confirmation
 
-  Scenario: Block dangerous DROP operation
+  Scenario: Block dangerous DROP operation by default
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "DROP TABLE test_table"
-    Then I should see "Query blocked by read-only safeguard!"
-    And I should see "Dangerous operations detected: DROP"
+    Then I should see "Query blocked by safeguard!"
+    And I should see "✖ Query disallowed due to dangerous operations: DROP"
     And I should be prompted for override confirmation
 
-  Scenario: Allow safe SELECT operation
+  Scenario: Allow safe SELECT operation with safeguard message
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I execute "SELECT TOP 5 * FROM test_table"
     Then the query should execute normally
+    And I should see "✔ Query passes safeguard against dangerous operations."
     And I should see query results
-    And I should not see any safety warnings
 
-  Scenario: Detect multiple dangerous operations
+  Scenario: Detect multiple dangerous operations by default
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "INSERT INTO temp AS SELECT * FROM source; DELETE FROM old_table"
-    Then I should see "Query blocked by read-only safeguard!"
+    Then I should see "Query blocked by safeguard!"
     And I should see dangerous operations detected
     And I should be prompted for override confirmation
 
   Scenario: Admin override allows dangerous operation
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "DELETE FROM test_table WHERE id = 999"
     And I respond "yes" to the override prompt
     Then I should see "Safety override granted. Executing query..."
@@ -84,7 +78,6 @@ Feature: Read-Only Safeguard Feature
 
   Scenario: Admin override cancelled
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "DROP TABLE temp_table"
     And I respond "no" to the override prompt
     Then I should see "Query execution cancelled for safety"
@@ -92,7 +85,6 @@ Feature: Read-Only Safeguard Feature
 
   Scenario: Override prompt cancelled with Ctrl+C
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute "TRUNCATE TABLE log_table"
     And I press Ctrl+C at the override prompt
     Then I should see "Query execution cancelled for safety"
@@ -100,7 +92,6 @@ Feature: Read-Only Safeguard Feature
 
   Scenario: Complex query with comments and formatting
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I try to execute a query with comments containing "DELETE"
     """
     /* This query mentions DELETE in comments but doesn't actually delete */
@@ -108,33 +99,37 @@ Feature: Read-Only Safeguard Feature
     SELECT COUNT(*) FROM table -- Not dangerous
     """
     Then the query should execute normally
-    And I should not see any safety warnings
+    And I should see "✔ Query passes safeguard against dangerous operations."
 
   Scenario: Query with dangerous operation in string literals
     Given I am in the QBot REPL
-    And read-only mode is enabled
     When I execute "SELECT 'DELETE operation' as description FROM test_table"
     Then the query should execute normally
-    And I should not see any safety warnings
+    And I should see "✔ Query passes safeguard against dangerous operations."
 
-  Scenario: Read-only mode disabled allows all operations
+  Scenario: Safeguard mode disabled allows all operations
     Given I am in the QBot REPL
-    And read-only mode is disabled
+    And safeguard mode is disabled
     When I execute "DELETE FROM test_table WHERE id = 1"
     Then the query should execute without safety checks
-    And I should not see any safety warnings
+    And I should not see any safeguard messages
 
-  Scenario: Preview mode respects read-only safeguard
+  Scenario: Dangerous CLI flag disables safeguards
+    Given QBot is started with the --dangerous flag
+    When I execute "DELETE FROM test_table WHERE id = 1"
+    Then the query should execute without safety checks
+    And I should not see any safeguard messages
+
+  Scenario: Preview mode respects safeguard
     Given I am in the QBot REPL
-    And read-only mode is enabled
-    When I enter "//preview"
+    When I enter "/preview"
     And I enter "DELETE FROM test_table WHERE id = 1"
     And I respond "y" to execute the query
-    Then I should see "Query blocked by read-only safeguard!"
+    Then I should see "Query blocked by safeguard!"
     And I should be prompted for override confirmation
 
-  Scenario: Invalid readonly command option
+  Scenario: Invalid safeguard command option
     Given I am in the QBot REPL
-    When I enter "//readonly invalid"
-    Then I should see "Unknown readonly option: invalid"
-    And I should see "Usage: //readonly [on|off]"
+    When I enter "/safeguard invalid"
+    Then I should see "Unknown safeguard option: invalid"
+    And I should see "Usage: /safeguard [on|off]"

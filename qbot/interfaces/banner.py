@@ -51,7 +51,7 @@ def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = 
     content = f"{title}\n"
     if config_text:
         content += f"{config_text}\n\n"
-    content += "Natural Language Queries (Default):\n• Just type your question in plain English\n• Example: How many customers are there?\n\nSQL/dbt Queries:\n• End with semicolon for direct execution\n• SQL: SELECT COUNT(*) FROM customers;\n• dbt: SELECT * FROM {{ source('sakila', 'customer') }} LIMIT 10;\n\nCommands:\n• /help - Show all available commands\n• /tables - List database tables\n• /preview - Preview SQL compilation before execution\n• /readonly - Toggle read-only safeguard mode\n• exit, quit, or q - Exit QBot"
+    content += "Natural Language Queries (Default):\n• Just type your question in plain English\n• Example: How many customers are there?\n\nSQL/dbt Queries:\n• End with semicolon for direct execution\n• SQL: SELECT COUNT(*) FROM customers;\n• dbt: SELECT * FROM {{ source('sakila', 'customer') }} LIMIT 10;\n\nCommands:\n• /help - Show all available commands\n• /tables - List database tables\n• /preview - Preview SQL compilation before execution\n• /dangerous - Toggle dangerous mode (disables safeguards)\n• exit, quit, or q - Exit QBot"
     
     return content
 

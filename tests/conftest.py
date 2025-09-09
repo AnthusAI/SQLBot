@@ -100,6 +100,16 @@ target: dev
     return tmp_path
 
 @pytest.fixture(autouse=True)
+def reset_readonly_mode():
+    """Reset READONLY_MODE to default (True) after each test."""
+    import qbot.repl as repl_module
+    
+    yield
+    
+    # Always restore to default state (safeguards enabled)
+    repl_module.READONLY_MODE = True
+
+@pytest.fixture(autouse=True)
 def setup_test_environment(monkeypatch, temp_project_dir):
     """Set up the test environment for all tests."""
     # Change to temp directory for dbt operations

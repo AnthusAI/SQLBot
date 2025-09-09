@@ -152,12 +152,19 @@ class QBotSession:
                     repl_module.DBT_PROFILE_NAME = self.config.profile
                     
                     sql_result = execute_dbt_sql_rich(query_text)
-                    if sql_result:
+                    if sql_result and not sql_result.startswith("Query blocked by safeguard"):
                         result = QueryResult(
                             success=True,
                             query_type=QueryType.SQL,
                             execution_time=0.0,
                             data=[{"result": str(sql_result)}]  # Store result in data field
+                        )
+                    elif sql_result and sql_result.startswith("Query blocked by safeguard"):
+                        result = QueryResult(
+                            success=False,
+                            query_type=QueryType.SQL,
+                            execution_time=0.0,
+                            error=sql_result
                         )
                     else:
                         result = QueryResult(
@@ -297,12 +304,45 @@ class QBotSession:
                 data=[{"result": help_text}]
             )
         else:
-            return QueryResult(
-                success=False,
-                query_type=QueryType.SLASH_COMMAND,
-                execution_time=0.0,
-                error=f"Unknown command: {command}"
-            )
+            # Delegate to the main slash command handler from qbot.repl
+            try:
+                from qbot.repl import handle_slash_command
+                import qbot.repl as repl_module
+                
+                # Set the profile to match our session
+                repl_module.DBT_PROFILE_NAME = self.config.profile
+                
+                # Call the main handler
+                result_text = handle_slash_command(command)
+                
+                if result_text == 'EXIT':
+                    return QueryResult(
+                        success=True,
+                        query_type=QueryType.SLASH_COMMAND,
+                        execution_time=0.0,
+                        data=[{"result": "Exit requested"}]
+                    )
+                elif result_text:
+                    return QueryResult(
+                        success=True,
+                        query_type=QueryType.SLASH_COMMAND,
+                        execution_time=0.0,
+                        data=[{"result": str(result_text)}]
+                    )
+                else:
+                    return QueryResult(
+                        success=True,
+                        query_type=QueryType.SLASH_COMMAND,
+                        execution_time=0.0,
+                        data=[{"result": "Command executed"}]
+                    )
+            except Exception as e:
+                return QueryResult(
+                    success=False,
+                    query_type=QueryType.SLASH_COMMAND,
+                    execution_time=0.0,
+                    error=f"Command failed: {e}"
+                )
     
     def _format_result_for_memory(self, result: QueryResult) -> str:
         """Format query result for conversation memory"""

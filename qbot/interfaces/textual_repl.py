@@ -87,7 +87,7 @@ def main_textual():
     parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
     parser.add_argument('--profile', default='qbot', help='dbt profile name to use (default: qbot)')
     parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')
-    parser.add_argument('--read-only', action='store_true', help='Enable read-only safeguard to block dangerous SQL operations')
+    parser.add_argument('--dangerous', action='store_true', help='Disable safeguards and allow dangerous SQL operations')
     parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
     parser.add_argument('--help', '-h', action='store_true', help='Show help')
     parser.add_argument('query', nargs='*', help='Query to execute')
@@ -112,8 +112,8 @@ def main_textual():
                     import sys
                     original_argv = sys.argv.copy()
                     sys.argv = ['qbot', '--no-repl', '--profile', args.profile]
-                    if args.read_only:
-                        sys.argv.append('--read-only')
+                    if args.dangerous:
+                        sys.argv.append('--dangerous')
                     if args.preview:
                         sys.argv.append('--preview')
                     sys.argv.append(query_text)

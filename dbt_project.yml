@@ -14,6 +14,7 @@ analysis-paths: ["analyses"]
 test-paths: ["tests"]
 seed-paths: ["seeds"]
 macro-paths: 
+  - "macros"  # Global macros (for QBot core functionality)
   - "profiles/{{ env_var('DBT_PROFILE_NAME', 'qbot') }}/macros"  # Profile-specific macros
   - ".qbot/profiles/{{ env_var('DBT_PROFILE_NAME', 'qbot') }}/macros"  # User-specific profile macros
 snapshot-paths: ["snapshots"]
@@ -40,6 +41,6 @@ vars:
   analysis_date: "{{ var('current_date', '2024-01-01') }}"
   max_records: 1000
 
-models:
-  qbot:
-    +materialized: view
+# Models configuration is now profile-based
+# Each profile manages its own models in profiles/{profile}/models/
+# No global model configuration needed since we use profile-specific paths

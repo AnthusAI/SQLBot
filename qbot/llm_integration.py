@@ -312,14 +312,33 @@ class DbtQueryTool(BaseTool):
     
     def _run(self, query: str) -> str:
         """Execute the dbt query and ALWAYS show results to user"""
+        import os
+        import datetime
+        import traceback
+        
+        # Set up logging to tmp file
+        log_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tmp', 'tool_errors.log')
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        
+        def log_to_file(message):
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"[{timestamp}] {message}\n")
+                f.flush()
+        
+        log_to_file(f"🚀 TOOL EXECUTION START: {query[:100]}...")
+        
         try:
             # Mark that a tool execution is happening
             global tool_execution_happened
             tool_execution_happened = True
             
+            log_to_file(f"✅ Tool execution flag set, unified_display available: {self._unified_display is not None}")
+            
             # Display tool call in real-time if we have unified display
             if self._unified_display:
                 self._unified_display.display_impl.display_tool_call("Database Query", query)
+                log_to_file("✅ Displayed tool call to unified display")
             
             from rich.console import Console
             console = Console()
@@ -379,8 +398,8 @@ class DbtQueryTool(BaseTool):
                             if hasattr(self._unified_display.display_impl, 'console'):
                                 self._unified_display.display_impl.console.print(f"[green]{safeguard_message}[/green]")
                             else:
-                                # Textual interface - add to conversation log directly
-                                self._unified_display.display_impl.conversation_widget.conversation_log.write(f"[green]{safeguard_message}[/green]")
+                                # Textual interface - add as system message
+                                self._unified_display.display_impl.display_system_message(safeguard_message, "green")
                     else:
                         # Query has dangerous operations
                         operations_str = ", ".join(safety_analysis.dangerous_operations)
@@ -391,8 +410,8 @@ class DbtQueryTool(BaseTool):
                             if hasattr(self._unified_display.display_impl, 'console'):
                                 self._unified_display.display_impl.console.print(f"[red]{safeguard_message}[/red]")
                             else:
-                                # Textual interface - add to conversation log directly
-                                self._unified_display.display_impl.conversation_widget.conversation_log.write(f"[red]{safeguard_message}[/red]")
+                                # Textual interface - add as system message
+                                self._unified_display.display_impl.display_system_message(safeguard_message, "red")
                         
                         # Return error without executing the query
                         import json
@@ -449,6 +468,7 @@ class DbtQueryTool(BaseTool):
                             # Fallback to basic success message if result parsing fails
                             self._unified_display.display_impl.display_tool_result("Query Result", "Success: Query completed")
                     
+                    log_to_file(f"✅ TOOL SUCCESS: Query executed successfully, returning result")
                     return result_json
                 else:
                     # Return error information with index - preserve all error details
@@ -475,24 +495,50 @@ class DbtQueryTool(BaseTool):
                     
             except Exception as e:
                 error_result = f"Error executing query: {e}"
+                full_traceback = traceback.format_exc()
                 
-                # Display tool result in real-time if we have unified display
+                log_to_file(f"❌ INNER EXCEPTION in tool execution: {type(e).__name__}: {e}")
+                log_to_file(f"❌ INNER EXCEPTION traceback:\n{full_traceback}")
+                
+                # Display detailed tool error in real-time if we have unified display
                 if self._unified_display:
                     self._unified_display.display_impl.display_tool_result("Query Error", str(e))
+                    # Also display the full error details as a system message
+                    self._unified_display.display_impl.display_system_message(f"Tool Execution Error Details:\n{full_traceback}", "red")
+                    log_to_file("✅ Displayed inner exception to unified display")
+                else:
+                    log_to_file("❌ No unified display available for inner exception")
                 
-                # Suppress error output to avoid interfering with thinking indicator
-                # print(f"❌ Error executing query: {e}")
+                # Log detailed error to stderr for debugging
+                import sys
+                print(f"🔍 DEBUG: Tool execution error: {e}", file=sys.stderr)
+                print(f"🔍 DEBUG: Full traceback:\n{full_traceback}", file=sys.stderr)
+                
+                log_to_file(f"🔄 INNER EXCEPTION returning: {error_result}")
                 return error_result
                 
         except Exception as e:
             error_result = f"Error executing query: {str(e)}"
+            full_traceback = traceback.format_exc()
             
-            # Display tool result in real-time if we have unified display
+            log_to_file(f"❌ OUTER EXCEPTION in tool execution: {type(e).__name__}: {e}")
+            log_to_file(f"❌ OUTER EXCEPTION traceback:\n{full_traceback}")
+            
+            # Display detailed tool error in real-time if we have unified display
             if self._unified_display:
                 self._unified_display.display_impl.display_tool_result("Query Error", str(e))
+                # Also display the full error details as a system message
+                self._unified_display.display_impl.display_system_message(f"Tool Execution Error Details:\n{full_traceback}", "red")
+                log_to_file("✅ Displayed outer exception to unified display")
+            else:
+                log_to_file("❌ No unified display available for outer exception")
             
-            # Suppress error output to avoid interfering with thinking indicator
-            # print(f"💥 Query execution error: {str(e)}")
+            # Log detailed error to stderr for debugging
+            import sys
+            print(f"🔍 DEBUG: Tool execution error: {e}", file=sys.stderr)
+            print(f"🔍 DEBUG: Full traceback:\n{full_traceback}", file=sys.stderr)
+            
+            log_to_file(f"🔄 OUTER EXCEPTION returning: {error_result}")
             return error_result
     
     async def _arun(self, query: str) -> str:

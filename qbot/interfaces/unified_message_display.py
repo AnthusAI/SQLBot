@@ -9,7 +9,15 @@ consistent user experience.
 from typing import List, Optional, Callable, Protocol, Any
 from rich.console import Console
 from rich.text import Text
+from rich.panel import Panel
+from rich.console import Group
 from qbot.interfaces.message_formatter import MessageSymbols, format_llm_response
+from qbot.interfaces.theme_system import get_theme_manager
+from qbot.interfaces.textual_themes import QBOT_RICH_THEMES
+from qbot.interfaces.message_widgets import (
+    UserMessageWidget, AIMessageWidget, SystemMessageWidget, 
+    ErrorMessageWidget, ToolCallWidget, ToolResultWidget, ThinkingIndicatorWidget
+)
 
 
 class MessageDisplayProtocol(Protocol):
@@ -149,25 +157,49 @@ class CLIMessageDisplay:
         self.last_was_prompt = False
         self.thinking_shown = False
         self._lines_since_thinking = 0
+        self._apply_rich_theme()
     
     def set_interactive_mode(self, interactive: bool = True):
         """Set whether we're in interactive mode (for prompt overwriting)"""
         self.interactive_mode = interactive
     
+    def _apply_rich_theme(self):
+        """Apply Rich theme to console based on current theme manager"""
+        theme_manager = get_theme_manager()
+        theme_name_map = {
+            "DARK": "dark",
+            "LIGHT": "light", 
+            "MONOKAI": "monokai"
+        }
+        
+        current_theme_name = theme_manager.current_mode.name
+        rich_theme_name = theme_name_map.get(current_theme_name, "dark")
+        rich_theme = QBOT_RICH_THEMES[rich_theme_name]
+        
+        # Create new console with theme
+        from rich.console import Console
+        self.console = Console(theme=rich_theme)
+    
     def mark_prompt_shown(self):
         """Mark that a prompt was just shown (for overwriting)"""
         self.last_was_prompt = True
     
+    def show_user_prompt(self, prompt_text: str = "> ") -> None:
+        """Show user input prompt with theme styling"""
+        prompt_message = f"[user_prompt]{prompt_text}[/user_prompt]"
+        self.console.print(prompt_message, end="")
+        self.mark_prompt_shown()
+    
     def show_thinking_indicator(self, message: str = "...") -> None:
         """Show thinking indicator that can be overwritten later"""
-        thinking_message = f"[dim]{MessageSymbols.AI_THINKING} {message}[/dim]"
+        thinking_message = f"[thinking]{MessageSymbols.AI_THINKING} {message}[/thinking]"
         self.console.print(thinking_message)
         self.thinking_shown = True
         self._lines_since_thinking = 0  # Reset counter
     
     def display_user_message(self, message: str) -> None:
         """Display a user message in CLI"""
-        styled_message = f"[bold dodger_blue2]{MessageSymbols.USER_MESSAGE} {message}[/bold dodger_blue2]"
+        styled_message = f"[user_message][user_symbol]{MessageSymbols.USER_MESSAGE}[/user_symbol] {message}[/user_message]"
         
         # In interactive mode, overwrite the prompt line if it was just shown
         if self.interactive_mode and self.last_was_prompt:
@@ -184,7 +216,15 @@ class CLIMessageDisplay:
     
     def display_ai_message(self, message: str) -> None:
         """Display an AI response message in CLI"""
-        formatted_response = format_llm_response(message)
+        # Apply message formatting first
+        pre_formatted = format_llm_response(message)
+        # Extract content after symbol if present
+        if pre_formatted.startswith(MessageSymbols.AI_RESPONSE):
+            content = pre_formatted[len(MessageSymbols.AI_RESPONSE):].strip()
+        else:
+            content = message
+        
+        formatted_response = f"[ai_response][ai_symbol]{MessageSymbols.AI_RESPONSE}[/ai_symbol] {content}[/ai_response]"
         
         # If thinking indicator was shown, overwrite it
         if self.thinking_shown:
@@ -198,25 +238,25 @@ class CLIMessageDisplay:
         else:
             self.console.print(formatted_response)
     
-    def display_system_message(self, message: str, style: str = "cyan") -> None:
+    def display_system_message(self, message: str, style: str = "system_message") -> None:
         """Display a system message in CLI"""
-        styled_message = f"[{style}]{MessageSymbols.SYSTEM} {message}[/{style}]"
+        styled_message = f"[system_message][system_symbol]{MessageSymbols.SYSTEM}[/system_symbol] {message}[/system_message]"
         self.console.print(styled_message)
     
     def display_error_message(self, message: str) -> None:
         """Display an error message in CLI"""
-        styled_message = f"[red]{MessageSymbols.ERROR} {message}[/red]"
+        styled_message = f"[error_message][error_symbol]{MessageSymbols.ERROR}[/error_symbol] {message}[/error_message]"
         self.console.print(styled_message)
     
     def display_tool_call(self, tool_name: str, description: str = "") -> None:
         """Display a tool call in CLI"""
         display_text = f"{tool_name}: {description}" if description else f"Calling {tool_name}..."
-        styled_message = f"[cyan]{MessageSymbols.TOOL_CALL} {display_text}[/cyan]"
+        styled_message = f"[tool_call][tool_call_symbol]{MessageSymbols.TOOL_CALL}[/tool_call_symbol] {display_text}[/tool_call]"
         self.console.print(styled_message)
     
     def display_tool_result(self, tool_name: str, result_summary: str) -> None:
         """Display a tool result in CLI"""
-        styled_message = f"[green]{MessageSymbols.TOOL_RESULT} {tool_name} → {result_summary}[/green]"
+        styled_message = f"[tool_result][tool_result_symbol]{MessageSymbols.TOOL_RESULT}[/tool_result_symbol] {tool_name} → {result_summary}[/tool_result]"
         self.console.print(styled_message)
     
     def clear_display(self) -> None:
@@ -232,132 +272,189 @@ class TextualMessageDisplay:
         self.conversation_widget = conversation_widget
         self.thinking_shown = False
         self._display_messages = []  # Track messages for rebuilding
+        self._current_thinking_widget = None  # Track current thinking widget
+    
+    def show_user_prompt(self, prompt_text: str = "> ") -> None:
+        """Show user input prompt with theme styling (Textual version)"""
+        # In Textual, prompts are typically handled by Input widgets
+        # This is for completeness if needed in the future
+        prompt_message = f"[user-prompt]{prompt_text}[/user-prompt]"
+        self.conversation_widget.conversation_log.write(prompt_message)
     
     def show_thinking_indicator(self, message: str = "...") -> None:
-        """Show thinking indicator that can be overwritten later"""
-        thinking_message = f"[dim]{MessageSymbols.AI_THINKING} {message}[/dim]"
+        """Mount animated ThinkingIndicatorWidget to conversation widget"""
+        thinking_widget = ThinkingIndicatorWidget()
+        self.conversation_widget.mount(thinking_widget)
+        # Store reference for removal when AI responds
+        self._current_thinking_widget = thinking_widget
+        self.conversation_widget.scroll_end()
         
-        # Add to our tracked messages as a special thinking indicator
-        self._display_messages.append(("thinking", thinking_message))
+        # Track for theme rebuilding (store original message, not styled)
+        self._display_messages.append(("thinking", message))
         
-        self.conversation_widget.conversation_log.write(thinking_message)
         self.conversation_widget.scroll_end()
         self.thinking_shown = True
     
     def display_user_message(self, message: str) -> None:
-        """Display a user message in Textual"""
-        from qbot.interfaces.textual_app import MessageStyle
-        styled_message = f"[{MessageStyle.USER_INPUT}]{MessageSymbols.USER_MESSAGE} {message}[/{MessageStyle.USER_INPUT}]"
+        """Display a user message by mounting a UserMessageWidget"""
+        # Create and mount user message widget
+        user_widget = UserMessageWidget(message)
+        self.conversation_widget.mount(user_widget)
         
-        # Track this message
-        self._display_messages.append(("user", styled_message))
+        # Track for theme rebuilding (store original message, not styled)
+        self._display_messages.append(("user", message))
         
-        self.conversation_widget.conversation_log.write(styled_message)
         self.conversation_widget.scroll_end()
     
     def display_ai_message(self, message: str) -> None:
-        """Display an AI response message in Textual"""
-        from qbot.interfaces.textual_app import MessageStyle
+        """Display an AI response message by mounting an AIMessageWidget"""
         formatted_response = format_llm_response(message)
         
-        # If thinking indicator was shown, just mark it as no longer shown
-        # We can't easily remove it from RichLog, but the AI response will follow it
-        if self.thinking_shown:
-            # Remove the thinking indicator from our tracked messages
-            self._display_messages = [msg for msg in self._display_messages if msg[0] != "thinking"]
+        # If thinking indicator was shown, remove it
+        if self.thinking_shown and self._current_thinking_widget:
+            try:
+                self._current_thinking_widget.remove()
+            except:
+                pass  # Widget might already be removed
+            self._current_thinking_widget = None
             self.thinking_shown = False
         
-        # Apply Rich styling to the formatted response
+        # Handle tool calls vs regular AI responses
         if formatted_response.startswith(MessageSymbols.TOOL_CALL):
-            styled_message = f"[{MessageStyle.INFO}]{formatted_response}[/{MessageStyle.INFO}]"
+            # This is a tool call - create a tool call widget
+            tool_widget = ToolCallWidget("Tool Call", formatted_response)
+            self.conversation_widget.mount(tool_widget)
         else:
-            # Apply markdown formatting to AI responses
+            # Regular AI response - create AI message widget
+            # Extract content - keep it simple
             response_text = formatted_response[2:] if formatted_response.startswith(MessageSymbols.AI_RESPONSE) else formatted_response
-            formatted_content = self._format_ai_response_with_markdown(response_text)
-            styled_message = f"[{MessageStyle.LLM_RESPONSE}]{MessageSymbols.AI_RESPONSE} {formatted_content}[/{MessageStyle.LLM_RESPONSE}]"
+            ai_widget = AIMessageWidget(response_text)
+            self.conversation_widget.mount(ai_widget)
         
-        # Track this AI message
-        self._display_messages.append(("ai", styled_message))
+        # Track for theme rebuilding (store original message, not styled)
+        self._display_messages.append(("ai", message))
         
-        # Use Rich Console with width constraint to force wrapping
-        from rich.console import Console
-        from rich.text import Text
-        from io import StringIO
-        
-        # Create a console with limited width to force wrapping
-        string_buffer = StringIO()
-        console = Console(file=string_buffer, width=70, force_terminal=True)
-        
-        # Create Rich Text object and render it with wrapping
-        text_obj = Text.from_markup(styled_message)
-        console.print(text_obj)
-        
-        # Get the wrapped output
-        wrapped_output = string_buffer.getvalue().rstrip('\n')
-        
-        # Write the wrapped text to the log
-        self.conversation_widget.conversation_log.write(wrapped_output)
         self.conversation_widget.scroll_end()
     
     def _format_ai_response_with_markdown(self, content: str) -> str:
-        """Format AI response content with markdown styling"""
+        """Format AI response content with markdown styling using Textual design tokens"""
         import re
         
+        # Process in order to avoid conflicts
+        
+        # Code blocks (inline) - process first to avoid conflicts with other formatting
+        content = re.sub(r'`([^`]+)`', r'[code-inline]\1[/code-inline]', content)
+        
         # Bold text
-        content = re.sub(r'\*\*(.*?)\*\*', r'[bold]\1[/bold]', content)
+        content = re.sub(r'\*\*([^*]+)\*\*', r'[bold]\1[/bold]', content)
         
-        # Italic text
-        content = re.sub(r'\*(.*?)\*', r'[italic]\1[/italic]', content)
+        # Italic text (avoid already processed bold text)
+        content = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', r'[italic]\1[/italic]', content)
         
-        # Code blocks (inline)
-        content = re.sub(r'`(.*?)`', r'[dim cyan]\1[/dim cyan]', content)
+        # Headers (simple approach)
+        content = re.sub(r'^### (.+)$', r'[$heading-3 bold]\1[/$heading-3 bold]', content, flags=re.MULTILINE)
+        content = re.sub(r'^## (.+)$', r'[$heading-2 bold]\1[/$heading-2 bold]', content, flags=re.MULTILINE)
+        content = re.sub(r'^# (.+)$', r'[$heading-1 bold]\1[/$heading-1 bold]', content, flags=re.MULTILINE)
         
         return content
     
-    def display_system_message(self, message: str, style: str = "cyan") -> None:
-        """Display a system message in Textual"""
-        styled_message = f"[{style}]{MessageSymbols.SYSTEM} {message}[/{style}]"
+    def display_system_message(self, message: str, style: str = "system_message") -> None:
+        """Display a system message by mounting a SystemMessageWidget"""
+        # Create and mount system message widget
+        system_widget = SystemMessageWidget(message)
+        self.conversation_widget.mount(system_widget)
         
-        # Track this message
-        self._display_messages.append(("system", styled_message))
+        # Track for theme rebuilding (store original message, not styled)
+        self._display_messages.append(("system", message))
         
-        self.conversation_widget.conversation_log.write(styled_message)
         self.conversation_widget.scroll_end()
     
     def display_error_message(self, message: str) -> None:
-        """Display an error message in Textual"""
-        from qbot.interfaces.textual_app import MessageStyle
-        styled_message = f"[{MessageStyle.ERROR}]{MessageSymbols.ERROR} {message}[/{MessageStyle.ERROR}]"
+        """Display an error message by mounting an ErrorMessageWidget"""
+        # Create and mount error message widget
+        error_widget = ErrorMessageWidget(message)
+        self.conversation_widget.mount(error_widget)
         
-        # Track this message
-        self._display_messages.append(("error", styled_message))
+        # Track for theme rebuilding (store original message, not styled)
+        self._display_messages.append(("error", message))
         
-        self.conversation_widget.conversation_log.write(styled_message)
         self.conversation_widget.scroll_end()
     
     def display_tool_call(self, tool_name: str, description: str = "") -> None:
-        """Display a tool call in Textual"""
-        from qbot.interfaces.textual_app import MessageStyle
-        display_text = f"{tool_name}: {description}" if description else f"Calling {tool_name}..."
-        styled_message = f"[{MessageStyle.INFO}]{MessageSymbols.TOOL_CALL} {display_text}[/{MessageStyle.INFO}]"
+        """Display a tool call by mounting a ToolCallWidget"""
+        # Create and mount tool call widget
+        tool_call_widget = ToolCallWidget(tool_name, description)
+        self.conversation_widget.mount(tool_call_widget)
         
-        # Track this message so it survives display rebuilds
-        self._display_messages.append(("tool_call", styled_message))
+        # Track for theme rebuilding (store original data, not styled)
+        self._display_messages.append(("tool_call", (tool_name, description)))
         
-        self.conversation_widget.conversation_log.write(styled_message)
         self.conversation_widget.scroll_end()
     
     def display_tool_result(self, tool_name: str, result_summary: str) -> None:
-        """Display a tool result in Textual"""
-        from qbot.interfaces.textual_app import MessageStyle
-        styled_message = f"[{MessageStyle.SUCCESS}]{MessageSymbols.TOOL_RESULT} {tool_name} → {result_summary}[/{MessageStyle.SUCCESS}]"
+        """Display a tool result by mounting a ToolResultWidget"""
+        # Create and mount tool result widget
+        tool_result_widget = ToolResultWidget(tool_name, result_summary)
+        self.conversation_widget.mount(tool_result_widget)
         
-        # Track this message so it survives display rebuilds
-        self._display_messages.append(("tool_result", styled_message))
+        # Track for theme rebuilding (store original data, not styled)
+        self._display_messages.append(("tool_result", (tool_name, result_summary)))
         
-        self.conversation_widget.conversation_log.write(styled_message)
         self.conversation_widget.scroll_end()
     
     def clear_display(self) -> None:
-        """Clear the Textual display"""
-        self.conversation_widget.conversation_log.clear()
+        """Clear the Textual display by removing all child widgets"""
+        # Remove all child widgets from the conversation widget
+        for child in list(self.conversation_widget.children):
+            child.remove()
+        self._display_messages = []
+        self._current_thinking_widget = None
+    
+    # Rebuild method moved to widget level to prevent duplication issues
+    
+    # Manual wrapping method removed - RichLog handles this automatically now
+    
+    # Content extraction method removed - we now store original content directly
+    
+    def _render_user_message_without_tracking(self, message: str) -> None:
+        """Render user message without adding to tracking (for theme rebuilds)"""
+        user_widget = UserMessageWidget(message)
+        self.conversation_widget.mount(user_widget)
+    
+    def _render_ai_message_without_tracking(self, message: str) -> None:
+        """Render AI message without adding to tracking (for theme rebuilds)"""
+        formatted_response = format_llm_response(message)
+        
+        if formatted_response.startswith(MessageSymbols.TOOL_CALL):
+            tool_widget = ToolCallWidget("Tool Call", formatted_response)
+            self.conversation_widget.mount(tool_widget)
+        else:
+            response_text = formatted_response[2:] if formatted_response.startswith(MessageSymbols.AI_RESPONSE) else formatted_response
+            ai_widget = AIMessageWidget(response_text)
+            self.conversation_widget.mount(ai_widget)
+    
+    def _render_system_message_without_tracking(self, message: str) -> None:
+        """Render system message without adding to tracking (for theme rebuilds)"""
+        system_widget = SystemMessageWidget(message)
+        self.conversation_widget.mount(system_widget)
+    
+    def _render_error_message_without_tracking(self, message: str) -> None:
+        """Render error message without adding to tracking (for theme rebuilds)"""
+        error_widget = ErrorMessageWidget(message)
+        self.conversation_widget.mount(error_widget)
+    
+    def _render_tool_call_without_tracking(self, tool_name: str, description: str = "") -> None:
+        """Render tool call without adding to tracking (for theme rebuilds)"""
+        tool_call_widget = ToolCallWidget(tool_name, description)
+        self.conversation_widget.mount(tool_call_widget)
+    
+    def _render_tool_result_without_tracking(self, tool_name: str, result_summary: str) -> None:
+        """Render tool result without adding to tracking (for theme rebuilds)"""
+        tool_result_widget = ToolResultWidget(tool_name, result_summary)
+        self.conversation_widget.mount(tool_result_widget)
+    
+    def _render_thinking_without_tracking(self, message: str = "...") -> None:
+        """Render thinking indicator without adding to tracking (for theme rebuilds)"""
+        thinking_widget = ThinkingIndicatorWidget()
+        self.conversation_widget.mount(thinking_widget)
+    

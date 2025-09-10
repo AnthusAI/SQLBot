@@ -9,11 +9,13 @@ from typing import Optional, List
 import time
 import sys
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical, ScrollableContainer
+from textual.containers import Horizontal, Vertical, ScrollableContainer, VerticalScroll
 from textual.widgets import Header, Footer, Input, RichLog, Static
+from textual.geometry import Size
 from textual.reactive import reactive
 from textual.message import Message
 from textual.command import Command, CommandPalette, Provider
+from textual import events
 from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
@@ -27,28 +29,55 @@ from qbot.interfaces.repl.commands import CommandHandler
 from qbot.interfaces.textual_widgets import EnhancedDetailViewWidget
 from qbot.interfaces.shared_session import QBotSession
 from qbot.interfaces.message_formatter import MessageSymbols
+from qbot.interfaces.theme_system import get_theme_manager, ThemeMode
+from qbot.interfaces.textual_themes import QBOT_THEMES
+
+
+    
 
 
 class ConversationHistoryWidget(ScrollableContainer):
-    """Widget for displaying conversation history using unified display system"""
+    """Widget for displaying conversation history where everything scrolls together"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.conversation_log = RichLog(highlight=True, markup=True, wrap=True, auto_scroll=True)
-        self.conversation_log.can_focus = False
         
+        # No RichLog needed - we mount widgets directly to this ScrollableContainer
         # Initialize unified message display system
         self.memory_manager = None
         self.unified_display = None
-        self._welcome_message = None
+        self._welcome_message_content = None  # Store welcome message for rebuilds
+        self._welcome_widget = None  # Store welcome widget for rebuilds
+        
+        # Track content for potential re-wrapping on resize
+        self._last_width = 0
     
     def compose(self) -> ComposeResult:
-        """Compose the conversation history widget"""
-        yield self.conversation_log
+        """Compose - no child widgets needed, we mount them dynamically"""
+        # No static children - all message widgets are mounted dynamically
+        return []
     
     def scroll_end(self):
         """Scroll to the end of the conversation"""
-        self.conversation_log.scroll_end()
+        # Scroll the ScrollableContainer itself to the end
+        self.scroll_to(y=self.max_scroll_y)
+    
+    def show_welcome_message(self, banner_text: str):
+        """Show welcome message as a Static widget with Rich markup"""
+        # Format as markdown-style welcome message that wraps naturally
+        welcome_content = f"""{banner_text}
+
+"""
+        
+        # Store the welcome content for rebuilds
+        self._welcome_message_content = welcome_content
+        
+        # Create and mount a Static widget with the welcome content
+        welcome_widget = Static(welcome_content)
+        welcome_widget.add_class("welcome-message")
+        self.mount(welcome_widget)
+        self._welcome_widget = welcome_widget
+        self.scroll_end()
     
     def set_memory_manager(self, memory_manager):
         """Set the memory manager and initialize unified display"""
@@ -75,25 +104,11 @@ class ConversationHistoryWidget(ScrollableContainer):
     
     def add_system_message(self, message: str, style: str = "cyan") -> None:
         """Add a system message to the conversation"""
-        if self.unified_display:
-            self.unified_display.add_system_message(message, style)
-        else:
-            # Fallback for when unified display isn't set up yet
-            styled_message = f"[{style}]{MessageSymbols.SYSTEM} {message}[/{style}]"
-            if self._welcome_message is None:
-                self._welcome_message = styled_message
-            self.conversation_log.write(styled_message)
-            self.scroll_end()
+        self.unified_display.add_system_message(message, style)
     
     def add_error_message(self, message: str) -> None:
         """Add an error message to the conversation"""
-        if self.unified_display:
-            self.unified_display.add_error_message(message)
-        else:
-            # Fallback for when unified display isn't set up yet
-            styled_message = f"[red]{MessageSymbols.ERROR} {message}[/red]"
-            self.conversation_log.write(styled_message)
-            self.scroll_end()
+        self.unified_display.add_error_message(message)
     
     def add_live_tool_call(self, tool_call_id: str, tool_name: str, description: str = "") -> None:
         """Add a live tool call indicator"""
@@ -107,33 +122,95 @@ class ConversationHistoryWidget(ScrollableContainer):
     
     def add_query_result(self, result_text: str) -> None:
         """Add query result to the conversation display"""
-        # Parse and format the result with proper styling
-        lines = result_text.split('\n')
-        for line in lines:
-            if line.strip():
-                self.conversation_log.write(line)
+        # Create a static widget for the query result
+        result_widget = Static(result_text)
+        result_widget.add_class("query-result")
+        self.mount(result_widget)
         self.scroll_end()
     
     def clear_history(self) -> None:
         """Clear the conversation history display"""
-        self.conversation_log.clear()
+        # Remove all child widgets
+        for child in list(self.children):
+            child.remove()
         if self.unified_display:
             self.unified_display.clear_display()
     
+    def rebuild_display_with_theme(self) -> None:
+        """Rebuild the conversation display with current theme colors"""
+        if not self.unified_display:
+            return
+            
+        # Get the current messages before clearing
+        temp_messages = self.unified_display.display_impl._display_messages.copy()
+        
+        # Clear all child widgets
+        for child in list(self.children):
+            child.remove()
+        
+        # Restore welcome message if it exists
+        if self._welcome_message_content:
+            welcome_widget = Static(self._welcome_message_content)
+            welcome_widget.add_class("welcome-message")
+            self.mount(welcome_widget)
+            self._welcome_widget = welcome_widget
+        
+        # Clear the message tracking to prevent duplicates
+        self.unified_display.display_impl._display_messages = []
+        
+        # Re-render all messages without tracking (to prevent duplicates)
+        for message_type, original_content in temp_messages:
+            if message_type == "user":
+                self.unified_display.display_impl._render_user_message_without_tracking(original_content)
+            elif message_type == "ai":
+                self.unified_display.display_impl._render_ai_message_without_tracking(original_content)
+            elif message_type == "system":
+                self.unified_display.display_impl._render_system_message_without_tracking(original_content)
+            elif message_type == "error":
+                self.unified_display.display_impl._render_error_message_without_tracking(original_content)
+            elif message_type == "tool_call":
+                tool_name, description = original_content
+                self.unified_display.display_impl._render_tool_call_without_tracking(tool_name, description)
+            elif message_type == "tool_result":
+                tool_name, result_summary = original_content
+                self.unified_display.display_impl._render_tool_result_without_tracking(tool_name, result_summary)
+            elif message_type == "thinking":
+                self.unified_display.display_impl._render_thinking_without_tracking(original_content)
+        
+        # Restore the message tracking
+        self.unified_display.display_impl._display_messages = temp_messages
+        
+        # Scroll to end
+        self.scroll_end()
+    
+    def on_resize(self, event) -> None:
+        """Handle widget resize by reflowing content"""
+        # Check if width changed significantly 
+        current_width = self.size.width if self.size else 0
+        if abs(current_width - self._last_width) > 5:  # Only reflow on significant changes
+            self._last_width = current_width
+            # Trigger content reflow using our widget-level rebuild method
+            self.rebuild_display_with_theme()
+    
     def _format_ai_response_with_markdown(self, content: str) -> str:
         """Format AI response content with markdown styling"""
-        # Simple markdown formatting for AI responses
-        # This is a placeholder - you might want to use a proper markdown parser
         import re
         
+        # Process in order to avoid conflicts
+        
+        # Code blocks (inline) - process first to avoid conflicts with other formatting
+        content = re.sub(r'`([^`]+)`', r'[dim cyan]\1[/dim cyan]', content)
+        
         # Bold text
-        content = re.sub(r'\*\*(.*?)\*\*', r'[bold]\1[/bold]', content)
+        content = re.sub(r'\*\*([^*]+)\*\*', r'[bold]\1[/bold]', content)
         
-        # Italic text
-        content = re.sub(r'\*(.*?)\*', r'[italic]\1[/italic]', content)
+        # Italic text (avoid already processed bold text)
+        content = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', r'[italic]\1[/italic]', content)
         
-        # Code blocks (inline)
-        content = re.sub(r'`(.*?)`', r'[dim cyan]\1[/dim cyan]', content)
+        # Headers (simple approach)
+        content = re.sub(r'^### (.+)$', r'[bold cyan]\1[/bold cyan]', content, flags=re.MULTILINE)
+        content = re.sub(r'^## (.+)$', r'[bold magenta]\1[/bold magenta]', content, flags=re.MULTILINE)
+        content = re.sub(r'^# (.+)$', r'[bold yellow]\1[/bold yellow]', content, flags=re.MULTILINE)
         
         return content
 
@@ -177,6 +254,47 @@ class QBotCommandProvider(Provider):
                 )
             )
         
+        if "theme" in query.lower() or "color" in query.lower() or any(t in query.lower() for t in ["dark", "light", "tokyo", "catppuccin", "dracula", "gruvbox", "nord", "monokai"]):
+            # Add popular built-in themes to command palette
+            commands.extend([
+                Command(
+                    "theme-qbot",
+                    "QBot Theme (Tokyo Night)",
+                    "Switch to default QBot theme (Tokyo Night)",
+                    lambda: self.change_theme(ThemeMode.QBOT)
+                ),
+                Command(
+                    "theme-tokyo-night",
+                    "Tokyo Night Theme",
+                    "Switch to Tokyo Night theme",
+                    lambda: self.change_theme(ThemeMode.TOKYO_NIGHT)
+                ),
+                Command(
+                    "theme-catppuccin-mocha",
+                    "Catppuccin Mocha Theme",
+                    "Switch to Catppuccin Mocha theme",
+                    lambda: self.change_theme(ThemeMode.CATPPUCCIN_MOCHA)
+                ),
+                Command(
+                    "theme-dracula",
+                    "Dracula Theme",
+                    "Switch to Dracula theme",
+                    lambda: self.change_theme(ThemeMode.DRACULA)
+                ),
+                Command(
+                    "theme-gruvbox",
+                    "Gruvbox Theme",
+                    "Switch to Gruvbox theme",
+                    lambda: self.change_theme(ThemeMode.GRUVBOX)
+                ),
+                Command(
+                    "theme-nord",
+                    "Nord Theme",
+                    "Switch to Nord theme",
+                    lambda: self.change_theme(ThemeMode.NORD)
+                )
+            ])
+        
         return commands
     
     async def show_query_results(self) -> None:
@@ -190,6 +308,11 @@ class QBotCommandProvider(Provider):
         if self.app and self.app.detail_widget:
             self.app.detail_widget.switch_to_conversation_debug()
             self.app.notify("Switched to Conversation Debug view", severity="information")
+    
+    async def change_theme(self, theme_mode: ThemeMode) -> None:
+        """Change the app theme"""
+        if self.app:
+            self.app.set_theme(theme_mode)
 
 
 class QueryInput(Input):
@@ -210,6 +333,12 @@ class QBotTextualApp(App):
         layout: vertical;
     }
     
+    Header {
+        background: #5c0077;
+        color: #cccccc;
+        text-style: bold;
+    }
+    
     #main-container {
         layout: horizontal;
         height: 1fr;
@@ -217,48 +346,84 @@ class QBotTextualApp(App):
     
     #conversation-panel {
         width: 1fr;
-        border: solid $primary;
-        margin: 1;
+        height: 1fr;
+        border: heavy $primary;
     }
     
     #detail-panel {
         width: 2fr;
-        border: solid $secondary;
-        margin: 1;
+        height: 1fr;
+        border: heavy $secondary;
     }
     
     #query-input {
         height: 3;
         dock: bottom;
-        margin: 1;
-        border: solid $accent;
+        border: heavy $qbot-user-message;
         background: $surface;
+        color: $qbot-user-message;
     }
     
     ConversationHistoryWidget {
         scrollbar-gutter: stable;
+        height: 1fr;
     }
     
     RichLog {
         background: $surface;
         color: $text;
+        text-wrap: wrap;
+        min-width: 13;
+    }
+    
+    /* Ensure right panel widgets don't overflow */
+    #detail-panel > * {
+        height: 1fr;
+        overflow-y: auto;
+    }
+    
+    .thinking-indicator {
+        height: 1;
+        width: auto;
+        margin: 1 0;
+        color: #ff00ff;
+        background: transparent;
+    }
+    
+    .thinking-indicator LoadingIndicator {
+        color: #ff00ff;
+    }
+    
+    LoadingIndicator.loading-indicator {
+        color: #ff00ff;
     }
     """
     
-    TITLE = "QBot - Database Query Assistant"
-    SUB_TITLE = "Natural Language & SQL Interface"
+    TITLE = "✦ QBot - Database Query Assistant"
+    SUB_TITLE = ""
     
-    # Enable command palette
-    COMMANDS = {QBotCommandProvider}
+    # Command palette disabled - using text input widget instead
+    # COMMANDS = {QBotCommandProvider}
     
-    def __init__(self, agent: QBotAgent, initial_query: Optional[str] = None, **kwargs):
+    def __init__(self, agent: QBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.QBOT, **kwargs):
+        # Initialize theme manager BEFORE calling super().__init__() 
+        # because get_css_variables() is called during parent initialization
+        self.theme_manager = get_theme_manager()
+        self.theme_manager.set_theme(theme_mode)
+        self.current_theme_mode = theme_mode
+        
+        # Now call parent init which will call get_css_variables()
         super().__init__(**kwargs)
+        
+        # Set the Textual built-in theme (this must be done after super().__init__)
+        if self.theme_manager.is_builtin_theme:
+            self.theme = self.theme_manager.get_textual_theme_name()
+        
         self.agent = agent
         self.memory_manager = ConversationMemoryManager()
         self.formatter = ResultFormatter()
         self.command_handler = CommandHandler(agent, self.formatter)
         self.initial_query = initial_query
-    
         
         # Add global exception handler
         import sys
@@ -293,9 +458,33 @@ class QBotTextualApp(App):
         if self.conversation_widget and hasattr(self.conversation_widget, 'unified_display'):
             self.session.set_unified_display(self.conversation_widget.unified_display)
     
+    def get_css_variables(self) -> dict[str, str]:
+        """Get CSS variables for theming - adds QBot message colors on top of Textual themes"""
+        theme_vars = {}
+        if hasattr(self, 'theme_manager') and self.theme_manager:
+            theme_vars = self.theme_manager.get_css_variables()
+        
+        return {**super().get_css_variables(), **theme_vars}
+    
+    def set_theme(self, theme_mode: ThemeMode):
+        """Change the app theme using new hybrid architecture"""
+        # Update theme manager 
+        self.theme_manager.set_theme(theme_mode)
+        self.current_theme_mode = theme_mode
+        
+        # Set Textual's built-in theme if it's a built-in theme
+        if self.theme_manager.is_builtin_theme:
+            self.theme = self.theme_manager.get_textual_theme_name()
+        
+        # Refresh CSS with new variables (for both built-in and user themes)
+        self.refresh_css(animate=False)
+        self.screen._update_styles()
+        
+        self.notify(f"Theme changed to {theme_mode.value}", severity="information")
+    
     def compose(self) -> ComposeResult:
         """Compose the main application layout"""
-        yield Header()
+        yield Header(show_clock=False)
         
         # Main content area
         with Horizontal(id="main-container"):
@@ -309,12 +498,91 @@ class QBotTextualApp(App):
         # Input area at bottom
         self.query_input = QueryInput(id="query-input")
         yield self.query_input
-        
-        yield Footer()
+    
+    def on_key(self, event: events.Key) -> None:
+        """Handle key events - ensure input widget always gets typed input"""
+        # For ANY printable key, make sure the input widget has focus
+        if (hasattr(self, 'set_focus_on_key') and self.set_focus_on_key and 
+            self.query_input and event.is_printable and not event.key.startswith('ctrl+')):
+            
+            # Always focus the input widget for printable characters
+            if not self.query_input.has_focus:
+                self.query_input.focus()
+                # Move cursor to end to avoid selecting all text
+                self.call_after_refresh(lambda: self.query_input.action_end())
+            
+            # Let the input widget handle the key event
+            # (Textual will automatically route it there after focus)
+    
+    def on_focus(self, event: events.Focus) -> None:
+        """Handle focus events - keep input widget focused"""
+        # If something other than the input widget gets focus, redirect it back
+        if (hasattr(self, 'set_focus_on_key') and self.set_focus_on_key and 
+            self.query_input and event.widget != self.query_input):
+            
+            # Debug logging
+            import os
+            import datetime
+            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"[{timestamp}] TEXTUAL_APP: 🎯 Focus changed to {event.widget.__class__.__name__}, redirecting to input\n")
+                f.flush()
+            
+            # Use call_later to avoid focus conflicts during event processing
+            def refocus_input():
+                if self.query_input:
+                    self.query_input.focus()
+                    # Move cursor to end to avoid selecting all text
+                    self.call_after_refresh(lambda: self.query_input.action_end())
+            self.call_later(refocus_input)
+    
+    def on_blur(self, event: events.Blur) -> None:
+        """Handle blur events - refocus input if it loses focus"""
+        if (hasattr(self, 'set_focus_on_key') and self.set_focus_on_key and 
+            self.query_input and event.widget == self.query_input):
+            
+            # Debug logging
+            import os
+            import datetime
+            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"[{timestamp}] TEXTUAL_APP: ❌ Input widget lost focus, refocusing immediately\n")
+                f.flush()
+            
+            # Immediately refocus the input widget
+            def refocus_input():
+                if self.query_input:
+                    self.query_input.focus()
+                    # Move cursor to end to avoid selecting all text
+                    self.call_after_refresh(lambda: self.query_input.action_end())
+            self.call_later(refocus_input)
+    
+    def _ensure_input_focus(self) -> None:
+        """Periodically ensure the input widget has focus"""
+        if (hasattr(self, 'set_focus_on_key') and self.set_focus_on_key and 
+            self.query_input and not self.query_input.has_focus):
+            
+            # Debug logging
+            import os
+            import datetime
+            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"[{timestamp}] TEXTUAL_APP: 🔄 Timer detected input lost focus, refocusing\n")
+                f.flush()
+            
+            self.query_input.focus()
+            # Move cursor to end to avoid selecting all text
+            self.call_after_refresh(lambda: self.query_input.action_end())
     
     def on_mount(self) -> None:
         """Called when the app is mounted"""
         try:
+            # Initialize theme using ColorSystem approach (no manual theme registration needed)
+            # CSS variables are automatically generated via get_css_variables()
+            
             # Connect memory manager to widgets
             if self.detail_widget:
                 self.detail_widget.set_memory_manager(self.memory_manager)
@@ -322,8 +590,8 @@ class QBotTextualApp(App):
             if self.conversation_widget:
                 self.conversation_widget.set_memory_manager(self.memory_manager)
             
-            # Show welcome message
-            self.show_welcome_message()
+            # Show welcome message after layout is complete and widget is sized
+            self.call_after_refresh(self.show_welcome_message)
             
             # Execute initial query if provided
             if self.initial_query:
@@ -333,6 +601,14 @@ class QBotTextualApp(App):
             if self.query_input:
                 self.query_input.focus()
                 self.query_input.scroll_visible()
+                # Move cursor to end to avoid selecting all text
+                self.call_after_refresh(lambda: self.query_input.action_end())
+                
+            # Set up auto-focus behavior - any key press should focus the input
+            self.set_focus_on_key = True
+            
+            # Start a timer to periodically ensure input widget has focus
+            self.set_interval(0.1, self._ensure_input_focus)
                 
         except Exception as e:
             print(f"❌ Mount error: {e}")
@@ -346,16 +622,13 @@ class QBotTextualApp(App):
             await self.handle_query(self.initial_query)
     
     def show_welcome_message(self) -> None:
-        """Display the welcome message using SAME system as --text mode"""
+        """Display the welcome message with responsive Rich Panel"""
         if not self.conversation_widget:
             print("❌ ERROR: conversation_widget is None in show_welcome_message")
             return
         
         # Create banner using SAME system as --text mode
         from qbot.interfaces.banner import get_banner_content
-        from rich.console import Console
-        from rich.panel import Panel
-        from io import StringIO
         import os
         
         # Get configuration info - SAME as --text mode
@@ -370,16 +643,8 @@ class QBotTextualApp(App):
             interface_type="textual"
         )
         
-        # Render banner using Rich console - SAME as --text mode
-        output_buffer = StringIO()
-        console = Console(file=output_buffer, width=80, legacy_windows=False)
-        panel = Panel(banner_text, border_style="blue", width=80)
-        console.print(panel)
-        
-        # Display the rendered banner in Textual widget
-        rendered_banner = output_buffer.getvalue()
-        self.conversation_widget.conversation_log.write(rendered_banner)
-        self.conversation_widget.scroll_end()
+        # Show welcome message in conversation log
+        self.conversation_widget.show_welcome_message(banner_text)
         self.conversation_widget.refresh()
     
     async def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -442,6 +707,127 @@ class QBotTextualApp(App):
                     f"• Tool messages: {summary['tool_messages']}"
                 )
                 self.conversation_widget.add_system_message(memory_info, "cyan")
+                return
+            elif command.startswith('/theme'):
+                # Handle theme commands with all available themes
+                parts = command.split()
+                if len(parts) == 1:
+                    # Show current theme
+                    current_theme = self.theme_manager.current_mode.value
+                    self.conversation_widget.add_system_message(f"Current theme: {current_theme}", "cyan")
+                    
+                    # Show all available themes (built-in and user)
+                    available_themes = self.theme_manager.get_available_themes()
+                    builtin_themes = [name for name, type_ in available_themes.items() if type_ == "built-in"]
+                    user_themes = [name for name, type_ in available_themes.items() if type_ == "user"]
+                    
+                    if builtin_themes:
+                        self.conversation_widget.add_system_message(f"Built-in themes: {', '.join(builtin_themes)}", "cyan")
+                    if user_themes:
+                        self.conversation_widget.add_system_message(f"User themes: {', '.join(user_themes)}", "green")
+                    self.conversation_widget.add_system_message("Usage: /theme <theme_name>", "cyan")
+                elif len(parts) == 2:
+                    theme_name = parts[1].lower()
+                    
+                    try:
+                        # Try to set theme by name (supports both built-in and user themes)
+                        self.theme_manager.set_theme_by_name(theme_name)
+                        
+                        # Set Textual's built-in theme if it's a built-in theme
+                        if self.theme_manager.is_builtin_theme:
+                            self.theme = self.theme_manager.get_textual_theme_name()
+                        
+                        # Refresh CSS with new variables
+                        self.refresh_css(animate=False)
+                        self.screen._update_styles()
+                        
+                        # IMPORTANT: Refresh existing conversation messages with new theme colors
+                        if self.conversation_widget and hasattr(self.conversation_widget, 'rebuild_display_with_theme'):
+                            import sys
+                            print(f"🔄 DEBUG: Calling rebuild_display_with_theme", file=sys.stderr)
+                            self.conversation_widget.rebuild_display_with_theme()
+                            print(f"🔄 DEBUG: rebuild_display_with_theme completed", file=sys.stderr)
+                        
+                        theme_type = self.theme_manager.get_available_themes().get(theme_name, "unknown")
+                        self.conversation_widget.add_system_message(f"Switched to {theme_type} theme: {theme_name}", "green")
+                        
+                    except ValueError:
+                        self.conversation_widget.add_system_message(f"Unknown theme: {theme_name}", "error")
+                        
+                        # Show available themes
+                        available_themes = self.theme_manager.get_available_themes()
+                        builtin_themes = [name for name, type_ in available_themes.items() if type_ == "built-in"]
+                        user_themes = [name for name, type_ in available_themes.items() if type_ == "user"]
+                        
+                        if builtin_themes:
+                            self.conversation_widget.add_system_message(f"Built-in themes: {', '.join(builtin_themes)}", "cyan")
+                        if user_themes:
+                            self.conversation_widget.add_system_message(f"User themes: {', '.join(user_themes)}", "green")
+                else:
+                    self.conversation_widget.add_system_message("Usage: /theme <theme_name>", "error")
+                return
+            elif command == '/screenshot':
+                # Take SVG screenshot like the command palette did
+                try:
+                    path = self.save_screenshot()
+                    self.conversation_widget.add_system_message(f"Screenshot saved to: {path}", "green")
+                except Exception as e:
+                    self.conversation_widget.add_error_message(f"Screenshot failed: {e}")
+                return
+            elif command == '/debug-theme':
+                # Debug theme system state
+                theme_manager = get_theme_manager()
+                current_theme = theme_manager.current_theme
+                debug_info = f"""Theme Debug Info:
+• Current theme: {theme_manager.current_mode.value}
+• Theme colors: user={current_theme.user_message}, ai={current_theme.ai_response}
+• System={current_theme.system_message}, error={current_theme.error}
+• Conversation widget unified display: {self.conversation_widget.unified_display is not None if self.conversation_widget else False}
+• Display impl type: {type(self.conversation_widget.unified_display.display_impl).__name__ if self.conversation_widget and self.conversation_widget.unified_display else 'None'}
+• Tracked messages: {len(self.conversation_widget.unified_display.display_impl._display_messages) if self.conversation_widget and self.conversation_widget.unified_display and hasattr(self.conversation_widget.unified_display.display_impl, '_display_messages') else 'Unknown'}"""
+                self.conversation_widget.add_system_message(debug_info, "cyan")
+                return
+            elif command == '/quit' or command == '/exit':
+                # Clean exit like command palette quit
+                self.exit()
+                return
+            elif command == '/panel' or command.startswith('/panel '):
+                # Switch right panel view (query results vs conversation debug)
+                parts = command.split()
+                if len(parts) == 1:
+                    self.conversation_widget.add_system_message("Panel switching:", "cyan")
+                    self.conversation_widget.add_system_message("• /panel results - Show query results", "cyan")
+                    self.conversation_widget.add_system_message("• /panel debug - Show conversation debug", "cyan")
+                elif len(parts) == 2:
+                    panel_type = parts[1].lower()
+                    if panel_type in ['results', 'result']:
+                        if self.detail_widget:
+                            self.detail_widget.switch_to_query_results()
+                            self.conversation_widget.add_system_message("Switched to Query Results view", "green")
+                    elif panel_type in ['debug', 'conversation', 'history']:
+                        if self.detail_widget:
+                            self.detail_widget.switch_to_conversation_debug()
+                            self.conversation_widget.add_system_message("Switched to Conversation Debug view", "green")
+                    else:
+                        self.conversation_widget.add_system_message("Unknown panel type. Use: results, debug", "error")
+                return
+            elif command == '/keys' or command == '/help-keys':
+                # Show key bindings (replacement for "Show keys and help panel")
+                help_text = """Key Bindings:
+• Ctrl+C, Ctrl+Q, Escape - Exit application
+• Ctrl+\\ - Command palette (disabled, use slash commands)
+• Enter - Submit query
+• ↑/↓ - Navigate input history
+
+Slash Commands:
+• /help - Show all commands
+• /theme [qbot|tokyo-night|catppuccin-mocha|dracula|gruvbox|nord|monokai|solarized-light|flexoki|etc] - Change theme
+• /screenshot - Save SVG screenshot
+• /panel [results|debug] - Switch right panel view
+• /clear - Clear conversation history
+• /debug-theme - Show theme system debug info
+• /quit, /exit - Exit application"""
+                self.conversation_widget.add_system_message(help_text, "cyan")
                 return
             
             # Use existing command handler for other commands
@@ -567,18 +953,106 @@ class QBotTextualApp(App):
                 # Show thinking indicator
                 print(f"🔍 DEBUG: Showing thinking indicator for LLM query", file=sys.stderr)
                 self.conversation_widget.unified_display.show_thinking_indicator("...")
+                
+                # Force UI refresh to show the thinking indicator before starting LLM
+                self.refresh()
+                # Give a tiny delay to ensure the thinking indicator renders
+                import asyncio
+                await asyncio.sleep(0.1)
+                print(f"🔍 DEBUG: UI refreshed, starting LLM execution", file=sys.stderr)
             
-            # Execute LLM query using session
-            worker = self.run_worker(
-                lambda: self.session.execute_query(query),
-                thread=True
-            )
-            result = await worker.wait()
+            # Execute LLM query with proper async to keep animation running
+            print(f"🔍 DEBUG: Starting async LLM execution", file=sys.stderr)
+            
+            import asyncio
+            import concurrent.futures
+            
+            # Use ThreadPoolExecutor with complete async context and error reporting
+            def execute_query_with_async_context():
+                # Create a complete async context for the thread
+                import asyncio
+                import traceback
+                import os
+                import datetime
+                
+                # Set up logging to tmp file
+                log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
+                os.makedirs(os.path.dirname(log_file), exist_ok=True)
+                
+                def log_to_file(message):
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                    with open(log_file, 'a', encoding='utf-8') as f:
+                        f.write(f"[{timestamp}] TEXTUAL_APP: {message}\n")
+                        f.flush()
+                
+                log_to_file(f"🚀 LLM EXECUTION START: {query[:100]}...")
+                
+                async def async_execute():
+                    try:
+                        log_to_file("✅ About to call self.session.execute_query()")
+                        # This runs in a proper async context
+                        result = self.session.execute_query(query)
+                        log_to_file(f"✅ LLM execution completed, result type: {type(result)}, success: {getattr(result, 'success', 'unknown')}")
+                        return result
+                    except Exception as e:
+                        # Capture detailed error information
+                        error_details = {
+                            'error': str(e),
+                            'type': type(e).__name__,
+                            'traceback': traceback.format_exc()
+                        }
+                        log_to_file(f"❌ LLM execution exception: {type(e).__name__}: {e}")
+                        log_to_file(f"❌ LLM execution traceback:\n{error_details['traceback']}")
+                        print(f"🔍 DEBUG: Detailed error in LLM execution: {error_details}", file=sys.stderr)
+                        # Re-raise with more context
+                        raise Exception(f"LLM execution failed: {type(e).__name__}: {str(e)}") from e
+                
+                # Run the async function in a new event loop
+                log_to_file("✅ Starting asyncio.run()")
+                try:
+                    result = asyncio.run(async_execute())
+                    log_to_file(f"✅ asyncio.run() completed successfully")
+                    return result
+                except Exception as e:
+                    log_to_file(f"❌ asyncio.run() failed: {type(e).__name__}: {e}")
+                    raise
+            
+            # Execute in thread pool to avoid blocking UI
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = loop.run_in_executor(executor, execute_query_with_async_context)
+                
+                # Wait for completion while keeping UI responsive
+                result = await future
+            
+            print(f"🔍 DEBUG: LLM execution completed", file=sys.stderr)
+            
+            # Log result details to file
+            import os
+            import datetime
+            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            with open(log_file, 'a', encoding='utf-8') as f:
+                f.write(f"[{timestamp}] TEXTUAL_APP: 🎯 Processing result for display\n")
+                f.flush()
             
             # Add result to display
             if result and self.conversation_widget:
                 formatted_result = self.session.get_formatted_result(result, "rich")
                 self.conversation_widget.add_ai_message(formatted_result)
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(f"[{timestamp}] TEXTUAL_APP: ✅ Added AI message to conversation widget\n")
+                    f.flush()
+            else:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(f"[{timestamp}] TEXTUAL_APP: ❌ No result or no conversation widget - result: {result is not None}, widget: {self.conversation_widget is not None}\n")
+                    f.flush()
+            
+            # Refocus the input widget after query completion
+            if self.query_input:
+                self.query_input.focus()
+                # Move cursor to end to avoid selecting all text
+                self.call_after_refresh(lambda: self.query_input.action_end())
             
             # Update conversation debug view if active
             if self.detail_widget:
@@ -586,7 +1060,17 @@ class QBotTextualApp(App):
                 
         except Exception as e:
             if self.conversation_widget:
-                self.conversation_widget.add_error_message(f"LLM query failed: {e}")
+                # Show detailed error information in the UI
+                import traceback
+                error_details = f"LLM query failed: {type(e).__name__}: {str(e)}"
+                full_traceback = traceback.format_exc()
+                
+                # Add the main error message
+                self.conversation_widget.add_error_message(error_details)
+                
+                # Add the full traceback as a system message for debugging
+                self.conversation_widget.add_system_message(f"Full error details:\n{full_traceback}", "red")
+                
             print(f"❌ LLM query error: {e}")
             import traceback
             traceback.print_exc()

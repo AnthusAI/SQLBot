@@ -189,20 +189,34 @@ class QBotSession:
                         self._add_processing_step("Processing with LLM", "yellow")
                         self._emit_event(SessionEventType.LLM_THINKING, query=query_text)
                         # Use the working LLM integration with conversation history management
-                        llm_result = self._call_handle_llm_query_safely(query_text)
-                        if llm_result:
-                            result = QueryResult(
-                                success=True,
-                                query_type=QueryType.NATURAL_LANGUAGE,
-                                execution_time=0.0,
-                                data=[{"result": str(llm_result)}]  # Store result in data field
-                            )
-                        else:
+                        try:
+                            llm_result = self._call_handle_llm_query_safely(query_text)
+                            if llm_result:
+                                result = QueryResult(
+                                    success=True,
+                                    query_type=QueryType.NATURAL_LANGUAGE,
+                                    execution_time=0.0,
+                                    data=[{"result": str(llm_result)}]  # Store result in data field
+                                )
+                            else:
+                                result = QueryResult(
+                                    success=False,
+                                    query_type=QueryType.NATURAL_LANGUAGE,
+                                    execution_time=0.0,
+                                    error="No response from LLM"
+                                )
+                        except Exception as llm_error:
+                            # Capture detailed LLM execution errors
+                            import traceback
+                            error_details = f"LLM execution error: {type(llm_error).__name__}: {str(llm_error)}"
+                            full_traceback = traceback.format_exc()
+                            
                             result = QueryResult(
                                 success=False,
                                 query_type=QueryType.NATURAL_LANGUAGE,
                                 execution_time=0.0,
-                                error="No response from LLM"
+                                error=error_details,
+                                raw_output=full_traceback  # Store full traceback for debugging
                             )
                     else:
                         # Fallback to SQL if no LLM

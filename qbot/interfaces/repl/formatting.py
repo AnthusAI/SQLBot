@@ -10,17 +10,39 @@ from rich.text import Text
 from rich.syntax import Syntax
 
 from qbot.core.types import QueryResult, SafetyLevel
+from qbot.interfaces.theme_system import get_theme_manager
 
 
 class MessageStyle:
-    """Rich styling for different message types"""
-    USER_INPUT = "dodger_blue1"
-    LLM_RESPONSE = "magenta2" 
-    DATABASE_LABEL = "violet"
-    ERROR = "red"
-    WARNING = "yellow"
-    SUCCESS = "green"
-    INFO = "cyan"
+    """Rich styling for different message types - now theme-aware"""
+    
+    @property
+    def USER_INPUT(self) -> str:
+        return get_theme_manager().get_color("user_message") or "blue"
+    
+    @property
+    def LLM_RESPONSE(self) -> str:
+        return get_theme_manager().get_color("ai_response") or "magenta"
+    
+    @property
+    def DATABASE_LABEL(self) -> str:
+        return get_theme_manager().get_color("database_label") or "violet"
+    
+    @property
+    def ERROR(self) -> str:
+        return get_theme_manager().get_color("error_message") or "red"
+    
+    @property
+    def WARNING(self) -> str:
+        return get_theme_manager().get_color("warning_message") or "yellow"
+    
+    @property
+    def SUCCESS(self) -> str:
+        return get_theme_manager().get_color("success_message") or "green"
+    
+    @property
+    def INFO(self) -> str:
+        return get_theme_manager().get_color("info_message") or "blue"
 
 
 class ResultFormatter:
@@ -63,9 +85,10 @@ class ResultFormatter:
             return
         
         table = Table(title="Available Tables", show_header=True)
-        table.add_column("Source", style="cyan")
-        table.add_column("Table", style="magenta")
-        table.add_column("Schema", style="blue")
+        theme = get_theme_manager()
+        table.add_column("Source", style=theme.get_color("info_message"))
+        table.add_column("Table", style=theme.get_color("ai_response"))
+        table.add_column("Schema", style=theme.get_color("primary"))
         table.add_column("Description", style="white")
         
         for table_info in tables:
@@ -98,17 +121,21 @@ class ResultFormatter:
         Args:
             text: The user input text
         """
-        self.console.print(f"[{MessageStyle.USER_INPUT}]> {text}[/{MessageStyle.USER_INPUT}]")
+        theme = get_theme_manager()
+        styled = theme.format_user_message(text, ">")
+        self.console.print(styled)
     
-    def format_system_message(self, text: str, style: str = "white"):
+    def format_system_message(self, text: str, style: str = "system_message"):
         """
         Format system message
         
         Args:
             text: The system message
-            style: Rich style to apply
+            style: Theme style name to apply
         """
-        self.console.print(f"[{style}]{text}[/{style}]")
+        theme = get_theme_manager()
+        styled = theme.format_system_message(text, "◦")
+        self.console.print(styled)
     
     def format_error(self, error_text: str):
         """
@@ -117,7 +144,9 @@ class ResultFormatter:
         Args:
             error_text: The error message
         """
-        self.console.print(f"[{MessageStyle.ERROR}]❌ {error_text}[/{MessageStyle.ERROR}]")
+        theme = get_theme_manager()
+        styled = theme.format_error(f"❌ {error_text}", "▪")
+        self.console.print(styled)
     
     def format_warning(self, warning_text: str):
         """
@@ -126,7 +155,9 @@ class ResultFormatter:
         Args:
             warning_text: The warning message
         """
-        self.console.print(f"[{MessageStyle.WARNING}]⚠️  {warning_text}[/{MessageStyle.WARNING}]")
+        theme = get_theme_manager()
+        color = theme.get_color("warning_message")
+        self.console.print(f"[{color}]⚠️  {warning_text}[/{color}]")
     
     def format_success(self, success_text: str):
         """
@@ -135,7 +166,9 @@ class ResultFormatter:
         Args:
             success_text: The success message
         """
-        self.console.print(f"[{MessageStyle.SUCCESS}]✅ {success_text}[/{MessageStyle.SUCCESS}]")
+        theme = get_theme_manager()
+        color = theme.get_color("success_message")
+        self.console.print(f"[{color}]✅ {success_text}[/{color}]")
     
     def _show_safety_analysis(self, safety_analysis):
         """Show safety analysis information"""
@@ -146,9 +179,11 @@ class ResultFormatter:
     
     def _show_compiled_sql(self, compiled_sql: str):
         """Show compiled SQL with syntax highlighting"""
+        theme = get_theme_manager()
+        db_color = theme.get_color("database_label") or "violet"
         self.console.print(Panel(
             Syntax(compiled_sql, "sql", theme="monokai", line_numbers=True),
-            title=f"[{MessageStyle.DATABASE_LABEL}]Compiled SQL[/{MessageStyle.DATABASE_LABEL}]",
+            title=f"[{db_color}]Compiled SQL[/{db_color}]",
             border_style="violet"
         ))
     
@@ -162,7 +197,9 @@ class ResultFormatter:
         if result.row_count is not None:
             info_text += f" • {result.row_count} rows"
         
-        self.console.print(f"[{MessageStyle.INFO}]{info_text}[/{MessageStyle.INFO}]")
+        theme = get_theme_manager()
+        info_color = theme.get_color("info_message") or "blue"
+        self.console.print(f"[{info_color}]{info_text}[/{info_color}]")
     
     def _show_error_result(self, result: QueryResult):
         """Show error result"""
@@ -186,7 +223,9 @@ class ResultFormatter:
             return
         
         # Create Rich table
-        table = Table(show_header=True, header_style="bold magenta")
+        theme = get_theme_manager()
+        header_color = theme.get_color("ai_response")
+        table = Table(show_header=True, header_style=f"bold {header_color}")
         
         # Add columns
         for col in columns:

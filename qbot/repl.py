@@ -18,25 +18,76 @@ from rich.text import Text
 from rich.pretty import install as rich_install
 from rich import print as rprint
 import tempfile
+from qbot.interfaces.theme_system import get_theme_manager, ThemeMode
 
 # Note: We use dbt for all database connections, no direct pyodbc needed
 
 load_dotenv()
 
-# Simplified messaging system - only 4 meaningful color categories
+# Theme-aware messaging system that uses the global theme manager
 class MessageStyle:
-    """Simple, consistent colors based on source only"""
-    # User input - unique color
-    USER = "[bold dodger_blue2]"
+    """Theme-aware colors that change based on selected theme"""
     
-    # LLM responses - unique color  
-    LLM = "[bold magenta2]"
+    @staticmethod
+    def get_user_style():
+        theme = get_theme_manager()
+        color = theme.get_color('user_message') or 'blue'
+        return f"[bold {color}]"
     
-    # Database/Tool responses - unique color
-    DATABASE = "[bold cyan]"
+    @staticmethod  
+    def get_llm_style():
+        theme = get_theme_manager()
+        color = theme.get_color('ai_response') or 'magenta'
+        return f"[bold {color}]"
     
-    # System messages - default color (no formatting)
-    SYSTEM = ""
+    @staticmethod
+    def get_database_style():
+        theme = get_theme_manager()
+        color = theme.get_color('info_message') or 'blue'
+        return f"[bold {color}]"
+    
+    @staticmethod
+    def get_system_style():
+        theme = get_theme_manager()
+        color = theme.get_color('system_message') or 'cyan'
+        return f"[{color}]"
+    
+    # Dynamic properties that update with theme changes
+    @property
+    def USER(self):
+        return MessageStyle.get_user_style()
+    
+    @property
+    def LLM(self):
+        return MessageStyle.get_llm_style()
+    
+    @property
+    def DATABASE(self):
+        return MessageStyle.get_database_style()
+    
+    @property
+    def SYSTEM(self):
+        return MessageStyle.get_system_style()
+
+# Create a global instance to use throughout the file
+message_style = MessageStyle()
+
+# Theme-aware helper functions for common colors
+def get_error_style():
+    theme = get_theme_manager()
+    return theme.get_color('error_message') or 'red'
+
+def get_success_style():
+    theme = get_theme_manager()
+    return theme.get_color('success_message') or 'green'
+
+def get_warning_style():
+    theme = get_theme_manager()
+    return theme.get_color('warning_message') or 'yellow'
+
+def get_info_style():
+    theme = get_theme_manager()
+    return theme.get_color('info_message') or 'blue'
 
 # Direct SQL connection functions removed - we use dbt for all database operations
 # This ensures consistent behavior, proper source() references, and profile-based configuration
@@ -331,10 +382,10 @@ def execute_safe_sql(sql_query, force_execute=False):
             try:
                 execute = input("\n🤔 Execute this SQL query? (y/n): ").strip().lower()
                 if execute not in ['y', 'yes']:
-                    rich_console.print("[yellow]SQL execution cancelled.[/yellow]")
+                    rich_console.print(f"[{get_warning_style()}]SQL execution cancelled.[/{get_warning_style()}]")
                     return "SQL execution cancelled by user in preview mode"
             except (KeyboardInterrupt, EOFError):
-                rich_console.print("\n[yellow]SQL execution cancelled.[/yellow]")
+                rich_console.print(f"\n[{get_warning_style()}]SQL execution cancelled.[/{get_warning_style()}]")
                 return "SQL execution cancelled by user in preview mode"
         
         rich_console.print("Executing SQL...")
@@ -351,11 +402,11 @@ def execute_safe_sql(sql_query, force_execute=False):
         operations = ', '.join(safety_analysis['dangerous_operations'])
         
         # Block dangerous operations - show only the clean safeguard message
-        rich_console.print(f"[red]✖[/red] Query disallowed due to dangerous operations: {operations}")
+        rich_console.print(f"[{get_error_style()}]✖[/{get_error_style()}] Query disallowed due to dangerous operations: {operations}")
         return "Query blocked by safeguard"
     else:
         # Query is safe, execute normally
-        rich_console.print(f"[green]✔[/green] Query passes safeguard against dangerous operations.")
+        rich_console.print(f"[{get_success_style()}]✔[/{get_success_style()}] Query passes safeguard against dangerous operations.")
         return execute_clean_sql(sql_query)
 
 def execute_dbt_sql(sql_query):
@@ -415,7 +466,7 @@ def handle_slash_command(line):
     elif command == 'tables':
         # Rich formatted full-width table list
         query = "select table_name, table_type from information_schema.tables where table_schema not in ('information_schema', 'sys', 'INFORMATION_SCHEMA', 'SYS') order by table_name"
-        rich_console.print("🔍 [bold magenta2]Listing all database tables[/bold magenta2]")
+        rich_console.print(f"🔍 [bold {get_theme_manager().get_color('ai_response')}]Listing all database tables[/bold {get_theme_manager().get_color('ai_response')}]")
         return execute_dbt_rich_tables(query)
     elif command == 'history':
         # Show command history
@@ -514,7 +565,7 @@ def handle_double_slash_command(line):
 
 def handle_preview_command(args):
     """Handle the //preview command - shows compiled SQL and prompts for execution"""
-    rich_console.print("🔍 [bold magenta2]Preview Mode[/bold magenta2] - Enter SQL to preview compilation:")
+    rich_console.print(f"🔍 [bold {get_theme_manager().get_color('ai_response')}]Preview Mode[/bold {get_theme_manager().get_color('ai_response')}] - Enter SQL to preview compilation:")
     
     # Skip interactive prompts in non-interactive environments
     # Check if we're in a subprocess with no real stdin (like tests)
@@ -712,7 +763,7 @@ def execute_dbt_sql_rich_fallback(sql_query):
         
         if compile_result.returncode != 0:
             error_msg = compile_result.stderr.strip() or compile_result.stdout.strip() or "Unknown compilation error"
-            rich_console.print(f"[red]Compilation failed: {error_msg}[/red]")
+            rich_console.print(f"[{get_error_style()}]Compilation failed: {error_msg}[/{get_error_style()}]")
             return False
         
         # Execute dbt command and capture output (suppress logs)
@@ -810,11 +861,11 @@ def execute_dbt_sql_rich_fallback(sql_query):
             error_details.append(f"Return code: {result.returncode}")
             
             error_message = "\n".join(error_details) if error_details else "Unknown dbt error occurred"
-            rich_console.print(f"[red]Error: {error_message}[/red]")
+            rich_console.print(f"[{get_error_style()}]Error: {error_message}[/{get_error_style()}]")
             return False
             
     except Exception as e:
-        rich_console.print(f"[red]Error executing Rich SQL query: {e}[/red]")
+        rich_console.print(f"[{get_error_style()}]Error executing Rich SQL query: {e}[/{get_error_style()}]")
         return False
     finally:
         # Cleanup
@@ -931,7 +982,8 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
             interface_type="text"
         )
         # The banner_text already contains "QBot: Database Query Interface" from get_banner_content
-        rich_console.print(Panel(banner_text, border_style="magenta2"))
+        theme = get_theme_manager()
+        rich_console.print(Panel(banner_text, border_style=theme.get_color('ai_response')))
     else:
         # Full interactive banner
         banner_text = get_interactive_banner_content(
@@ -939,16 +991,21 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
             llm_model=llm_model, 
             llm_available=llm_available
         )
-        # Apply Rich formatting
-        formatted_text = banner_text.replace("QBot:", "[bold magenta2]QBot:[/bold magenta2]")
-        formatted_text = formatted_text.replace("Ready for questions.", "[bold green]Ready for questions.[/bold green]")
-        formatted_text = formatted_text.replace("🤖 Default:", "[bold green]🤖 Default:[/bold green]")
-        formatted_text = formatted_text.replace("🔍 SQL/dbt Queries:", "[bold blue]🔍 SQL/dbt Queries:[/bold blue]")
-        formatted_text = formatted_text.replace("Commands:", "[dim purple]Commands:[/dim purple]")
-        formatted_text = formatted_text.replace("💡 Tips:", "[dim purple]💡 Tips:[/dim purple]")
-        formatted_text = formatted_text.replace("📊 Configuration:", "[dim cyan]📊 Configuration:[/dim cyan]")
+        # Apply Rich formatting with theme colors
+        theme = get_theme_manager()
+        ai_color = theme.get_color('ai_response')
+        success_color = theme.get_color('success_message')
+        formatted_text = banner_text.replace("QBot:", f"[bold {ai_color}]QBot:[/bold {ai_color}]")
+        formatted_text = formatted_text.replace("Ready for questions.", f"[bold {success_color}]Ready for questions.[/bold {success_color}]")
+        formatted_text = formatted_text.replace("🤖 Default:", f"[bold {success_color}]🤖 Default:[/bold {success_color}]")
+        info_color = theme.get_color('info_message')
+        system_color = theme.get_color('system_message')
+        formatted_text = formatted_text.replace("🔍 SQL/dbt Queries:", f"[bold {info_color}]🔍 SQL/dbt Queries:[/bold {info_color}]")
+        formatted_text = formatted_text.replace("Commands:", f"[dim {system_color}]Commands:[/dim {system_color}]")
+        formatted_text = formatted_text.replace("💡 Tips:", f"[dim {system_color}]💡 Tips:[/dim {system_color}]")
+        formatted_text = formatted_text.replace("📊 Configuration:", f"[dim {info_color}]📊 Configuration:[/dim {info_color}]")
         
-        rich_console.print(Panel(formatted_text, border_style="magenta2"))
+        rich_console.print(Panel(formatted_text, border_style=ai_color))
 
 def _is_test_environment() -> bool:
     """Check if we're running in a test environment."""
@@ -991,10 +1048,18 @@ def main():
     parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
     parser.add_argument('--text', action='store_true', help='Use text-based REPL with shared session (for debugging)')
     parser.add_argument('--history', action='store_true', help='Show conversation history panel (for debugging)')
+    parser.add_argument('--theme', choices=[mode.value for mode in ThemeMode], default='qbot', help='Color theme (default: qbot)')
     parser.add_argument('--help', '-h', action='store_true', help='Show help')
     parser.add_argument('query', nargs='*', help='Query to execute')
     
     args = parser.parse_args()
+    
+    # Apply theme early based on command line argument
+    theme_map = {mode.value: mode for mode in ThemeMode}
+    theme_manager = get_theme_manager()
+    theme_manager.set_theme(theme_map[args.theme])
+    
+    # Theme is now set - all subsequent UI should use theme colors
     
     # Only show banner for --no-repl mode (Rich logging UI)
     # Initialize everything first
@@ -1107,10 +1172,7 @@ def main():
                 rich_console.print("\n[dim]Exiting (--no-repl mode)[/dim]")
                 return
             elif LLM_AVAILABLE:
-                # Interactive environment with LLM: execute query then start Textual interface
-                _execute_query_cli_mode(query, rich_console)
-                
-                # Start Textual interface with the query as initial input
+                # Interactive environment with LLM: start Textual interface directly with the query
                 from qbot.interfaces.textual_repl import create_textual_repl_from_args
                 textual_repl = create_textual_repl_from_args(args)
                 textual_repl.initial_query = query

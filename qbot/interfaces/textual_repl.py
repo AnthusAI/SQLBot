@@ -11,31 +11,34 @@ from typing import Optional
 
 from qbot.core import QBotAgent, QBotConfig
 from .textual_app import QBotTextualApp, create_textual_app_from_args
+from .theme_system import ThemeMode
 
 
 class QBotTextualREPL:
     """Textual REPL interface for QBot"""
     
-    def __init__(self, agent: QBotAgent, initial_query: Optional[str] = None):
+    def __init__(self, agent: QBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.QBOT):
         """
         Initialize Textual REPL
         
         Args:
             agent: QBotAgent instance
             initial_query: Optional initial query to execute
+            theme_mode: Theme mode to use
         """
         self.agent = agent
         self.initial_query = initial_query
+        self.theme_mode = theme_mode
         self.app: Optional[QBotTextualApp] = None
     
     def run(self) -> None:
         """Run the Textual REPL application"""
-        self.app = QBotTextualApp(self.agent, initial_query=self.initial_query)
+        self.app = QBotTextualApp(self.agent, initial_query=self.initial_query, theme_mode=self.theme_mode)
         self.app.run()
     
     async def run_async(self) -> None:
         """Run the Textual REPL application asynchronously"""
-        self.app = QBotTextualApp(self.agent, initial_query=self.initial_query)
+        self.app = QBotTextualApp(self.agent, initial_query=self.initial_query, theme_mode=self.theme_mode)
         await self.app.run_async()
 
 
@@ -74,8 +77,17 @@ def create_textual_repl_from_args(args) -> QBotTextualREPL:
     if hasattr(args, 'query') and args.query:
         initial_query = ' '.join(args.query)
     
+    # Get theme from args if provided
+    theme_mode = ThemeMode.QBOT  # default
+    if hasattr(args, 'theme'):
+        # Try to find the theme mode by value
+        for mode in ThemeMode:
+            if mode.value == args.theme:
+                theme_mode = mode
+                break
+    
     # Create Textual REPL
-    return QBotTextualREPL(agent, initial_query=initial_query)
+    return QBotTextualREPL(agent, initial_query=initial_query, theme_mode=theme_mode)
 
 
 def main_textual():

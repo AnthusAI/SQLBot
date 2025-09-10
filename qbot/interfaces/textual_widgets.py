@@ -240,7 +240,8 @@ class ConversationDebugViewer(ScrollableContainer):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.conversation_log = RichLog(highlight=True, markup=True)
+        self.conversation_log = RichLog(highlight=True, markup=True, wrap=True, min_width=1)
+        self.conversation_log.styles.text_wrap = "wrap"
         self.memory_manager: Optional[ConversationMemoryManager] = None
     
     def compose(self) -> ComposeResult:

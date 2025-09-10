@@ -324,3 +324,5 @@ ptw -- --cov=qbot
 - Extensions: `.py`, `.yml`, `.yaml`, `.sql`
 - Auto-clears screen and runs quietly for clean output
 - Temp files (`models/qbot_temp_*.sql`) are ignored by git but watched for testing
+
+DO NOT RUN THE TEXTUAL APP YOURSELF!  The user must test it.  It can really screw up your UI environment.

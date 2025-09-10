@@ -1,0 +1,56 @@
+# Sample QBot User Theme
+# Copy this file to ~/.qbot/themes/mytheme.yaml to create your own theme
+# 
+# REQUIRED FIELDS:
+# - name: Theme name
+# - primary: Primary color (used for user messages if not specified)
+# 
+# OPTIONAL TEXTUAL FIELDS:
+# - secondary: Secondary color (used for AI responses if not specified)
+# - accent: Accent color (used for system messages, tools if not specified)  
+# - background: Background color
+# - surface: Surface color (panels, widgets)
+# - panel: Panel color (if different from surface)
+# - warning: Warning color (yellow-ish)
+# - error: Error color (red-ish) 
+# - success: Success color (green-ish)
+# - dark: true for dark theme, false for light theme
+#
+# OPTIONAL QBOT MESSAGE COLORS:
+# If not specified, these will be derived from the base colors above
+# - user_message: Color for user input messages
+# - ai_response: Color for AI response messages  
+# - system_message: Color for system messages
+# - info_message: Color for info messages
+# - code_inline: Color for inline code
+# - code_block: Color for code blocks
+# - heading_1/2/3: Colors for markdown headings
+# - bold_text: Color for bold text
+# - italic_text: Color for italic text
+# - tool_call: Color for tool calls
+# - tool_result: Color for tool results
+# - database_label: Color for database labels
+# - thinking: Color for "thinking" status
+# - loading: Color for loading indicators
+
+name: ocean
+primary: "#1e40af"    # Deep blue
+secondary: "#0891b2"  # Teal
+accent: "#06b6d4"     # Cyan
+background: "#0f172a" # Very dark blue
+surface: "#1e293b"    # Dark slate
+panel: "#334155"      # Lighter slate
+warning: "#f59e0b"    # Amber
+error: "#ef4444"      # Red
+success: "#10b981"    # Emerald
+dark: true
+
+# QBot message colors (recommended: only style user and AI messages)
+# user_message: "#0087ff"     # Dodger Blue (dodger_blue1) for dark themes OR "#005fd7" for light themes  
+# ai_response: "#d700d7"      # Magenta (magenta3) for dark themes OR "#d70087" for light themes
+# 
+# Other message types can be styled but are left as default for clean appearance:
+# system_message: null        # System messages use default text color
+# tool_call: null             # Tool calls use default text color  
+# tool_result: null           # Tool results use default text color
+# thinking: null              # Thinking indicators use default text color

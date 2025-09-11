@@ -75,19 +75,23 @@ message_style = MessageStyle()
 # Theme-aware helper functions for common colors
 def get_error_style():
     theme = get_theme_manager()
-    return theme.get_color('error_message') or 'red'
+    color = theme.get_color('error_message')
+    return color if isinstance(color, str) else 'red'
 
 def get_success_style():
     theme = get_theme_manager()
-    return theme.get_color('success_message') or 'green'
+    color = theme.get_color('success_message')
+    return color if isinstance(color, str) else 'green'
 
 def get_warning_style():
     theme = get_theme_manager()
-    return theme.get_color('warning_message') or 'yellow'
+    color = theme.get_color('warning_message')
+    return color if isinstance(color, str) else 'yellow'
 
 def get_info_style():
     theme = get_theme_manager()
-    return theme.get_color('info_message') or 'blue'
+    color = theme.get_color('info_message')
+    return color if isinstance(color, str) else 'blue'
 
 # Direct SQL connection functions removed - we use dbt for all database operations
 # This ensures consistent behavior, proper source() references, and profile-based configuration
@@ -972,40 +976,39 @@ def is_sql_query(query):
 def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=False):
     """Show QBot banner with setup information"""
     from qbot.interfaces.banner import get_banner_content, get_interactive_banner_content
+    from rich.markdown import Markdown
+    from rich.panel import Panel
     
     if is_no_repl:
-        # CLI/no-repl mode banner - ensure it contains the expected text
+        # CLI/no-repl mode banner with Markdown support
         banner_text = get_banner_content(
             profile=profile, 
             llm_model=llm_model, 
             llm_available=llm_available, 
             interface_type="text"
         )
-        # The banner_text already contains "QBot: Database Query Interface" from get_banner_content
+        
+        # Use Rich Markdown for proper formatting
         theme = get_theme_manager()
-        rich_console.print(Panel(banner_text, border_style=theme.get_color('ai_response')))
+        markdown_content = Markdown(banner_text)
+        
+        # Display in a panel with theme colors
+        rich_console.print(Panel(markdown_content, border_style=theme.get_color('ai_response')))
     else:
-        # Full interactive banner
+        # Full interactive banner with Markdown support
         banner_text = get_interactive_banner_content(
             profile=profile,
             llm_model=llm_model, 
             llm_available=llm_available
         )
-        # Apply Rich formatting with theme colors
-        theme = get_theme_manager()
-        ai_color = theme.get_color('ai_response')
-        success_color = theme.get_color('success_message')
-        formatted_text = banner_text.replace("QBot:", f"[bold {ai_color}]QBot:[/bold {ai_color}]")
-        formatted_text = formatted_text.replace("Ready for questions.", f"[bold {success_color}]Ready for questions.[/bold {success_color}]")
-        formatted_text = formatted_text.replace("🤖 Default:", f"[bold {success_color}]🤖 Default:[/bold {success_color}]")
-        info_color = theme.get_color('info_message')
-        system_color = theme.get_color('system_message')
-        formatted_text = formatted_text.replace("🔍 SQL/dbt Queries:", f"[bold {info_color}]🔍 SQL/dbt Queries:[/bold {info_color}]")
-        formatted_text = formatted_text.replace("Commands:", f"[dim {system_color}]Commands:[/dim {system_color}]")
-        formatted_text = formatted_text.replace("💡 Tips:", f"[dim {system_color}]💡 Tips:[/dim {system_color}]")
-        formatted_text = formatted_text.replace("📊 Configuration:", f"[dim {info_color}]📊 Configuration:[/dim {info_color}]")
         
-        rich_console.print(Panel(formatted_text, border_style=ai_color))
+        # Use Rich Markdown for proper formatting
+        theme = get_theme_manager()
+        markdown_content = Markdown(banner_text)
+        
+        # Display in a panel with theme colors
+        ai_color = theme.get_color('ai_response')
+        rich_console.print(Panel(markdown_content, border_style=ai_color))
 
 def _is_test_environment() -> bool:
     """Check if we're running in a test environment."""
@@ -1119,8 +1122,7 @@ def main():
         # Join all query arguments as a single query
         query = ' '.join(args.query)
         
-        # Always show banner first when executing queries in CLI mode
-        show_banner(is_no_repl=args.no_repl, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
+        # Don't show banner when executing initial queries - just execute directly
         
         # Show starting message for CLI mode
         rich_console.print(f"\nStarting with query: {query}")

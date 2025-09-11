@@ -67,71 +67,73 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
         interface_type: 'text' for CLI mode, 'textual' for TUI mode
         
     Returns:
-        Formatted banner text with configuration and help information
+        Formatted banner text with modern Markdown formatting
     """
     
-    # Configuration section - separate lines for profile and LLM
+    # Configuration section with proper formatting
     config_lines = []
     if profile:
-        config_lines.append(f"Profile: {profile}")
+        config_lines.append(f"**Profile:** `{profile}`")
     
     if llm_available and llm_model:
         llm_config = get_llm_config()
-        llm_info = f"LLM: {llm_model} (tokens={llm_config['max_tokens']}, verbosity={llm_config['verbosity']}, effort={llm_config['effort']})"
+        llm_info = f"**LLM:** `{llm_model}` (tokens={llm_config['max_tokens']}, verbosity={llm_config['verbosity']}, effort={llm_config['effort']})"
         config_lines.append(llm_info)
     else:
-        config_lines.append("LLM: Not available")
+        config_lines.append("**LLM:** Not available")
     
     config_text = "\n".join(config_lines) if config_lines else ""
     
     # Interface-specific content
     if interface_type == "textual":
-        title = "QBot - Database Query Assistant"
+        title = "# Welcome to QBot!"
         interface_help = (
-            "• Press Ctrl+\\ to open command palette (switch views)\n"
-            "• Right panel shows query results by default\n"
-            "• Press Ctrl+C, Ctrl+Q, or Escape to exit"
+            "### Interface Tips\n"
+            "- Press `Ctrl+\\` to open command palette (switch views)\n"
+            "- Right panel shows query results by default\n"
+            "- Press `Ctrl+C`, `Ctrl+Q`, or `Escape` to exit"
         )
     else:  # text mode
-        title = "QBot CLI\nQBot: Database Query Interface"
+        title = "# QBot CLI\n## Database Query Interface"
         interface_help = (
-            "• Use ↑/↓ arrows to navigate command history\n"
-            "• Press Ctrl+C to interrupt running queries"
+            "### Tips\n"
+            "- Use `↑`/`↓` arrows to navigate command history\n"
+            "- Press `Ctrl+C` to interrupt running queries"
         )
     
-    # Core help content (same for both interfaces)
+    # Core help content with modern Markdown formatting
     core_help = (
-        "Natural Language Queries (Default):\n"
-        "• Just type your question in plain English\n"
-        "• Example: How many customers are there?\n\n"
+        "## Natural Language Queries (Default)\n"
+        "- Just type your question in plain English\n"
+        "- **Example:** How many customers are there?\n\n"
         
-        "SQL/dbt Queries:\n"
-        "• End with semicolon for direct execution\n"
-        "• SQL: SELECT COUNT(*) FROM customers;\n"
-        "• dbt: SELECT * FROM {{ source('sakila', 'customer') }} LIMIT 10;\n\n"
+        "## SQL/dbt Queries\n"
+        "- End with semicolon for direct execution\n"
+        "- **SQL:** `SELECT COUNT(*) FROM customers;`\n"
+        "- **dbt:** `SELECT * FROM {{ source('sakila', 'customer') }} LIMIT 10;`\n\n"
         
-        "Commands:\n"
-        "• /help - Show all available commands\n"
-        "• /tables - List database tables\n"
-        "• /preview - Preview SQL compilation before execution\n"
-        "• /readonly - Toggle read-only safeguard mode\n"
-        "• exit, quit, or q - Exit QBot"
+        "## Commands\n"
+        "- `/help` - Show all available commands\n"
+        "- `/tables` - List database tables\n"
+        "- `/preview` - Preview SQL compilation before execution\n"
+        "- `/readonly` - Toggle read-only safeguard mode\n"
+        "- `exit`, `quit`, or `q` - Exit QBot"
     )
     
-    # Combine all sections - SAME content for both interfaces
+    # Combine all sections with proper Markdown structure
     if interface_type == "textual":
-        # For Textual interface, return comprehensive content
-        content = f"Welcome to QBot!\n\n"
+        # For Textual interface
+        content = f"{title}\n\n"
         if config_text:
-            content += f"Configuration: {config_text}\n\n"
-        content += f"{core_help}\n\nInterface Tips:\n{interface_help}"
+            content += f"### Configuration\n{config_text}\n\n"
+        content += f"{core_help}\n\n{interface_help}"
         return content
     else:
-        # For text mode CLI, return comprehensive content with title
-        content = f"{title}\n"
+        # For text mode CLI
+        content = f"{title}\n\n"
         if config_text:
-            content += f"{config_text}\n\n"
-        content += f"{core_help}\n\nTips:\n{interface_help}"
+            content += f"### Configuration\n{config_text}\n\n"
+        content += f"{core_help}\n\n{interface_help}"
         return content
 
 
@@ -145,51 +147,52 @@ def get_interactive_banner_content(profile: Optional[str] = None, llm_model: Opt
         llm_available: Whether LLM integration is available
         
     Returns:
-        Full interactive banner with all help information
+        Full interactive banner with modern Markdown formatting
     """
     
-    # Configuration info - separate lines for profile and LLM
+    # Configuration info with proper formatting
     config_lines = []
     if profile:
-        config_lines.append(f"Profile: {profile}")
+        config_lines.append(f"**Profile:** `{profile}`")
     
     if llm_available and llm_model:
         llm_config = get_llm_config()
-        llm_info = f"LLM: {llm_model} (tokens={llm_config['max_tokens']}, verbosity={llm_config['verbosity']}, effort={llm_config['effort']})"
+        llm_info = f"**LLM:** `{llm_model}` (tokens={llm_config['max_tokens']}, verbosity={llm_config['verbosity']}, effort={llm_config['effort']})"
         config_lines.append(llm_info)
     else:
-        config_lines.append("LLM: Not available")
+        config_lines.append("**LLM:** Not available")
     
     config_text = "\n".join(config_lines) if config_lines else ""
     
-    # Full interactive content
+    # Full interactive content with modern Markdown
     content = (
-        "QBot: An agent with a dbt query tool to help you with your SQL.\n\n"
-        "Ready for questions.\n\n"
+        "# QBot\n"
+        "*An agent with a dbt query tool to help you with your SQL.*\n\n"
+        "**Ready for questions.**\n\n"
     )
     
     if config_text:
-        content += f"Configuration: {config_text}\n\n"
+        content += f"### Configuration\n{config_text}\n\n"
     
     content += (
-        "Default: Natural Language Queries\n"
-        "• Just type your question in plain English\n"
-        "• Example: How many calls were made today?\n\n"
+        "## Default: Natural Language Queries\n"
+        "- Just type your question in plain English\n"
+        "- **Example:** How many calls were made today?\n\n"
         
-        "SQL/dbt Queries: End with semicolon\n"
-        "• SQL: SELECT COUNT(*) FROM sys.tables;\n"
-        "• dbt: SELECT * FROM {{ source('your_source', 'your_table') }} LIMIT 10;\n\n"
+        "## SQL/dbt Queries: End with semicolon\n"
+        "- **SQL:** `SELECT COUNT(*) FROM sys.tables;`\n"
+        "- **dbt:** `SELECT * FROM {{ source('your_source', 'your_table') }} LIMIT 10;`\n\n"
         
-        "Commands:\n"
-        "• /help - Show all commands\n"
-        "• /tables - List database tables\n"
-        "• /preview - Preview SQL compilation before execution\n"
-        "• /readonly - Toggle read-only safeguard mode\n"
-        "• exit - Quit\n\n"
+        "## Commands\n"
+        "- `/help` - Show all commands\n"
+        "- `/tables` - List database tables\n"
+        "- `/preview` - Preview SQL compilation before execution\n"
+        "- `/readonly` - Toggle read-only safeguard mode\n"
+        "- `exit` - Quit\n\n"
         
-        "Tips:\n"
-        "• Use ↑/↓ arrows to navigate command history\n"
-        "• Press Ctrl+C to interrupt running queries"
+        "### Tips\n"
+        "- Use `↑`/`↓` arrows to navigate command history\n"
+        "- Press `Ctrl+C` to interrupt running queries"
     )
     
     return content

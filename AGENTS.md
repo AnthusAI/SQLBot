@@ -4,11 +4,33 @@
 
 QBot is a database query bot with AI-powered natural language processing. It provides both a CLI interface and interactive REPL for executing SQL/dbt queries and natural language questions using LangChain and OpenAI's GPT models.
 
+## User Interface Modes
+
+QBot provides two distinct user interface modes:
+
+### Textual App (Default Mode)
+**Command**: `qbot` (no flags needed - this is the default)
+- **Interactive TUI**: Modern terminal user interface with widgets, panels, and real-time updates
+- **Features**: Conversation history panel, query results panel, theme switching, command palette
+- **Implementation**: Uses the Textual framework (`qbot/interfaces/textual_app.py`)
+- **When used**: Default mode for all interactive usage
+
+### Rich CLI Mode
+**Command**: `qbot --text` (explicit flag required)
+- **Text-based output**: Terminal output using Rich formatting for tables and styled text
+- **Features**: Formatted tables, colored output, but no interactive widgets
+- **Implementation**: Uses Rich console (`qbot/repl.py`)
+- **When used**: Debugging, scripting, or when Textual interface is not desired
+
+**Important**: There is NO `--textual` flag. The Textual app is the default mode.
+
 ## Code Architecture
 
 ### Core Modules
 - `qbot/repl.py` - Main REPL and CLI entry point with Rich terminal interface
 - `qbot/llm_integration.py` - LLM and dbt integration logic, LangChain agent setup
+- `qbot/interfaces/textual_app.py` - Textual TUI application (default interface)
+- `qbot/interfaces/unified_message_display.py` - Shared message display system for both interfaces
 - `qbot/__init__.py` - Package initialization and version management
 - `qbot/__version__.py` - Version information
 
@@ -61,6 +83,81 @@ except Exception as e:
 - **Rich console output**: Use Rich library for formatted terminal output
 - **Database queries**: Always use parameterized queries, prefer dbt compilation
 - **LLM integration**: Handle API failures gracefully with fallback to SQL mode
+
+## Theme System Architecture
+
+QBot uses a unified theme system that provides consistent colors across both user interfaces (see "User Interface Modes" section above for interface details).
+
+### Architecture: Two UI Systems, One Theme Source
+
+Both the **Textual App** (default) and **Rich CLI** (`--text` mode) share the same color constants but apply them differently based on their rendering capabilities.
+
+### Core Architecture
+
+**Single Source of Truth**: `qbot/interfaces/theme_system.py`
+```python
+# Color constants used by both UIs
+DODGER_BLUE_DARK = "#66ccff"   # User messages (dark themes)
+DODGER_BLUE_LIGHT = "#6699ff"  # User messages (light themes)  
+MAGENTA1 = "#ffaaff"           # AI responses (dark themes)
+DEEP_PINK_LIGHT = "#ffccff"    # AI responses (light themes)
+```
+
+**Textual Integration**: Uses `QBotThemeManager` class
+- Leverages Textual's built-in themes (`tokyo-night`, `textual-dark`, etc.)
+- Adds QBot-specific message colors on top
+- Supports user-defined themes in `~/.qbot/themes/`
+- Gracefully handles missing textual dependency for Rich CLI
+
+**Rich Integration**: `qbot/interfaces/rich_themes.py`
+- Imports color constants from theme_system.py
+- Defines Rich-compatible theme dictionaries
+- Used exclusively by `--text` CLI mode
+
+### Usage by Interface
+
+**Textual App (Interactive TUI)**:
+```python
+# Widgets get colors from theme manager
+theme = get_theme_manager()
+ai_color = theme.get_color('ai_response')  # Returns "#ffaaff"
+
+# Theme manager handles built-in + custom themes
+class AIMessageWidget(Static):
+    def __init__(self, message: str):
+        theme = get_theme_manager()
+        ai_color = theme.get_color('ai_response') or "magenta"
+```
+
+**Rich CLI (Text Output)**:
+```python
+# Console uses pre-defined Rich themes
+from qbot.interfaces.rich_themes import QBOT_RICH_THEMES
+console = Console(theme=QBOT_RICH_THEMES["dark"])
+
+# Themes automatically use shared color constants
+console.print("AI Response", style="ai_response")  # Uses MAGENTA1
+```
+
+### Available Themes
+
+**Textual App Themes**:
+- Built-in: `tokyo-night` (default), `textual-dark`, `textual-light`, `catppuccin-latte`, etc.
+- Custom: User themes in `~/.qbot/themes/` (YAML format)
+- Aliases: `qbot` → `tokyo-night` for convenience
+
+**Rich CLI Themes**:
+- `dark`: Uses `DODGER_BLUE_DARK` and `MAGENTA1`
+- `light`: Uses `DODGER_BLUE_LIGHT` and `DEEP_PINK_LIGHT`  
+- `monokai`: Monokai-inspired color scheme
+
+### Key Benefits
+
+1. **Consistency**: Same colors across both interfaces
+2. **Maintainability**: Single place to update colors
+3. **Flexibility**: Each UI can leverage its native theming capabilities
+4. **Graceful Degradation**: Rich CLI works without textual dependency
+5. **Extensibility**: Easy to add new themes for either interface
 
 ## Environment Variables
 

@@ -21,8 +21,11 @@ class MessageSymbols:
     # Tool calls and results
     TOOL_CALL = "▽"         # U+25BD White down-pointing triangle - for tool calls
     TOOL_RESULT = "▼"       # U+25BC Black down-pointing triangle - for tool results
+    
+    # Status messages
+    SUCCESS = "✔"           # U+2714 Check mark - for success messages (safeguard passes)
+    ERROR = "✖"             # U+2716 Heavy multiplication X - for error messages
     SYSTEM = "◦"            # White bullet for system messages
-    ERROR = "▪"             # Black square for errors
     
     # Legacy aliases for backward compatibility
     USER = USER_MESSAGE     # Alias for existing code
@@ -47,10 +50,54 @@ def _extract_text_from_json(text: str) -> str:
     # Check if this looks like JSON
     if text.startswith('{') and text.endswith('}'):
         try:
-            import json
-            # Handle single quotes in JSON
-            json_text = text.replace("'", '"')
-            data = json.loads(json_text)
+            import ast
+            import re
+            
+            # First try to parse as valid JSON (double quotes)
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                # If that fails, try to parse as Python dict (single quotes)
+                try:
+                    # Use ast.literal_eval which handles Python dict syntax better
+                    data = ast.literal_eval(text)
+                except (ValueError, SyntaxError):
+                    # Try regex extraction for complex cases with nested quotes
+                    try:
+                        # More robust regex patterns for text extraction
+                        # Look for 'text': 'content' but handle escaped quotes and newlines
+                        text_patterns = [
+                            r"'text'\s*:\s*'([^']*(?:\\'[^']*)*)'",  # Handle escaped quotes
+                            r'"text"\s*:\s*"([^"]*(?:\\"[^"]*)*)"',  # Handle double quotes
+                            r"'text'\s*:\s*'(.*?)'(?=\s*[,}])",     # Non-greedy match
+                            r'"text"\s*:\s*"(.*?)"(?=\s*[,}])',     # Non-greedy match double quotes
+                        ]
+                        
+                        for pattern in text_patterns:
+                            text_match = re.search(pattern, text, re.DOTALL)
+                            if text_match:
+                                # Unescape any escaped quotes
+                                extracted = text_match.group(1)
+                                extracted = extracted.replace("\\'", "'").replace('\\"', '"')
+                                return extracted
+                        
+                        # Look for other content patterns
+                        content_patterns = [
+                            r"'(?:content|message)'\s*:\s*'([^']*(?:\\'[^']*)*)'",
+                            r'"(?:content|message)"\s*:\s*"([^"]*(?:\\"[^"]*)*)"',
+                        ]
+                        
+                        for pattern in content_patterns:
+                            content_match = re.search(pattern, text, re.DOTALL)
+                            if content_match:
+                                extracted = content_match.group(1)
+                                extracted = extracted.replace("\\'", "'").replace('\\"', '"')
+                                return extracted
+                        
+                        # If no patterns match, return original
+                        return text
+                    except Exception:
+                        return text
             
             if isinstance(data, dict):
                 # Look for text content in various formats
@@ -60,42 +107,33 @@ def _extract_text_from_json(text: str) -> str:
                     return data['content']
                 elif 'message' in data:
                     return data['message']
-        except (json.JSONDecodeError, Exception):
+        except (json.JSONDecodeError, ValueError, SyntaxError, Exception):
             # If JSON parsing fails, return original text
             pass
     
-    # Handle concatenated JSON objects
+    # Handle concatenated JSON objects - simple approach using regex
     if '}{' in text:
         try:
-            import json
-            # Split concatenated JSON objects and extract text from each
-            json_parts = []
-            current_part = ""
-            brace_count = 0
+            import re
+            # Use regex to find all JSON objects that contain 'text' field
+            # Look for patterns like {'type': 'text', 'text': '...'} or {'text': '...'}
+            text_patterns = [
+                r"\{'type'\s*:\s*'text'[^}]*'text'\s*:\s*'([^']*(?:\\'[^']*)*)'\s*[^}]*\}",
+                r"\{'text'\s*:\s*'([^']*(?:\\'[^']*)*)'\s*[^}]*\}",
+                r'\{"type"\s*:\s*"text"[^}]*"text"\s*:\s*"([^"]*(?:\\"[^"]*)*)"\s*[^}]*\}',
+                r'\{"text"\s*:\s*"([^"]*(?:\\"[^"]*)*)"\s*[^}]*\}',
+            ]
             
-            for char in text:
-                current_part += char
-                if char == '{':
-                    brace_count += 1
-                elif char == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        json_parts.append(current_part)
-                        current_part = ""
-            
-            # Extract text from each JSON part
-            text_parts = []
-            for json_part in json_parts:
-                json_part_fixed = json_part.replace("'", '"')
-                try:
-                    data = json.loads(json_part_fixed)
-                    if isinstance(data, dict) and 'text' in data:
-                        text_parts.append(data['text'])
-                except (json.JSONDecodeError, Exception):
-                    continue
-            
-            if text_parts:
-                return ' '.join(text_parts)
+            for pattern in text_patterns:
+                matches = re.findall(pattern, text, re.DOTALL)
+                if matches:
+                    # Unescape quotes and join all text matches
+                    extracted_texts = []
+                    for match in matches:
+                        cleaned = match.replace("\\'", "'").replace('\\"', '"')
+                        extracted_texts.append(cleaned)
+                    if extracted_texts:
+                        return ' '.join(extracted_texts)
         except Exception:
             pass
     
@@ -185,6 +223,13 @@ def format_llm_response(raw_response: str) -> str:
     """
     if not raw_response or not raw_response.strip():
         return f"{MessageSymbols.AI_RESPONSE} No response"
+    
+    # Check if this is already formatted (starts with a message symbol)
+    response_str = raw_response.strip()
+    if (response_str.startswith(MessageSymbols.AI_RESPONSE) or 
+        response_str.startswith(MessageSymbols.TOOL_CALL) or 
+        response_str.startswith(MessageSymbols.TOOL_RESULT)):
+        return response_str
     
     # Debug: Check what the raw response looks like
     # print(f"DEBUG: Raw response length: {len(raw_response)}")
@@ -313,7 +358,31 @@ def format_llm_response(raw_response: str) -> str:
                         return f"{MessageSymbols.AI_RESPONSE} Response received but could not be formatted properly."
             
             else:
-                # Handle single JSON object - try with proper quote replacement
+                # Handle single JSON object - use the improved extraction function
+                extracted_text = _extract_text_from_json(response_str)
+                if extracted_text != response_str:
+                    # Successfully extracted text content
+                    return f"{MessageSymbols.AI_RESPONSE} {extracted_text}"
+                
+                # If extraction didn't find content but JSON is valid, treat as plain text
+                try:
+                    # Check if it's valid JSON but just doesn't have extractable content
+                    import ast
+                    try:
+                        json.loads(response_str)
+                        # Valid JSON but no extractable content - treat as plain text
+                        return f"{MessageSymbols.AI_RESPONSE} {response_str}"
+                    except json.JSONDecodeError:
+                        try:
+                            ast.literal_eval(response_str)
+                            # Valid Python dict but no extractable content - treat as plain text
+                            return f"{MessageSymbols.AI_RESPONSE} {response_str}"
+                        except (ValueError, SyntaxError):
+                            pass
+                except Exception:
+                    pass
+                
+                # If extraction failed, try the old parsing approach for tool calls
                 try:
                     # First try direct parsing (in case it's already valid JSON)
                     response_data = json.loads(response_str)
@@ -324,9 +393,8 @@ def format_llm_response(raw_response: str) -> str:
                         import ast
                         response_data = ast.literal_eval(response_str)
                     except (ValueError, SyntaxError):
-                        # Last resort: simple quote replacement (may break on quotes in content)
-                        response_str_fixed = response_str.replace("'", '"')
-                        response_data = json.loads(response_str_fixed)
+                        # If all parsing fails, return as plain text
+                        return f"{MessageSymbols.AI_RESPONSE} {response_str}"
                 
                 if isinstance(response_data, dict):
                     # Check if this is a tool call
@@ -341,15 +409,6 @@ def format_llm_response(raw_response: str) -> str:
                             tool_display += f" with {args_preview}"
                         
                         return f"{MessageSymbols.TOOL_CALL} {tool_display}"
-                    
-                    # Check for text content - handle type='text' case specifically
-                    if response_data.get('type') == 'text' and 'text' in response_data:
-                        return f"{MessageSymbols.AI_RESPONSE} {response_data['text']}"
-                    
-                    # Check for text content in various fields
-                    for field in ['content', 'text', 'message', 'output', 'response']:
-                        if field in response_data and response_data[field]:
-                            return f"{MessageSymbols.AI_RESPONSE} {response_data[field]}"
                     
                     # Fallback for unrecognized JSON structure
                     return f"{MessageSymbols.AI_RESPONSE} Response received but could not be formatted properly."

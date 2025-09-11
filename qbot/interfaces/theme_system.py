@@ -9,10 +9,21 @@ user-defined themes in ~/.qbot/themes/.
 from typing import Dict, Any, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
-from textual.design import ColorSystem
-from textual.app import App
 import yaml
 from pathlib import Path
+
+# Optional textual imports - only needed for Textual app, not Rich CLI
+try:
+    from textual.design import ColorSystem
+    from textual.app import App
+    TEXTUAL_AVAILABLE = True
+except ImportError:
+    TEXTUAL_AVAILABLE = False
+    # Dummy classes for when textual is not available
+    class ColorSystem:
+        pass
+    class App:
+        pass
 
 
 # Textual's built-in themes (as of Textual 6.1.0)
@@ -59,17 +70,22 @@ class ThemeMode(Enum):
     TOKYO_NIGHT = "tokyo-night"
 
 
-# Standard QBot colors for consistency across themes
-DODGER_BLUE_DARK = "#0087ff"   # dodger_blue1 - for dark themes  
-DODGER_BLUE_LIGHT = "#005fd7"  # dodger_blue3 - for light themes
-MAGENTA1 = "#ff00ff"           # magenta1 - for AI responses
-DEEP_PINK_LIGHT = "#d70087"    # deep_pink3 - for light themes
+# Standard QBot colors for consistency across themes (web-safe pure blue versions)
+DODGER_BLUE_DARK = "#66ccff"   # Web-safe lighter blue - DEPRECATED, keeping for compatibility
+DODGER_BLUE_LIGHT = "#6699ff"  # Web-safe lighter blue - for light themes
+MAGENTA1 = "#ffaaff"           # Medium pink (more saturated) - for AI responses  
+DEEP_PINK_LIGHT = "#ffccff"    # Web-safe lighter pink - for light themes
+
+# New pure blue color scheme
+PURE_BLUE_INPUT_BORDER = "#0000cc"  # Pure blue, lighter than panel borders (#000087)
+PURE_BLUE_TEXT = "#ccccff"          # Very light blue, one notch down from white
 
 # QBot-specific message colors for each built-in theme
 # User messages use consistent dodger blue across all themes
 QBOT_MESSAGE_COLORS = {
     "tokyo-night": {
-        "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
+        "user_message": PURE_BLUE_TEXT,      # Pure blue text for user messages
+        "input_border": PURE_BLUE_INPUT_BORDER, # Pure blue border for input box
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": "cyan",            # Cyan for system messages
         "info_message": "blue",              # Blue for info messages
@@ -78,11 +94,18 @@ QBOT_MESSAGE_COLORS = {
         "error_message": "red",              # Red for error messages
         "database_label": "violet",          # Violet for database labels
         "primary": "blue",                   # Primary color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#000087",           # Web-safe blue for panel borders
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
-        "error": "red",                      # Red for errors
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "catppuccin-mocha": {
         "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
@@ -94,116 +117,214 @@ QBOT_MESSAGE_COLORS = {
         "error_message": "red",              # Red for error messages
         "database_label": "violet",          # Violet for database labels
         "primary": "blue",                   # Primary color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#89b4fa",           # Catppuccin blue for panel borders
+        "input_border": "#b4befe",           # Lighter catppuccin blue for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
-        "error": "red",                      # Red for errors
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "catppuccin-latte": {
         "user_message": DODGER_BLUE_LIGHT,   # Consistent dodger blue for light themes
         "ai_response": DEEP_PINK_LIGHT,      # Consistent deep pink for light themes
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#1e66f5",           # Catppuccin blue for panel borders (light theme)
+        "input_border": "#4c7ff9",           # Lighter catppuccin blue for input border (light theme)
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash (light theme)
+        "block_cursor_foreground": "#5A4A6C",  # Darker text for light theme
+        "block_cursor_background": "#E0D0F0",  # Light purple background
+        "block_cursor_blurred_foreground": "#6A5A7C",  # Slightly darker when not focused
+        "block_cursor_blurred_background": "#F0E0FF",  # Even lighter when not focused
     },
     "dracula": {
         "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#6272a4",           # Dracula comment color for panel borders
+        "input_border": "#8be9fd",           # Dracula cyan for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "gruvbox": {
         "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#83a598",           # Gruvbox blue for panel borders
+        "input_border": "#b8bb26",           # Gruvbox bright green for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "nord": {
         "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        "panel_border": "#5e81ac",           # Nord blue for panel borders
+        "input_border": "#81a1c1",           # Lighter nord blue for input border
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "monokai": {
         "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#66d9ef",           # Monokai cyan for panel borders
+        "input_border": "#a6e22e",           # Monokai green for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "solarized-light": {
         "user_message": DODGER_BLUE_LIGHT,   # Consistent dodger blue for light themes
         "ai_response": DEEP_PINK_LIGHT,      # Consistent deep pink for light themes
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#268bd2",           # Solarized blue for panel borders
+        "input_border": "#2aa198",           # Solarized cyan for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash (light theme)
+        "block_cursor_foreground": "#5A4A6C",  # Darker text for light theme
+        "block_cursor_background": "#E0D0F0",  # Light purple background
+        "block_cursor_blurred_foreground": "#6A5A7C",  # Slightly darker when not focused
+        "block_cursor_blurred_background": "#F0E0FF",  # Even lighter when not focused
     },
     # Remaining built-in themes
     "flexoki": {
         "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#4385be",           # Flexoki blue for panel borders
+        "input_border": "#1eb2a6",           # Flexoki teal for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "textual-dark": {
         "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#0178d4",           # Textual blue for panel borders
+        "input_border": "#004578",           # Darker textual blue for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
     "textual-light": {
         "user_message": DODGER_BLUE_LIGHT,   # Consistent dodger blue for light themes
         "ai_response": DEEP_PINK_LIGHT,      # Consistent deep pink for light themes
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#0178d4",           # Textual blue for panel borders (light theme)
+        "input_border": "#48a9e6",           # Lighter textual blue for input border (light theme)
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash (light theme)
+        "block_cursor_foreground": "#5A4A6C",  # Darker text for light theme
+        "block_cursor_background": "#E0D0F0",  # Light purple background
+        "block_cursor_blurred_foreground": "#6A5A7C",  # Slightly darker when not focused
+        "block_cursor_blurred_background": "#F0E0FF",  # Even lighter when not focused
     },
     "textual-ansi": {
         "user_message": DODGER_BLUE_LIGHT,   # Consistent dodger blue for light themes
         "ai_response": DEEP_PINK_LIGHT,      # Consistent deep pink for light themes
         "system_message": None,              # No special styling - use default text color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#0000ff",           # Basic blue for ANSI panel borders
+        "input_border": "#0080ff",           # Lighter blue for ANSI input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash (light theme)
+        "block_cursor_foreground": "#5A4A6C",  # Darker text for light theme
+        "block_cursor_background": "#E0D0F0",  # Light purple background
+        "block_cursor_blurred_foreground": "#6A5A7C",  # Slightly darker when not focused
+        "block_cursor_blurred_background": "#F0E0FF",  # Even lighter when not focused
     },
     # Fallback colors for other themes
     "default": {
-        "user_message": DODGER_BLUE_DARK,    # Default to dark theme dodger blue
+        "user_message": PURE_BLUE_TEXT,      # Pure blue text for user messages
         "ai_response": MAGENTA1,             # magenta1 for AI responses
         "system_message": "cyan",            # Cyan for system messages
         "info_message": "blue",              # Blue for info messages
@@ -212,11 +333,19 @@ QBOT_MESSAGE_COLORS = {
         "error_message": "red",              # Red for error messages
         "database_label": "violet",          # Violet for database labels
         "primary": "blue",                   # Primary color
-        "tool_call": None,                   # No special styling - use default text color
-        "tool_result": None,                 # No special styling - use default text color
+        "panel_border": "#0000cc",           # Default blue for panel borders
+        "input_border": "#3333ff",           # Lighter default blue for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
-        "error": "red",                      # Red for errors
         "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     }
 }
 
@@ -326,8 +455,11 @@ class QBotThemeManager:
     """Manages themes using Textual's built-in themes + QBot message colors"""
     
     def __init__(self, theme_mode: ThemeMode = ThemeMode.QBOT):
-        # Create a temporary Textual app to access built-in themes
-        self._temp_app = App()
+        # Create a temporary Textual app to access built-in themes (only if textual is available)
+        if TEXTUAL_AVAILABLE:
+            self._temp_app = App()
+        else:
+            self._temp_app = None
         
         self.current_mode = theme_mode
         self.current_textual_theme_name = self._resolve_theme_name(theme_mode.value)
@@ -440,18 +572,25 @@ class QBotThemeManager:
                 QBOT_MESSAGE_COLORS["default"]
             )
             # Filter out None values to avoid CSS parsing errors
-            return {
-                f"qbot-{key.replace('_', '-')}": value 
-                for key, value in theme_colors.items()
-                if value is not None
-            }
+            variables = {}
+            for key, value in theme_colors.items():
+                if value is not None:
+                    # Special handling for block cursor variables - use Textual's expected names
+                    if key.startswith('block_cursor'):
+                        # Convert block_cursor_foreground -> block-cursor-foreground
+                        textual_key = key.replace('_', '-')
+                        variables[textual_key] = value
+                    else:
+                        # Regular QBot variables with qbot- prefix
+                        variables[f"qbot-{key.replace('_', '-')}"] = value
+            return variables
         else:
             # For user themes, provide both base colors and message colors
             base_vars = self.current_theme.to_color_system().get_variables()
             message_vars = {
                 f"qbot-{key.replace('_', '-')}": getattr(self.current_theme, key)
                 for key in ["user_message", "ai_response", "system_message", "info_message",
-                           "code_inline", "code_block", "tool_call", "tool_result", "thinking"]
+                           "code_inline", "code_block", "tool_call", "tool_result", "thinking", "panel_border", "input_border"]
                 if getattr(self.current_theme, key) is not None
             }
             return {**base_vars, **message_vars}

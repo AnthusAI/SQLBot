@@ -8,7 +8,7 @@ including query result viewing and conversation history debugging.
 from typing import Optional, List, Dict, Any
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, ScrollableContainer
-from textual.widgets import Static, ListView, ListItem, Label, RichLog
+from textual.widgets import Static, ListView, ListItem, Label, RichLog, TabbedContent, TabPane, DataTable
 from textual.reactive import reactive
 from textual.message import Message
 from rich.console import Console
@@ -28,24 +28,28 @@ class QueryResultListItem(ListItem):
     def __init__(self, entry: QueryResultEntry, **kwargs):
         self.entry = entry
         
-        # Create display text for the list item
-        status_icon = "[OK]" if entry.result.success else "[FAIL]"
-        
-        # Handle timestamp (could be datetime object or ISO string)
+        # Handle timestamp (could be datetime object or ISO string)  
         if hasattr(entry.timestamp, 'strftime'):
-            timestamp = entry.timestamp.strftime("%H:%M:%S")
+            # Format as "Tue 3:32 PM"
+            day_time = entry.timestamp.strftime('%a %-I:%M %p')
         else:
             # Parse ISO string and format
             from datetime import datetime
             try:
                 dt = datetime.fromisoformat(entry.timestamp.replace('Z', '+00:00'))
-                timestamp = dt.strftime("%H:%M:%S")
+                day_time = dt.strftime('%a %-I:%M %p')
             except:
-                timestamp = str(entry.timestamp)[:8]  # Fallback
+                day_time = str(entry.timestamp)[:16]  # Fallback
         
-        row_info = f" • {entry.result.row_count} rows" if entry.result.row_count else ""
+        # Handle row count with proper pluralization
+        if entry.result.row_count is not None and entry.result.row_count > 0:
+            row_word = "row" if entry.result.row_count == 1 else "rows"
+            row_info = f" - {entry.result.row_count} {row_word}"
+        else:
+            row_info = ""
         
-        display_text = f"#{entry.index} {status_icon} {timestamp}{row_info}"
+        # Create friendly display text: "Tue 3:32 PM - 1 row" or "Mon 1:45 PM - 7 rows"
+        display_text = f"{day_time}{row_info}"
         
         super().__init__(Label(display_text), **kwargs)
 
@@ -61,27 +65,45 @@ class QueryResultSidebar(ListView):
     def set_result_list(self, result_list: QueryResultList) -> None:
         """Set the query result list to display"""
         self.result_list = result_list
-        self.refresh_list()
+        # For initial setup, we need to populate the entire list
+        self._initial_populate()
+    
+    def _initial_populate(self) -> None:
+        """Initial population of the ListView"""
+        if not self.result_list:
+            return
+        
+        # Clear any existing items
+        self.clear()
+        
+        # Add all results in reverse order (newest first), limited to 100
+        entries = list(reversed(self.result_list.get_all_results()))[:100]
+        for entry in entries:
+            item = QueryResultListItem(entry)
+            self.append(item)
     
     def refresh_list(self) -> None:
         """Refresh the list of query results"""
         if not self.result_list:
             return
         
-        # Clear current items
-        self.clear()
+        # Get current number of items in ListView
+        current_count = len(self)
+        # Get total number of results
+        all_results = self.result_list.get_all_results()
         
-        # Add items in reverse order (newest first)
-        entries = list(reversed(self.result_list.get_all_results()))
-        
-        for entry in entries:
-            item = QueryResultListItem(entry)
-            self.append(item)
-        
-        # Select the first item (most recent) if available
-        if entries:
-            self.index = 0
-            self.selected_entry = entries[0]
+        # If we have new results, insert them at the beginning (newest first)
+        if len(all_results) > current_count:
+            # Get only the new results
+            new_results = all_results[current_count:]
+            # Insert new results in reverse order at the beginning
+            for i, entry in enumerate(reversed(new_results)):
+                item = QueryResultListItem(entry)
+                self.insert(i, [item])
+            
+            # Trim to 100 items maximum if we exceed the limit
+            while len(self) > 100:
+                self.pop()
     
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle selection of a query result"""
@@ -99,91 +121,86 @@ class QueryResultSelected(Message):
         super().__init__()
 
 
-class QueryResultContentView(ScrollableContainer):
-    """Content view showing the selected query result as a Rich table"""
+class QueryResultContentView(Static):
+    """Content view showing the selected query result with tabbed interface"""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.current_entry: Optional[QueryResultEntry] = None
-        self.metadata_display = Static()
-        self.table_display = Static()
+        self.tabbed_content: Optional[TabbedContent] = None
+        self.data_table: Optional[DataTable] = None
+        self.info_tab_content: Optional[Static] = None
     
     def compose(self) -> ComposeResult:
-        """Compose the content view"""
-        yield self.metadata_display
-        yield self.table_display
+        """Compose the tabbed content view"""
+        with TabbedContent("Result", "Query") as self.tabbed_content:
+            with TabPane("Result", id="data_tab"):
+                self.data_table = DataTable(zebra_stripes=True, show_header=True)
+                yield self.data_table
+            with TabPane("Query", id="info_tab"):
+                self.info_tab_content = Static()
+                yield self.info_tab_content
     
     def show_entry(self, entry: QueryResultEntry) -> None:
-        """Display a query result entry"""
+        """Display a query result entry in both tabs"""
         self.current_entry = entry
         
+        # Format timestamp for display instead of using index
+        if hasattr(entry.timestamp, 'strftime'):
+            time_str = entry.timestamp.strftime('%a %-I:%M %p')
+        else:
+            from datetime import datetime
+            try:
+                dt = datetime.fromisoformat(entry.timestamp.replace('Z', '+00:00'))
+                time_str = dt.strftime('%a %-I:%M %p')
+            except:
+                time_str = "Unknown time"
+        
         if entry.result.success and entry.result.data:
-            # Create Rich table from the data
-            table = Table(title=f"Query Result #{entry.index}", show_header=True, header_style="bold magenta")
-            
-            # Add columns
-            if entry.result.columns:
-                for col in entry.result.columns:
-                    table.add_column(str(col))
-            
-            # Add rows
-            for row in entry.result.data:
+            # DATA TAB: Populate DataTable with the data
+            if self.data_table:
+                # Clear existing data AND columns
+                self.data_table.clear(columns=True)
+                
+                # Add columns
                 if entry.result.columns:
-                    table.add_row(*[str(row.get(col, '')) for col in entry.result.columns])
+                    self.data_table.add_columns(*entry.result.columns)
+                
+                # Add rows
+                if entry.result.data:
+                    rows_to_add = []
+                    for row in entry.result.data:
+                        if entry.result.columns:
+                            # Extract values in the same order as columns
+                            row_values = [str(row.get(col, '')) for col in entry.result.columns]
+                            rows_to_add.append(row_values)
+                    
+                    if rows_to_add:
+                        self.data_table.add_rows(rows_to_add)
             
-            # Create panel with metadata
-            # Handle timestamp formatting
-            if hasattr(entry.timestamp, 'strftime'):
-                formatted_time = entry.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(entry.timestamp.replace('Z', '+00:00'))
-                    formatted_time = dt.strftime('%Y-%m-%d %H:%M:%S')
-                except:
-                    formatted_time = str(entry.timestamp)
-            
-            metadata = (
-                f"Query: {entry.query_text}\\n"
-                f"Executed: {formatted_time}\\n"
-                f"Execution time: {entry.result.execution_time:.3f}s\\n"
-                f"Rows: {entry.result.row_count}"
-            )
-            
-            # Update separate displays - Rich objects can be passed directly to Static.update()
-            metadata_panel = Panel(metadata, title="[bold blue]Query Info[/bold blue]", border_style="blue")
-            self.metadata_display.update(metadata_panel)
-            self.table_display.update(table)
+            # QUERY TAB: Show just the query text
+            if self.info_tab_content:
+                self.info_tab_content.update(entry.query_text)
             
         else:
             # Show error or empty result
-            if entry.result.error:
-                error_text = f"Query Failed\\n\\n{entry.result.error}"
-                error_panel = Panel(
-                    error_text,
-                    title=f"[bold red]Query Result #{entry.index} - Failed[/bold red]",
-                    border_style="red"
-                )
-                self.metadata_display.update(error_panel)
-                self.table_display.update("")
-            else:
-                empty_panel = Panel(
-                    "No data returned",
-                    title=f"[bold yellow]Query Result #{entry.index} - Empty[/bold yellow]",
-                    border_style="yellow"
-                )
-                self.metadata_display.update(empty_panel)
-                self.table_display.update("")
+            if self.data_table:
+                # Clear the data table AND columns for error/empty states
+                self.data_table.clear(columns=True)
+            
+            # QUERY TAB: Show just the query text (even for errors/empty results)
+            if self.info_tab_content:
+                self.info_tab_content.update(entry.query_text)
     
     def show_empty(self) -> None:
-        """Show empty state"""
-        empty_panel = Panel(
-            "No query results yet.\\n\\nExecute a query to see results here.",
-            title="[bold cyan]Query Results[/bold cyan]",
-            border_style="cyan"
-        )
-        self.metadata_display.update(empty_panel)
-        self.table_display.update("")
+        """Show empty state in both tabs"""
+        # Clear the data table AND columns
+        if self.data_table:
+            self.data_table.clear(columns=True)
+        
+        # Show empty state in query tab
+        if self.info_tab_content:
+            self.info_tab_content.update("No query results yet.\\n\\nExecute a query to see results here.")
 
 
 class QueryResultViewer(Horizontal):
@@ -198,9 +215,9 @@ class QueryResultViewer(Horizontal):
     
     def compose(self) -> ComposeResult:
         """Compose the query result viewer"""
-        # Sidebar takes 1/3, content takes 2/3
-        self.sidebar.styles.width = "1fr"
-        self.content_view.styles.width = "2fr"
+        # Sidebar takes ~1/4.5, content takes ~3.5/4.5 (just slightly wider than 1:4)
+        self.sidebar.styles.width = "2fr"
+        self.content_view.styles.width = "7fr"
         
         yield self.sidebar
         yield self.content_view
@@ -212,8 +229,24 @@ class QueryResultViewer(Horizontal):
         
         latest = self.result_list.get_latest_result()
         if latest:
-            # Show the latest result
+            # Show the latest result in content view
             self.content_view.show_entry(latest)
+            
+            # Select the latest result in sidebar (first item)
+            def _select_latest():
+                if len(self.sidebar) > 0:
+                    # Force selection change to ensure visual highlighting
+                    current_index = self.sidebar.index
+                    if current_index == 0:
+                        # If already at 0, temporarily move away to force change
+                        self.sidebar.index = 1 if len(self.sidebar) > 1 else -1
+                    
+                    # Set to first item (latest result)
+                    self.sidebar.index = 0
+                    self.sidebar.selected_entry = latest
+            
+            # Use call_after_refresh to ensure ListView is fully rendered
+            self.call_after_refresh(_select_latest)
         else:
             self.content_view.show_empty()
     
@@ -231,8 +264,36 @@ class QueryResultViewer(Horizontal):
             if latest and (not self.content_view.current_entry or 
                           latest.index > self.content_view.current_entry.index):
                 self.content_view.show_entry(latest)
-                # Select the latest in sidebar
-                self.sidebar.index = 0
+                
+                # Set selection after ListView is fully refreshed
+                def _set_selection():
+                    if len(self.sidebar) > 0:
+                        # Force selection change by first clearing, then setting to 0
+                        # This ensures the visual selection updates properly
+                        current_index = self.sidebar.index
+                        if current_index == 0:
+                            # If already at 0, temporarily move away to force change
+                            self.sidebar.index = 1 if len(self.sidebar) > 1 else -1
+                        
+                        # Now set to 0 (newest item should be here after insert)
+                        self.sidebar.index = 0
+                        # Store the selected entry for our logic (should be the newest)
+                        self.sidebar.selected_entry = latest
+                        # Verify that the item at index 0 is actually the latest result
+                        if len(self.sidebar) > 0 and hasattr(self.sidebar.children[0], 'entry'):
+                            first_item_entry = self.sidebar.children[0].entry
+                            if first_item_entry.index == latest.index:
+                                # Confirmed: index 0 has the latest result
+                                self.content_view.show_entry(latest)
+                            else:
+                                # Mismatch: find the correct index for the latest result
+                                for idx, child in enumerate(self.sidebar.children):
+                                    if hasattr(child, 'entry') and child.entry.index == latest.index:
+                                        self.sidebar.index = idx
+                                        self.content_view.show_entry(latest)
+                                        break
+                
+                self.call_after_refresh(_set_selection)
 
 
 class ConversationDebugViewer(ScrollableContainer):

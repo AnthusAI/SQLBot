@@ -387,7 +387,14 @@ class QBotSession:
         """
         # For results from the working original system, extract the actual result text
         if result.data and len(result.data) > 0 and "result" in result.data[0]:
-            return result.data[0]["result"]
+            raw_result = result.data[0]["result"]
+            
+            # For natural language queries, format the LLM response properly
+            if result.query_type == QueryType.NATURAL_LANGUAGE:
+                from qbot.interfaces.message_formatter import format_llm_response
+                return format_llm_response(raw_result)
+            else:
+                return raw_result
         
         # For other cases, create a simple string representation
         if not result.success:

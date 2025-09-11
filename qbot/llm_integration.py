@@ -392,26 +392,18 @@ class DbtQueryTool(BaseTool):
                     
                     if safety_analysis.is_read_only and safety_analysis.level.value == "safe":
                         # Query is safe
-                        safeguard_message = "✔ Query passes safeguard against dangerous operations."
+                        safeguard_message = "Query passes safeguard against dangerous operations."
                         if self._unified_display:
-                            # Display safeguard message directly without any prefixes
-                            if hasattr(self._unified_display.display_impl, 'console'):
-                                self._unified_display.display_impl.console.print(f"[green]{safeguard_message}[/green]")
-                            else:
-                                # Textual interface - add as system message
-                                self._unified_display.display_impl.display_system_message(safeguard_message, "green")
+                            # Display safeguard success message
+                            self._unified_display.display_impl.display_success_message(safeguard_message)
                     else:
                         # Query has dangerous operations
                         operations_str = ", ".join(safety_analysis.dangerous_operations)
-                        safeguard_message = f"✖ Query disallowed due to dangerous operations: {operations_str}"
+                        safeguard_message = f"Query disallowed due to dangerous operations: {operations_str}"
                         
                         if self._unified_display:
-                            # Display safeguard message directly without any prefixes
-                            if hasattr(self._unified_display.display_impl, 'console'):
-                                self._unified_display.display_impl.console.print(f"[red]{safeguard_message}[/red]")
-                            else:
-                                # Textual interface - add as system message
-                                self._unified_display.display_impl.display_system_message(safeguard_message, "red")
+                            # Display safeguard error message
+                            self._unified_display.display_impl.display_error_message(safeguard_message)
                         
                         # Return error without executing the query
                         import json
@@ -463,7 +455,13 @@ class DbtQueryTool(BaseTool):
                             result_summary = f"Success: {row_count} rows returned"
                             if result.columns and len(result.columns) <= 3:
                                 result_summary += f" (columns: {', '.join(result.columns)})"
-                            self._unified_display.display_impl.display_tool_result("Query Result", result_summary)
+                            
+                            # Pass the actual query result data for DataTable display
+                            self._unified_display.display_impl.display_tool_result_with_data(
+                                "Query Result", 
+                                result_summary, 
+                                result  # Pass the full result object
+                            )
                         except Exception as e:
                             # Fallback to basic success message if result parsing fails
                             self._unified_display.display_impl.display_tool_result("Query Result", "Success: Query completed")
@@ -1149,7 +1147,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
             agent=agent, 
             tools=tools, 
             verbose=False,  # Disable verbose to prevent raw JSON output
-            max_iterations=10,  # Allow more iterations but let agent decide when to stop
+            max_iterations=20,  # Allow more iterations but let agent decide when to stop
             handle_parsing_errors=True,
             callbacks=[ToolTrackingCallback(unified_display, console, show_history)],
             return_intermediate_steps=True  # Ensure tool results are available to agent

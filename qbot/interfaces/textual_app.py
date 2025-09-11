@@ -30,7 +30,6 @@ from qbot.interfaces.textual_widgets import EnhancedDetailViewWidget
 from qbot.interfaces.shared_session import QBotSession
 from qbot.interfaces.message_formatter import MessageSymbols
 from qbot.interfaces.theme_system import get_theme_manager, ThemeMode
-from qbot.interfaces.textual_themes import QBOT_THEMES
 
 
     
@@ -59,25 +58,51 @@ class ConversationHistoryWidget(ScrollableContainer):
     
     def scroll_end(self):
         """Scroll to the end of the conversation"""
-        # Scroll the ScrollableContainer itself to the end
-        self.scroll_to(y=self.max_scroll_y)
+        # Use call_after_refresh to ensure the layout is updated before scrolling
+        def _do_scroll():
+            # Scroll to a position that's guaranteed to be at the bottom
+            # Use a large value to ensure we scroll past the end
+            self.scroll_to(y=self.max_scroll_y + 1000, animate=False)
+        
+        # Schedule the scroll after the next refresh cycle
+        self.call_after_refresh(_do_scroll)
     
     def show_welcome_message(self, banner_text: str):
-        """Show welcome message as a Static widget with Rich markup"""
-        # Format as markdown-style welcome message that wraps naturally
-        welcome_content = f"""{banner_text}
-
-"""
-        
+        """Show welcome message as a system message with no icon"""
         # Store the welcome content for rebuilds
-        self._welcome_message_content = welcome_content
+        self._welcome_message_content = banner_text
         
-        # Create and mount a Static widget with the welcome content
-        welcome_widget = Static(welcome_content)
-        welcome_widget.add_class("welcome-message")
+        # Use the unified display system to show as a system message
+        if self.unified_display:
+            # Display the welcome message as a custom system message without icon
+            self._display_welcome_system_message(banner_text)
+        else:
+            # Fallback: Create and mount a Static widget with the welcome content
+            welcome_widget = Static(banner_text)
+            welcome_widget.add_class("welcome-message")
+            self.mount(welcome_widget)
+            self._welcome_widget = welcome_widget
+        
+        self.scroll_end()
+    
+    def _display_welcome_system_message(self, message: str):
+        """Display welcome message as a system message without icon"""
+        from qbot.interfaces.message_widgets import Static
+        from rich.text import Text
+        from textual.widgets import Markdown
+        from qbot.interfaces.theme_system import get_theme_manager
+        
+        # Create a custom widget without icon for the welcome message
+        theme = get_theme_manager()
+        system_color = theme.get_color('system_message')
+        
+        # Create a markdown widget for proper rendering of the welcome message
+        welcome_widget = Markdown(message)
+        welcome_widget.add_class("system-message")  # Use system message styling
+        
+        # Mount the widget directly
         self.mount(welcome_widget)
         self._welcome_widget = welcome_widget
-        self.scroll_end()
     
     def set_memory_manager(self, memory_manager):
         """Set the memory manager and initialize unified display"""
@@ -150,10 +175,7 @@ class ConversationHistoryWidget(ScrollableContainer):
         
         # Restore welcome message if it exists
         if self._welcome_message_content:
-            welcome_widget = Static(self._welcome_message_content)
-            welcome_widget.add_class("welcome-message")
-            self.mount(welcome_widget)
-            self._welcome_widget = welcome_widget
+            self._display_welcome_system_message(self._welcome_message_content)
         
         # Clear the message tracking to prevent duplicates
         self.unified_display.display_impl._display_messages = []
@@ -168,6 +190,8 @@ class ConversationHistoryWidget(ScrollableContainer):
                 self.unified_display.display_impl._render_system_message_without_tracking(original_content)
             elif message_type == "error":
                 self.unified_display.display_impl._render_error_message_without_tracking(original_content)
+            elif message_type == "success":
+                self.unified_display.display_impl._render_success_message_without_tracking(original_content)
             elif message_type == "tool_call":
                 tool_name, description = original_content
                 self.unified_display.display_impl._render_tool_call_without_tracking(tool_name, description)
@@ -347,30 +371,33 @@ class QBotTextualApp(App):
     #conversation-panel {
         width: 1fr;
         height: 1fr;
-        border: heavy $primary;
+        border: round $qbot-panel-border;
+        background: #1A1525;
     }
     
     #detail-panel {
         width: 2fr;
         height: 1fr;
-        border: heavy $secondary;
+        border: round $qbot-panel-border;
+        background: #1A1525;
     }
     
     #query-input {
         height: 3;
         dock: bottom;
-        border: heavy $qbot-user-message;
-        background: $surface;
+        border: heavy $qbot-input-border;
+        background: #1A1525;
         color: $qbot-user-message;
     }
     
     ConversationHistoryWidget {
         scrollbar-gutter: stable;
         height: 1fr;
+        background: #1A1525;
     }
     
     RichLog {
-        background: $surface;
+        background: #1A1525;
         color: $text;
         text-wrap: wrap;
         min-width: 13;
@@ -380,6 +407,32 @@ class QBotTextualApp(App):
     #detail-panel > * {
         height: 1fr;
         overflow-y: auto;
+        background: #1A1525;
+    }
+    
+    /* Consistent background for all ListView and related widgets */
+    ListView {
+        background: #1A1525;
+    }
+    
+    QueryResultViewer {
+        background: #1A1525;
+    }
+    
+    QueryResultSidebar {
+        background: #1A1525;
+    }
+    
+    QueryResultContentView {
+        background: #1A1525;
+    }
+    
+    ConversationDebugViewer {
+        background: #1A1525;
+    }
+    
+    EnhancedDetailViewWidget {
+        background: #1A1525;
     }
     
     .thinking-indicator {
@@ -397,6 +450,48 @@ class QBotTextualApp(App):
     LoadingIndicator.loading-indicator {
         color: #ff00ff;
     }
+    
+    /* Textual will now use the --block-cursor-* CSS variables defined above for ListView selection */
+    
+    /* Nuclear approach: remove ALL Collapsible padding/margin */
+    Collapsible {
+        background: #1A1525;  /* Match main background color */
+        padding: 0;           /* Remove all padding */
+        margin: 0;            /* Remove all margins */
+    }
+    
+    /* Add padding only to the container widgets */
+    .collapsible-tool-call,
+    .collapsible-tool-result {
+        padding-left: 1;      /* Only 1 character here */
+        margin: 0;            /* No margins */
+    }
+    
+    /* Make Collapsible contents wrap text */
+    .collapsible-tool-call Static,
+    .collapsible-tool-result Static {
+        text-wrap: wrap;
+        width: 100%;
+    }
+    
+    /* Add consistent spacing to message widgets to match Collapsibles */
+    .user-message {
+        padding-left: 1;
+        margin-top: 1;  /* Match the natural spacing of Collapsibles */
+    }
+    
+    .ai-message {
+        padding-left: 1;
+        margin-top: 1;  /* Add top margin like user messages */
+    }
+    
+    /* System messages (like success-message for safety checks) have no top margin */
+    .system-message,
+    .error-message,
+    .success-message {
+        padding-left: 1;
+    }
+    
     """
     
     TITLE = "✦ QBot - Database Query Assistant"
@@ -439,9 +534,31 @@ class QBotTextualApp(App):
         self.detail_widget: Optional[EnhancedDetailViewWidget] = None
         self.query_input: Optional[QueryInput] = None
         
-        # Use the same session ID that LLM integration uses by default
+        # Use timestamp-based session ID for easy sorting and archiving
         # This ensures query results are tracked in the same list
-        self.session_id = "default_session"
+        from datetime import datetime
+        from pathlib import Path
+        import glob
+        
+        # Try to load the most recent session, or create a new one
+        query_results_dir = Path(".qbot/query_results")
+        if query_results_dir.exists():
+            # Find all session files and get the most recent one
+            session_files = list(query_results_dir.glob("*.json"))
+            if session_files:
+                # Sort by filename (which is timestamp) and get the most recent
+                most_recent_file = sorted(session_files, reverse=True)[0]
+                # Extract session ID from filename (remove .json extension)
+                self.session_id = most_recent_file.stem
+                self.is_resuming_session = True
+            else:
+                # No existing sessions, create new one
+                self.session_id = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
+                self.is_resuming_session = False
+        else:
+            # Directory doesn't exist, create new session
+            self.session_id = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
+            self.is_resuming_session = False
         
         # Set the session ID for LLM agent creation
         from qbot.llm_integration import set_session_id
@@ -516,18 +633,17 @@ class QBotTextualApp(App):
     
     def on_focus(self, event: events.Focus) -> None:
         """Handle focus events - keep input widget focused"""
-        # If something other than the input widget gets focus, redirect it back
+        # If something other than the input widget or ListView gets focus, redirect it back
+        # Allow ListView in detail panel to have focus for selection highlighting
+        allowed_widgets = [self.query_input]
+        if hasattr(self, 'detail_widget') and self.detail_widget:
+            if hasattr(self.detail_widget, 'query_result_viewer') and self.detail_widget.query_result_viewer:
+                if hasattr(self.detail_widget.query_result_viewer, 'sidebar'):
+                    allowed_widgets.append(self.detail_widget.query_result_viewer.sidebar)
+        
         if (hasattr(self, 'set_focus_on_key') and self.set_focus_on_key and 
-            self.query_input and event.widget != self.query_input):
+            self.query_input and event.widget not in allowed_widgets):
             
-            # Debug logging
-            import os
-            import datetime
-            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            with open(log_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}] TEXTUAL_APP: 🎯 Focus changed to {event.widget.__class__.__name__}, redirecting to input\n")
-                f.flush()
             
             # Use call_later to avoid focus conflicts during event processing
             def refocus_input():
@@ -542,14 +658,6 @@ class QBotTextualApp(App):
         if (hasattr(self, 'set_focus_on_key') and self.set_focus_on_key and 
             self.query_input and event.widget == self.query_input):
             
-            # Debug logging
-            import os
-            import datetime
-            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            with open(log_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}] TEXTUAL_APP: ❌ Input widget lost focus, refocusing immediately\n")
-                f.flush()
             
             # Immediately refocus the input widget
             def refocus_input():
@@ -564,14 +672,6 @@ class QBotTextualApp(App):
         if (hasattr(self, 'set_focus_on_key') and self.set_focus_on_key and 
             self.query_input and not self.query_input.has_focus):
             
-            # Debug logging
-            import os
-            import datetime
-            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            with open(log_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}] TEXTUAL_APP: 🔄 Timer detected input lost focus, refocusing\n")
-                f.flush()
             
             self.query_input.focus()
             # Move cursor to end to avoid selecting all text
@@ -590,8 +690,9 @@ class QBotTextualApp(App):
             if self.conversation_widget:
                 self.conversation_widget.set_memory_manager(self.memory_manager)
             
-            # Show welcome message after layout is complete and widget is sized
-            self.call_after_refresh(self.show_welcome_message)
+            # Only show welcome message if no initial query is provided
+            if not self.initial_query:
+                self.call_after_refresh(self.show_welcome_message)
             
             # Execute initial query if provided
             if self.initial_query:
@@ -645,6 +746,7 @@ class QBotTextualApp(App):
         
         # Show welcome message in conversation log
         self.conversation_widget.show_welcome_message(banner_text)
+        
         self.conversation_widget.refresh()
     
     async def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -743,10 +845,7 @@ class QBotTextualApp(App):
                         
                         # IMPORTANT: Refresh existing conversation messages with new theme colors
                         if self.conversation_widget and hasattr(self.conversation_widget, 'rebuild_display_with_theme'):
-                            import sys
-                            print(f"🔄 DEBUG: Calling rebuild_display_with_theme", file=sys.stderr)
                             self.conversation_widget.rebuild_display_with_theme()
-                            print(f"🔄 DEBUG: rebuild_display_with_theme completed", file=sys.stderr)
                         
                         theme_type = self.theme_manager.get_available_themes().get(theme_name, "unknown")
                         self.conversation_widget.add_system_message(f"Switched to {theme_type} theme: {theme_name}", "green")
@@ -864,27 +963,15 @@ Slash Commands:
             if not self.conversation_widget:
                 return
                 
-            # DEBUGGING: Add detailed logging to trace query routing
-            import sys
-            print(f"🔍 DEBUG: Raw query input: {repr(query)}", file=sys.stderr)
-            print(f"🔍 DEBUG: Query after strip(): {repr(query.strip())}", file=sys.stderr)
-            print(f"🔍 DEBUG: Ends with semicolon: {query.strip().endswith(';')}", file=sys.stderr)
-            print(f"🔍 DEBUG: Starts with slash: {query.startswith('/')}", file=sys.stderr)
-            print(f"🔍 DEBUG: First character: {repr(query[0]) if query else 'EMPTY'}", file=sys.stderr)
-            
             # Determine query type for different handling
             is_sql_query = query.strip().endswith(';')
             is_slash_command = query.startswith('/')
             
-            print(f"🔍 DEBUG: is_sql_query={is_sql_query}, is_slash_command={is_slash_command}", file=sys.stderr)
-            
             if is_sql_query or is_slash_command:
                 # Direct execution for SQL/commands - simple flow
-                print(f"🔍 DEBUG: Routing to _handle_direct_query", file=sys.stderr)
                 await self._handle_direct_query(query)
             else:
                 # Natural language query - needs real-time LLM feedback
-                print(f"🔍 DEBUG: Routing to _handle_llm_query_realtime", file=sys.stderr)
                 await self._handle_llm_query_realtime(query)
                 
             # Update conversation debug view if active
@@ -906,15 +993,10 @@ Slash Commands:
     async def _handle_direct_query(self, query: str) -> None:
         """Handle SQL queries and slash commands using unified display logic"""
         try:
-            # DEBUGGING: Confirm this method is being called
-            import sys
-            print(f"🔍 DEBUG: _handle_direct_query called with: {repr(query)}", file=sys.stderr)
-            
             # Add user message to display first
             if self.conversation_widget:
                 self.conversation_widget.add_user_message(query)
                 # Show thinking indicator for SQL queries too
-                print(f"🔍 DEBUG: Showing thinking indicator for direct SQL query", file=sys.stderr)
                 self.conversation_widget.unified_display.show_thinking_indicator("...")
             
             # Execute query using session
@@ -943,15 +1025,10 @@ Slash Commands:
     async def _handle_llm_query_realtime(self, query: str) -> None:
         """Handle LLM queries using unified display system"""
         try:
-            # DEBUGGING: Confirm this method is being called
-            import sys
-            print(f"🔍 DEBUG: _handle_llm_query_realtime called with: {repr(query)}", file=sys.stderr)
-            
             # Add user message to display first
             if self.conversation_widget:
                 self.conversation_widget.add_user_message(query)
                 # Show thinking indicator
-                print(f"🔍 DEBUG: Showing thinking indicator for LLM query", file=sys.stderr)
                 self.conversation_widget.unified_display.show_thinking_indicator("...")
                 
                 # Force UI refresh to show the thinking indicator before starting LLM
@@ -959,10 +1036,8 @@ Slash Commands:
                 # Give a tiny delay to ensure the thinking indicator renders
                 import asyncio
                 await asyncio.sleep(0.1)
-                print(f"🔍 DEBUG: UI refreshed, starting LLM execution", file=sys.stderr)
             
             # Execute LLM query with proper async to keep animation running
-            print(f"🔍 DEBUG: Starting async LLM execution", file=sys.stderr)
             
             import asyncio
             import concurrent.futures
@@ -971,51 +1046,25 @@ Slash Commands:
             def execute_query_with_async_context():
                 # Create a complete async context for the thread
                 import asyncio
-                import traceback
-                import os
-                import datetime
-                
-                # Set up logging to tmp file
-                log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
-                os.makedirs(os.path.dirname(log_file), exist_ok=True)
-                
-                def log_to_file(message):
-                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-                    with open(log_file, 'a', encoding='utf-8') as f:
-                        f.write(f"[{timestamp}] TEXTUAL_APP: {message}\n")
-                        f.flush()
-                
-                log_to_file(f"🚀 LLM EXECUTION START: {query[:100]}...")
-                
                 async def async_execute():
                     try:
-                        log_to_file("✅ About to call self.session.execute_query()")
                         # This runs in a proper async context
                         result = self.session.execute_query(query)
-                        log_to_file(f"✅ LLM execution completed, result type: {type(result)}, success: {getattr(result, 'success', 'unknown')}")
                         return result
                     except Exception as e:
                         # Capture detailed error information
+                        import traceback
                         error_details = {
                             'error': str(e),
                             'type': type(e).__name__,
                             'traceback': traceback.format_exc()
                         }
-                        log_to_file(f"❌ LLM execution exception: {type(e).__name__}: {e}")
-                        log_to_file(f"❌ LLM execution traceback:\n{error_details['traceback']}")
-                        print(f"🔍 DEBUG: Detailed error in LLM execution: {error_details}", file=sys.stderr)
                         # Re-raise with more context
                         raise Exception(f"LLM execution failed: {type(e).__name__}: {str(e)}") from e
                 
                 # Run the async function in a new event loop
-                log_to_file("✅ Starting asyncio.run()")
-                try:
-                    result = asyncio.run(async_execute())
-                    log_to_file(f"✅ asyncio.run() completed successfully")
-                    return result
-                except Exception as e:
-                    log_to_file(f"❌ asyncio.run() failed: {type(e).__name__}: {e}")
-                    raise
+                result = asyncio.run(async_execute())
+                return result
             
             # Execute in thread pool to avoid blocking UI
             loop = asyncio.get_event_loop()
@@ -1025,38 +1074,25 @@ Slash Commands:
                 # Wait for completion while keeping UI responsive
                 result = await future
             
-            print(f"🔍 DEBUG: LLM execution completed", file=sys.stderr)
-            
-            # Log result details to file
-            import os
-            import datetime
-            log_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'tmp', 'tool_errors.log')
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            with open(log_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}] TEXTUAL_APP: 🎯 Processing result for display\n")
-                f.flush()
-            
             # Add result to display
             if result and self.conversation_widget:
                 formatted_result = self.session.get_formatted_result(result, "rich")
                 self.conversation_widget.add_ai_message(formatted_result)
-                with open(log_file, 'a', encoding='utf-8') as f:
-                    f.write(f"[{timestamp}] TEXTUAL_APP: ✅ Added AI message to conversation widget\n")
-                    f.flush()
-            else:
-                with open(log_file, 'a', encoding='utf-8') as f:
-                    f.write(f"[{timestamp}] TEXTUAL_APP: ❌ No result or no conversation widget - result: {result is not None}, widget: {self.conversation_widget is not None}\n")
-                    f.flush()
             
-            # Refocus the input widget after query completion
+            # Refocus the input widget after query completion (with delay to let ListView selection render)
             if self.query_input:
-                self.query_input.focus()
-                # Move cursor to end to avoid selecting all text
-                self.call_after_refresh(lambda: self.query_input.action_end())
+                def _restore_focus(timer):
+                    self.query_input.focus()
+                    # Move cursor to end to avoid selecting all text
+                    self.call_after_refresh(lambda: self.query_input.action_end())
+                
+                # Delay the focus restoration to let ListView selection render first
+                self.call_later(_restore_focus, 0.2)
             
-            # Update conversation debug view if active
+            # Update query results and conversation debug views
             if self.detail_widget:
-                self.detail_widget.on_conversation_updated()
+                self.detail_widget.on_new_query_result()  # Update query results panel
+                self.detail_widget.on_conversation_updated()  # Update conversation debug view
                 
         except Exception as e:
             if self.conversation_widget:

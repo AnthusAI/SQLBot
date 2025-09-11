@@ -13,10 +13,11 @@ from rich.panel import Panel
 from rich.console import Group
 from qbot.interfaces.message_formatter import MessageSymbols, format_llm_response
 from qbot.interfaces.theme_system import get_theme_manager
-from qbot.interfaces.textual_themes import QBOT_RICH_THEMES
+from qbot.interfaces.rich_themes import QBOT_RICH_THEMES
 from qbot.interfaces.message_widgets import (
     UserMessageWidget, AIMessageWidget, SystemMessageWidget, 
-    ErrorMessageWidget, ToolCallWidget, ToolResultWidget, ThinkingIndicatorWidget
+    ErrorMessageWidget, SuccessMessageWidget, ToolCallWidget, ToolResultWidget, ThinkingIndicatorWidget,
+    CollapsibleToolCallWidget, CollapsibleToolResultWidget
 )
 
 
@@ -41,6 +42,10 @@ class MessageDisplayProtocol(Protocol):
     
     def display_error_message(self, message: str) -> None:
         """Display an error message"""
+        ...
+    
+    def display_success_message(self, message: str) -> None:
+        """Display a success message"""
         ...
     
     def display_tool_call(self, tool_name: str, description: str = "") -> None:
@@ -248,6 +253,11 @@ class CLIMessageDisplay:
         styled_message = f"[error_message][error_symbol]{MessageSymbols.ERROR}[/error_symbol] {message}[/error_message]"
         self.console.print(styled_message)
     
+    def display_success_message(self, message: str) -> None:
+        """Display a success message in CLI"""
+        styled_message = f"[success_message][success_symbol]{MessageSymbols.SUCCESS}[/success_symbol] {message}[/success_message]"
+        self.console.print(styled_message)
+    
     def display_tool_call(self, tool_name: str, description: str = "") -> None:
         """Display a tool call in CLI"""
         display_text = f"{tool_name}: {description}" if description else f"Calling {tool_name}..."
@@ -273,6 +283,7 @@ class TextualMessageDisplay:
         self.thinking_shown = False
         self._display_messages = []  # Track messages for rebuilding
         self._current_thinking_widget = None  # Track current thinking widget
+        self._pending_collapsibles = []  # Track collapsibles to auto-collapse
     
     def show_user_prompt(self, prompt_text: str = "> ") -> None:
         """Show user input prompt with theme styling (Textual version)"""
@@ -318,6 +329,9 @@ class TextualMessageDisplay:
                 pass  # Widget might already be removed
             self._current_thinking_widget = None
             self.thinking_shown = False
+            
+            # Remove thinking messages from display tracking to prevent them showing up on reflow
+            self._display_messages = [msg for msg in self._display_messages if msg[0] != "thinking"]
         
         # Handle tool calls vs regular AI responses
         if formatted_response.startswith(MessageSymbols.TOOL_CALL):
@@ -334,7 +348,33 @@ class TextualMessageDisplay:
         # Track for theme rebuilding (store original message, not styled)
         self._display_messages.append(("ai", message))
         
+        # Immediately collapse pending collapsibles when AI message is shown
+        if self._pending_collapsibles:
+            self._collapse_pending_collapsibles()
+        
         self.conversation_widget.scroll_end()
+    
+    def _collapse_pending_collapsibles(self) -> None:
+        """Immediately collapse all pending collapsibles"""
+        # Find and collapse all Collapsible widgets within pending containers
+        for container_widget in self._pending_collapsibles[:]:  # Copy list to avoid modification during iteration
+            try:
+                # Find the Collapsible widget within the container
+                for child in container_widget.children:
+                    # Check if this is a Collapsible widget by type name
+                    if type(child).__name__ == 'Collapsible':
+                        # Collapse if currently expanded
+                        if hasattr(child, 'collapsed') and not child.collapsed:
+                            child.collapsed = True
+                
+                self._pending_collapsibles.remove(container_widget)
+                        
+            except Exception:
+                # If widget was removed or something went wrong, just remove from tracking
+                try:
+                    self._pending_collapsibles.remove(container_widget)
+                except ValueError:
+                    pass  # Already removed
     
     def _format_ai_response_with_markdown(self, content: str) -> str:
         """Format AI response content with markdown styling using Textual design tokens"""
@@ -371,36 +411,152 @@ class TextualMessageDisplay:
     
     def display_error_message(self, message: str) -> None:
         """Display an error message by mounting an ErrorMessageWidget"""
-        # Create and mount error message widget
-        error_widget = ErrorMessageWidget(message)
-        self.conversation_widget.mount(error_widget)
+        def _mount_error():
+            # Create and mount error message widget
+            error_widget = ErrorMessageWidget(message)
+            self.conversation_widget.mount(error_widget)
+            
+            # Track for theme rebuilding (store original message, not styled)
+            self._display_messages.append(("error", message))
+            
+            self.conversation_widget.scroll_end()
         
-        # Track for theme rebuilding (store original message, not styled)
-        self._display_messages.append(("error", message))
+        # Thread-safe mounting
+        try:
+            app = self.conversation_widget.app
+            if app and hasattr(app, 'call_from_thread'):
+                try:
+                    app.call_from_thread(_mount_error)
+                except Exception:
+                    _mount_error()
+            else:
+                _mount_error()
+        except Exception:
+            _mount_error()
+    
+    def display_success_message(self, message: str) -> None:
+        """Display a success message by mounting a SuccessMessageWidget"""
+        def _mount_success():
+            # Create and mount success message widget
+            success_widget = SuccessMessageWidget(message)
+            self.conversation_widget.mount(success_widget)
+            
+            # Track for theme rebuilding (store original message, not styled)
+            self._display_messages.append(("success", message))
+            
+            self.conversation_widget.scroll_end()
         
-        self.conversation_widget.scroll_end()
+        # Thread-safe mounting
+        try:
+            app = self.conversation_widget.app
+            if app and hasattr(app, 'call_from_thread'):
+                try:
+                    app.call_from_thread(_mount_success)
+                except Exception:
+                    _mount_success()
+            else:
+                _mount_success()
+        except Exception:
+            _mount_success()
     
     def display_tool_call(self, tool_name: str, description: str = "") -> None:
-        """Display a tool call by mounting a ToolCallWidget"""
-        # Create and mount tool call widget
-        tool_call_widget = ToolCallWidget(tool_name, description)
-        self.conversation_widget.mount(tool_call_widget)
+        """Display a tool call by mounting a CollapsibleToolCallWidget"""
+        def _mount_tool_call():
+            # Create and mount collapsible tool call widget
+            tool_call_widget = CollapsibleToolCallWidget(tool_name, description)
+            self.conversation_widget.mount(tool_call_widget)
+            
+            # Track for auto-collapse after AI response
+            self._pending_collapsibles.append(tool_call_widget)
+            
+            # Track for theme rebuilding (store original data, not styled)
+            self._display_messages.append(("tool_call", (tool_name, description)))
+            
+            self.conversation_widget.scroll_end()
         
-        # Track for theme rebuilding (store original data, not styled)
-        self._display_messages.append(("tool_call", (tool_name, description)))
-        
-        self.conversation_widget.scroll_end()
+        # Check if we're in the main thread (Textual app context)
+        try:
+            # Try to access the app - this will work if we're in the main thread
+            app = self.conversation_widget.app
+            if app and hasattr(app, 'call_from_thread'):
+                # We might be in a background thread, use call_from_thread
+                try:
+                    app.call_from_thread(_mount_tool_call)
+                except Exception:
+                    # Fallback to direct call if call_from_thread fails
+                    _mount_tool_call()
+            else:
+                # Direct call if no app or call_from_thread not available
+                _mount_tool_call()
+        except Exception:
+            # Fallback to direct call
+            _mount_tool_call()
     
     def display_tool_result(self, tool_name: str, result_summary: str) -> None:
-        """Display a tool result by mounting a ToolResultWidget"""
-        # Create and mount tool result widget
-        tool_result_widget = ToolResultWidget(tool_name, result_summary)
-        self.conversation_widget.mount(tool_result_widget)
+        """Display a tool result by mounting a CollapsibleToolResultWidget"""
+        def _mount_tool_result():
+            # Create and mount collapsible tool result widget
+            tool_result_widget = CollapsibleToolResultWidget(tool_name, result_summary)
+            self.conversation_widget.mount(tool_result_widget)
+            
+            # Track for auto-collapse after AI response
+            self._pending_collapsibles.append(tool_result_widget)
+            
+            # Track for theme rebuilding (store original data, not styled)
+            self._display_messages.append(("tool_result", (tool_name, result_summary)))
+            
+            self.conversation_widget.scroll_end()
         
-        # Track for theme rebuilding (store original data, not styled)
-        self._display_messages.append(("tool_result", (tool_name, result_summary)))
+        # Check if we're in the main thread (Textual app context)
+        try:
+            # Try to access the app - this will work if we're in the main thread
+            app = self.conversation_widget.app
+            if app and hasattr(app, 'call_from_thread'):
+                # We might be in a background thread, use call_from_thread
+                try:
+                    app.call_from_thread(_mount_tool_result)
+                except Exception:
+                    # Fallback to direct call if call_from_thread fails
+                    _mount_tool_result()
+            else:
+                # Direct call if no app or call_from_thread not available
+                _mount_tool_result()
+        except Exception:
+            # Fallback to direct call
+            _mount_tool_result()
+    
+    def display_tool_result_with_data(self, tool_name: str, result_summary: str, result_data=None) -> None:
+        """Display a tool result with access to the original data for DataTable rendering"""
+        def _mount_tool_result():
+            # Create and mount collapsible tool result widget with data
+            tool_result_widget = CollapsibleToolResultWidget(tool_name, result_summary, result_data)
+            self.conversation_widget.mount(tool_result_widget)
+            
+            # Track for auto-collapse after AI response
+            self._pending_collapsibles.append(tool_result_widget)
+            
+            # Track for theme rebuilding (store original data, not styled)
+            self._display_messages.append(("tool_result", (tool_name, result_summary)))
+            
+            self.conversation_widget.scroll_end()
         
-        self.conversation_widget.scroll_end()
+        # Check if we're in the main thread (Textual app context)
+        try:
+            # Try to access the app - this will work if we're in the main thread
+            app = self.conversation_widget.app
+            if app and hasattr(app, 'call_from_thread'):
+                # We might be in a background thread, use call_from_thread
+                try:
+                    app.call_from_thread(_mount_tool_result)
+                except Exception:
+                    # Fallback to direct call if call_from_thread fails
+                    _mount_tool_result()
+            else:
+                # Direct call if no app or call_from_thread not available
+                _mount_tool_result()
+        except Exception:
+            # Fallback to direct call
+            _mount_tool_result()
     
     def clear_display(self) -> None:
         """Clear the Textual display by removing all child widgets"""
@@ -443,14 +599,19 @@ class TextualMessageDisplay:
         error_widget = ErrorMessageWidget(message)
         self.conversation_widget.mount(error_widget)
     
+    def _render_success_message_without_tracking(self, message: str) -> None:
+        """Render success message without adding to tracking (for theme rebuilds)"""
+        success_widget = SuccessMessageWidget(message)
+        self.conversation_widget.mount(success_widget)
+    
     def _render_tool_call_without_tracking(self, tool_name: str, description: str = "") -> None:
         """Render tool call without adding to tracking (for theme rebuilds)"""
-        tool_call_widget = ToolCallWidget(tool_name, description)
+        tool_call_widget = CollapsibleToolCallWidget(tool_name, description)
         self.conversation_widget.mount(tool_call_widget)
     
     def _render_tool_result_without_tracking(self, tool_name: str, result_summary: str) -> None:
         """Render tool result without adding to tracking (for theme rebuilds)"""
-        tool_result_widget = ToolResultWidget(tool_name, result_summary)
+        tool_result_widget = CollapsibleToolResultWidget(tool_name, result_summary)
         self.conversation_widget.mount(tool_result_widget)
     
     def _render_thinking_without_tracking(self, message: str = "...") -> None:

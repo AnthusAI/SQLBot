@@ -140,7 +140,7 @@ class QueryResultList:
         
         entry = QueryResultEntry(
             index=self._index_counter,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(),
             session_id=self.session_id,
             query_text=query_text,
             result=result,
@@ -215,10 +215,9 @@ class QueryResultList:
         return history_data
     
     def clear_session(self):
-        """Clear all results for this session"""
-        self._entries.clear()
-        self._index_counter = 0
-        self._save_to_storage()
+        """DEPRECATED: This method is disabled to prevent accidental data loss.
+        Query results should never be deleted."""
+        raise NotImplementedError("Query result deletion is disabled to prevent data loss. Query results are preserved permanently.")
     
     def _save_to_storage(self):
         """Save current state to persistent storage"""
@@ -289,7 +288,6 @@ def get_query_result_list(session_id: str) -> QueryResultList:
 
 
 def clear_session_results(session_id: str):
-    """Clear all results for a specific session"""
-    if session_id in _query_result_lists:
-        _query_result_lists[session_id].clear_session()
-        del _query_result_lists[session_id]
+    """DEPRECATED: This method is disabled to prevent accidental data loss.
+    Query results should never be deleted."""
+    raise NotImplementedError("Query result deletion is disabled to prevent data loss. Query results are preserved permanently.")

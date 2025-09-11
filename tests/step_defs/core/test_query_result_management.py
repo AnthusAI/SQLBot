@@ -9,7 +9,7 @@ from pathlib import Path
 from pytest_bdd import scenarios, given, when, then, parsers
 import pytest
 
-from qbot.core.query_result_list import QueryResultList, get_query_result_list, clear_session_results
+from qbot.core.query_result_list import QueryResultList, get_query_result_list
 from qbot.core.query_result_lookup_tool import create_query_result_lookup_tool
 from qbot.core.types import QueryResult, QueryType
 
@@ -42,8 +42,9 @@ def query_result_list(test_session_id, temp_storage_dir):
     _query_result_lists[test_session_id] = result_list
     
     yield result_list
-    # Cleanup
-    clear_session_results(test_session_id)
+    # Test-specific cleanup - remove file directly since clear_session_results is disabled
+    if storage_path.exists():
+        storage_path.unlink()
     # Remove from global registry
     if test_session_id in _query_result_lists:
         del _query_result_lists[test_session_id]

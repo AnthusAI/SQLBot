@@ -90,59 +90,46 @@ QBot accepts the task and begins its reasoning process, writing and executing th
 **Query 1: Find the Top Customer**
 
 ```sql
-SELECT
-  p.customer_id,
-  c.first_name,
-  c.last_name,
-  c.email,
-  SUM(p.amount) AS total_payments
+SELECT p.customer_id, c.first_name, c.last_name, c.email, SUM(p.amount) AS total_payments
 FROM payment p
-JOIN customer c
-  ON p.customer_id = c.customer_id
-GROUP BY
-  p.customer_id
-ORDER BY
-  total_payments DESC
+JOIN customer c ON p.customer_id = c.customer_id
+GROUP BY p.customer_id
+ORDER BY total_payments DESC
 LIMIT 1
+```
+
+```
+✔ Query passes safeguard against dangerous operations.
+▷ Query Result → Success: Query completed
 ```
 
 **Query 2: Find Their Favorite Actor**
 
 ```sql
 WITH cust_rentals AS (
-  SELECT
-    r.rental_id,
-    r.inventory_id
+  SELECT r.rental_id, r.inventory_id
   FROM rental r
-  WHERE
-    r.customer_id = 526
+  WHERE r.customer_id = 526
 ), films AS (
-  SELECT
-    cr.rental_id,
-    i.film_id
+  SELECT cr.rental_id, i.film_id
   FROM cust_rentals cr
-  JOIN inventory i
-    ON cr.inventory_id = i.inventory_id
+  JOIN inventory i ON cr.inventory_id = i.inventory_id
 ), film_actor_map AS (
-  SELECT
-    f.rental_id,
-    fa.actor_id
+  SELECT f.rental_id, fa.actor_id
   FROM films f
-  JOIN film_actor fa
-    ON f.film_id = fa.film_id
+  JOIN film_actor fa ON f.film_id = fa.film_id
 )
-SELECT
-  a.first_name || ' ' || a.last_name AS actor_name,
-  COUNT(*) AS rentals_by_actor
+SELECT a.first_name || ' ' || a.last_name AS actor_name, COUNT(*) AS rentals_by_actor
 FROM film_actor_map fam
-JOIN actor a
-  ON fam.actor_id = a.actor_id
-GROUP BY
-  fam.actor_id
-ORDER BY
-  rentals_by_actor DESC,
-  actor_name ASC
+JOIN actor a ON fam.actor_id = a.actor_id
+GROUP BY fam.actor_id
+ORDER BY rentals_by_actor DESC, actor_name ASC
 LIMIT 1
+```
+
+```
+✔ Query passes safeguard against dangerous operations.
+▷ Query Result → Success: Query completed
 ```
 
 It then delivers a synthesized answer, even suggesting the next logical step.
@@ -150,12 +137,15 @@ It then delivers a synthesized answer, even suggesting the next logical step.
 **QBot:**
 > Got it — we'll find the top customer by total payments, then their most-rented actor.
 >
-> **Results:**
+> **Approach:**
+> - Query total lifetime payments by customer to get the top customer.
+> - For that customer, join rentals → inventory → film_actor → actor to find the actor with the highest rental count.
 >
-> **Customer:** KARL SEAL  
-> **Email:** KARL.SEAL@sakilacustomer.org  
-> **Favorite actor:** UMA WOOD  
-> **Films rented from that actor:** 6
+> **Results:**
+> - **Customer:** KARL SEAL  
+> - **Email:** KARL.SEAL@sakilacustomer.org  
+> - **Favorite actor:** UMA WOOD  
+> - **Films rented from that actor:** 6
 >
 > **Next step suggestion:**  
 > Want a quick profile for this customer (total rentals, average spend, preferred categories)?

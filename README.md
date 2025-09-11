@@ -198,11 +198,16 @@ OPENAI_API_KEY=your_openai_api_key_here
 # QBot LLM Configuration
 QBOT_LLM_MODEL=gpt-5
 QBOT_LLM_MAX_TOKENS=10000
+QBOT_LLM_TEMPERATURE=0.1
+QBOT_LLM_VERBOSITY=low
+QBOT_LLM_EFFORT=minimal
+QBOT_LLM_PROVIDER=openai
 
-# Database Configuration (used by dbt)
-DB_SERVER=your_database_server.database.windows.net
-DB_NAME=your_database_name
-# ... and so on
+# Optional: QBot Behavior Configuration
+# QBOT_READ_ONLY=true
+# QBOT_PREVIEW_MODE=false
+# QBOT_QUERY_TIMEOUT=60
+# QBOT_MAX_ROWS=1000
 ```
 
 ### 3. Database Connection (~/.dbt/profiles.yml)

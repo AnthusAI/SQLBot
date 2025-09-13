@@ -1,5 +1,5 @@
 """
-Configuration management for QBot Core SDK
+Configuration management for SQLBot Core SDK
 """
 
 import os
@@ -9,8 +9,8 @@ from .types import LLMConfig
 
 
 @dataclass
-class QBotConfig:
-    """Configuration for QBot agent"""
+class SQLBotConfig:
+    """Configuration for SQLBot agent"""
     
     # dbt configuration - all database connection info comes from dbt profiles
     profile: str = "qbot"
@@ -85,3 +85,7 @@ class QBotConfig:
         env_dict = self.to_env_dict()
         for key, value in env_dict.items():
             os.environ[key] = value
+
+
+# Backward compatibility alias
+QBotConfig = SQLBotConfig

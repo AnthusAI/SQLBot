@@ -1,4 +1,4 @@
-# ✦ SQLBot: Your AI Database Analyste in ge 
+# ✦ SQLBot: Your AI Database Analyst
 
 **"If you give an agent a tool, then nobody has to fish."**
 

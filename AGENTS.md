@@ -2,21 +2,21 @@
 
 ## Project Overview
 
-QBot is a database query bot with AI-powered natural language processing. It provides both a CLI interface and interactive REPL for executing SQL/dbt queries and natural language questions using LangChain and OpenAI's GPT models.
+SQLBot is a database query bot with AI-powered natural language processing. It provides both a CLI interface and interactive REPL for executing SQL/dbt queries and natural language questions using LangChain and OpenAI's GPT models.
 
 ## User Interface Modes
 
-QBot provides two distinct user interface modes:
+SQLBot provides two distinct user interface modes:
 
 ### Textual App (Default Mode)
-**Command**: `qbot` (no flags needed - this is the default)
+**Command**: `sqlbot` (no flags needed - this is the default)
 - **Interactive TUI**: Modern terminal user interface with widgets, panels, and real-time updates
 - **Features**: Conversation history panel, query results panel, theme switching, command palette
 - **Implementation**: Uses the Textual framework (`qbot/interfaces/textual_app.py`)
 - **When used**: Default mode for all interactive usage
 
 ### Rich CLI Mode
-**Command**: `qbot --text` (explicit flag required)
+**Command**: `sqlbot --text` (explicit flag required)
 - **Text-based output**: Terminal output using Rich formatting for tables and styled text
 - **Features**: Formatted tables, colored output, but no interactive widgets
 - **Implementation**: Uses Rich console (`qbot/repl.py`)
@@ -86,7 +86,7 @@ except Exception as e:
 
 ## Theme System Architecture
 
-QBot uses a unified theme system that provides consistent colors across both user interfaces (see "User Interface Modes" section above for interface details).
+SQLBot uses a unified theme system that provides consistent colors across both user interfaces (see "User Interface Modes" section above for interface details).
 
 ### Architecture: Two UI Systems, One Theme Source
 
@@ -103,9 +103,9 @@ MAGENTA1 = "#ffaaff"           # AI responses (dark themes)
 DEEP_PINK_LIGHT = "#ffccff"    # AI responses (light themes)
 ```
 
-**Textual Integration**: Uses `QBotThemeManager` class
+**Textual Integration**: Uses `SQLBotThemeManager` class
 - Leverages Textual's built-in themes (`tokyo-night`, `textual-dark`, etc.)
-- Adds QBot-specific message colors on top
+- Adds SQLBot-specific message colors on top
 - Supports user-defined themes in `~/.qbot/themes/`
 - Gracefully handles missing textual dependency for Rich CLI
 
@@ -161,7 +161,7 @@ console.print("AI Response", style="ai_response")  # Uses MAGENTA1
 
 ## Environment Variables
 
-### QBot Configuration
+### SQLBot Configuration
 - `QBOT_LLM_MODEL` - OpenAI model (default: gpt-5)  
 - `QBOT_LLM_MAX_TOKENS` - Max tokens per response (default: 1000)
 - `OPENAI_API_KEY` - Required for LLM functionality
@@ -190,7 +190,7 @@ console.print("AI Response", style="ai_response")  # Uses MAGENTA1
 - Global Secondary Indexes required (no full table scans)
 
 #### Profile-Based Architecture
-QBot supports multiple database profiles with isolated configurations:
+SQLBot supports multiple database profiles with isolated configurations:
 
 ```
 profiles/
@@ -206,7 +206,7 @@ profiles/
         └── *.sql           # Client macros
 ```
 
-**Usage:** `qbot --profile Sakila` loads client-specific configuration
+**Usage:** `sqlbot --profile Sakila` loads client-specific configuration
 
 #### Schema Configuration (`models/schema.yml`)
 ```yaml
@@ -252,7 +252,7 @@ def load_schema_info():
 1. User asks natural language question
 2. LLM reads schema context from profile-specific schema
 3. LLM generates dbt-compatible SQL using `{{ source() }}` syntax
-4. QBot creates temporary model file in `models/qbot_temp_*.sql`
+4. SQLBot creates temporary model file in `models/qbot_temp_*.sql`
 5. dbt compiles source references to actual table names
 6. SQL executes against database with `dbt show`
 7. Results displayed to user in formatted table
@@ -324,7 +324,7 @@ def load_schema_info():
 
 - All DynamoDB queries must use Global Secondary Indexes instead of full table scans due to large number of items in the table
 - Module designed as `qbot.repl` for clarity (functions as a REPL)
-- CLI command is `qbot` after `pip install -e .`
+- CLI command is `sqlbot` after `pip install sqlbot`
 - Environment variables use `QBOT_*` prefix for configuration
 - Generic table/source names used for open source compatibility
 

@@ -3,20 +3,19 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qbot"
-version = "0.1.0"
-description = "Database Query Bot - REPL combining dbt with GPT-powered natural language processing"
+name = "sqlbot"
+version = "0.2.0"
+description = "SQLBot - Database Query Bot with AI-powered natural language processing"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
-    {name = "QBot Team"}
+    {name = "SQLBot Team"}
 ]
 keywords = ["database", "dbt", "ai", "repl", "sql", "natural-language"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -54,12 +53,12 @@ dev = [
 ]
 
 [project.scripts]
-qbot = "qbot.repl:main"
+sqlbot = "qbot.repl:main"
 
 [project.urls]
-Homepage = "https://github.com/your-org/qbot"
-Repository = "https://github.com/your-org/qbot.git"
-Issues = "https://github.com/your-org/qbot/issues"
+Homepage = "https://github.com/AnthusAI/SQLBot"
+Repository = "https://github.com/AnthusAI/SQLBot.git"
+Issues = "https://github.com/AnthusAI/SQLBot/issues"
 
 [tool.pytest-bdd]
 features_base_dir = "tests/features"

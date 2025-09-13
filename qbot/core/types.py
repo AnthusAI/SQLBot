@@ -143,7 +143,7 @@ class ProfileInfo:
 class LLMConfig:
     """Configuration for LLM integration"""
     model: str = "gpt-5"
-    max_tokens: int = 10000
+    max_tokens: int = 50000
     temperature: float = 0.1
     verbosity: str = "low"
     effort: str = "minimal"

@@ -269,6 +269,46 @@ class CLIMessageDisplay:
         styled_message = f"[tool_result][tool_result_symbol]{MessageSymbols.TOOL_RESULT}[/tool_result_symbol] {tool_name} → {result_summary}[/tool_result]"
         self.console.print(styled_message)
     
+    def display_tool_result_with_data(self, tool_name: str, result_summary: str, result_data=None) -> None:
+        """Display a tool result with actual data in CLI using Rich table"""
+        # First show the summary
+        styled_message = f"[tool_result][tool_result_symbol]{MessageSymbols.TOOL_RESULT}[/tool_result_symbol] {tool_name} → {result_summary}[/tool_result]"
+        self.console.print(styled_message)
+        
+        # Then show the actual data if available
+        if result_data and hasattr(result_data, 'data') and result_data.data:
+            from rich.table import Table
+            
+            # Create a Rich table with no width limit for all data
+            table = Table(show_header=True, header_style="bold magenta", width=None)
+            
+            # Add columns - no width limits for any columns
+            if hasattr(result_data, 'columns') and result_data.columns:
+                for col in result_data.columns:
+                    table.add_column(str(col), no_wrap=False, width=None)
+            
+            # Add rows (limit to first 10 for readability, show full text for all columns)
+            max_rows = 10
+            for i, row in enumerate(result_data.data):
+                if i >= max_rows:
+                    table.add_row(*["..." for _ in result_data.columns])
+                    break
+                # Convert all values to strings and handle None values - show full text for ALL columns
+                row_values = [str(val) if val is not None else "" for val in row.values()]
+                table.add_row(*row_values)
+            
+            self.console.print(table)
+            
+            # Show row count info
+            total_rows = len(result_data.data)
+            if total_rows > max_rows:
+                self.console.print(f"[dim]Showing first {max_rows} of {total_rows} rows[/dim]")
+        elif result_data and hasattr(result_data, 'data') and not result_data.data:
+            self.console.print("[dim]No data returned[/dim]")
+        else:
+            # Fallback - no structured data available
+            pass
+    
     def clear_display(self) -> None:
         """Clear the CLI display"""
         # CLI doesn't have a clear concept, just print a separator

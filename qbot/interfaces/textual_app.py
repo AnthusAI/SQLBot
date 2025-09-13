@@ -1089,10 +1089,23 @@ Slash Commands:
                 # Delay the focus restoration to let ListView selection render first
                 self.call_later(_restore_focus, 0.2)
             
-            # Update query results and conversation debug views
+            # Update query results and conversation debug views (async to prevent blocking)
             if self.detail_widget:
-                self.detail_widget.on_new_query_result()  # Update query results panel
-                self.detail_widget.on_conversation_updated()  # Update conversation debug view
+                def _update_detail_views():
+                    try:
+                        self.detail_widget.on_new_query_result()  # Update query results panel
+                    except Exception as e:
+                        # Log error but don't crash the app
+                        pass
+                    
+                    try:
+                        self.detail_widget.on_conversation_updated()  # Update conversation debug view
+                    except Exception as e:
+                        # Log error but don't crash the app
+                        pass
+                
+                # Schedule the updates to run after the current UI refresh cycle
+                self.call_after_refresh(_update_detail_views)
                 
         except Exception as e:
             if self.conversation_widget:

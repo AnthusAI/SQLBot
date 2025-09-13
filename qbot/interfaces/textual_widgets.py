@@ -102,8 +102,17 @@ class QueryResultSidebar(ListView):
                 self.insert(i, [item])
             
             # Trim to 100 items maximum if we exceed the limit
-            while len(self) > 100:
-                self.pop()
+            if len(self) > 100:
+                # Instead of using pop() which can cause CSS query stalls,
+                # rebuild the list with only the first 100 items
+                items_to_keep = []
+                for i in range(min(100, len(self))):
+                    items_to_keep.append(self[i])
+                
+                # Clear and rebuild
+                self.clear()
+                for item in items_to_keep:
+                    self.append(item)
     
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle selection of a query result"""

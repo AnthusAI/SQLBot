@@ -12,7 +12,7 @@ def get_llm_config() -> Dict[str, Any]:
     """Get current LLM configuration parameters."""
     return {
         'model': os.getenv('QBOT_LLM_MODEL', 'gpt-5'),
-        'max_tokens': int(os.getenv('QBOT_LLM_MAX_TOKENS', '10000')),
+        'max_tokens': int(os.getenv('QBOT_LLM_MAX_TOKENS', '50000')),
         'verbosity': os.getenv('QBOT_LLM_VERBOSITY', 'low'),
         'effort': os.getenv('QBOT_LLM_EFFORT', 'minimal'),
         'timeout': int(os.getenv('QBOT_LLM_TIMEOUT', '120'))

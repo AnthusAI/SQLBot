@@ -1043,7 +1043,7 @@ def main():
     global PREVIEW_MODE, READONLY_MODE, READONLY_CLI_MODE, SHOW_HISTORY
     
     # Parse arguments first
-    parser = argparse.ArgumentParser(description='QBot: Database Query Bot', add_help=False)
+    parser = argparse.ArgumentParser(description='SQLBot: Database Query Bot', add_help=False)
     parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
     parser.add_argument('--profile', default='qbot', help='dbt profile name to use (default: qbot)')
     parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')

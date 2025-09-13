@@ -116,39 +116,48 @@ class TestLLMIntegration:
     def test_dbt_query_tool_success(self, mock_env, tmp_path):
         """Test DbtQueryTool successful execution."""
         from qbot.llm_integration import DbtQueryTool
+        from qbot.core.types import QueryResult, QueryType
         
         tool = DbtQueryTool()
         
-        # Mock subprocess to simulate successful dbt execution
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = "Query executed successfully"
-        mock_result.stderr = ""
+        # Mock DbtService to return success result
+        mock_success_result = QueryResult(
+            success=True,
+            query_type=QueryType.SQL,
+            execution_time=0.1,
+            data=[{"id": 1}],
+            columns=["id"],
+            row_count=1
+        )
         
-        with patch('subprocess.run', return_value=mock_result):
+        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_success_result):
             with patch('os.path.dirname', return_value=str(tmp_path)):
                 result = tool._run("SELECT 1")
                 
-                assert "Query executed successfully" in result
-                assert "successfully" in result
+                assert "success" in result.lower()
+                assert '"id": 1' in result
 
     def test_dbt_query_tool_failure(self, mock_env, tmp_path):
         """Test DbtQueryTool error handling."""
         from qbot.llm_integration import DbtQueryTool
+        from qbot.core.types import QueryResult, QueryType
         
         tool = DbtQueryTool()
         
-        # Mock subprocess to simulate failed dbt execution
-        mock_result = Mock()
-        mock_result.returncode = 1
-        mock_result.stdout = ""
-        mock_result.stderr = "SQL syntax error"
+        # Mock DbtService to return error result
+        mock_error_result = QueryResult(
+            success=False,
+            query_type=QueryType.SQL,
+            execution_time=0.1,
+            error="STDERR: SQL syntax error"
+        )
         
-        with patch('subprocess.run', return_value=mock_result):
+        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
             with patch('os.path.dirname', return_value=str(tmp_path)):
                 result = tool._run("INVALID SQL")
                 
-                assert "Error executing query" in result
+                # Check that the result contains error information
+                assert "failed" in result
                 assert "SQL syntax error" in result
 
     def test_dbt_query_tool_timeout(self, mock_env, tmp_path):

@@ -34,7 +34,7 @@ class QBotConfig:
         # LLM configuration from environment
         llm_config = LLMConfig(
             model=os.getenv('QBOT_LLM_MODEL', 'gpt-5'),
-            max_tokens=int(os.getenv('QBOT_LLM_MAX_TOKENS', '10000')),
+            max_tokens=int(os.getenv('QBOT_LLM_MAX_TOKENS', '50000')),
             temperature=float(os.getenv('QBOT_LLM_TEMPERATURE', '0.1')),
             verbosity=os.getenv('QBOT_LLM_VERBOSITY', 'low'),
             effort=os.getenv('QBOT_LLM_EFFORT', 'minimal'),

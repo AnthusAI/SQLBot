@@ -229,7 +229,7 @@ def get_llm():
     try:
         # Use QBot-specific variables 
         model = os.getenv('QBOT_LLM_MODEL', 'gpt-5')
-        max_tokens = int(os.getenv('QBOT_LLM_MAX_TOKENS', '10000'))
+        max_tokens = int(os.getenv('QBOT_LLM_MAX_TOKENS', '50000'))
         verbosity = os.getenv('QBOT_LLM_VERBOSITY', 'low')
         effort = os.getenv('QBOT_LLM_EFFORT', 'minimal')
         
@@ -245,7 +245,7 @@ def get_llm():
             "api_key": os.getenv('OPENAI_API_KEY'),
             "streaming": False,
             "disable_streaming": True,
-            "request_timeout": 25,
+            "request_timeout": int(os.getenv('QBOT_LLM_REQUEST_TIMEOUT', '90')),
             "max_retries": 1
         }
         
@@ -322,9 +322,13 @@ class DbtQueryTool(BaseTool):
         
         def log_to_file(message):
             timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            with open(log_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}] {message}\n")
-                f.flush()
+            try:
+                with open(log_file, 'a', encoding='utf-8') as f:
+                    f.write(f"[{timestamp}] {message}\n")
+                    f.flush()
+            except (FileNotFoundError, PermissionError):
+                # Silently skip logging if directory doesn't exist or no permissions
+                pass
         
         log_to_file(f"🚀 TOOL EXECUTION START: {query[:100]}...")
         
@@ -1056,7 +1060,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
     try:
         # Create custom logging LLM
         model = os.getenv('QBOT_LLM_MODEL', 'gpt-5')
-        max_tokens = int(os.getenv('QBOT_LLM_MAX_TOKENS', '10000'))
+        max_tokens = int(os.getenv('QBOT_LLM_MAX_TOKENS', '50000'))
         verbosity = os.getenv('QBOT_LLM_VERBOSITY', 'low')
         effort = os.getenv('QBOT_LLM_EFFORT', 'minimal')
         
@@ -1072,7 +1076,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
             "api_key": os.getenv('OPENAI_API_KEY'),
             "streaming": False,
             "disable_streaming": True,
-            "request_timeout": 25,
+            "request_timeout": int(os.getenv('QBOT_LLM_REQUEST_TIMEOUT', '90')),
             "max_retries": 1
         }
         

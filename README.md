@@ -1,14 +1,14 @@
-# ✦ QBot: Your AI Database Analyst
+# ✦ SQLBot: Your AI Database Analyst
 
 **"If you give an agent a tool, then nobody has to fish."**
 
-QBot is a new kind of interface for your database. Instead of writing SQL queries yourself, you delegate high-level analytical tasks to an AI agent. It reasons through your request, executing a chain of queries and analyzing the results until it arrives at a complete answer—all while keeping your data safe with built-in safeguards.
+SQLBot is a new kind of interface for your database. Instead of writing SQL queries yourself, you delegate high-level analytical tasks to an AI agent. It reasons through your request, executing a chain of queries and analyzing the results until it arrives at a complete answer—all while keeping your data safe with built-in safeguards.
 
 It represents the next logical layer on the modern data stack, building directly on the power of SQL and dbt.
 
 ### How It Works: A Smarter Tech Stack
 
-To understand QBot, it helps to see the evolution of the tools it's built upon.
+To understand SQLBot, it helps to see the evolution of the tools it's built upon.
 
 #### **Layer 1: SQL — The Powerful Foundation**
 
@@ -68,14 +68,14 @@ Now, anyone (or anything) can perform that complex task with a simple, self-docu
 ```
 dbt also standardizes database connections and provides a `schema.yml` file, a "data dictionary" that describes your tables and columns in plain English.
 
-#### **Layer 3: QBot — The Intelligence & Safety Layer**
+#### **Layer 3: SQLBot — The Intelligence & Safety Layer**
 
-QBot adds the final layer: an AI agent that uses the structure dbt provides while keeping your data protected. The agent is armed with two crucial pieces of information from your dbt profile:
+SQLBot adds the final layer: an AI agent that uses the structure dbt provides while keeping your data protected. The agent is armed with two crucial pieces of information from your dbt profile:
 
 - **The Schema (`schema.yml`)**: It reads your table and column descriptions to understand what your data means.
 - **The Macros (`macros/*.sql`)**: It learns your reusable business logic to solve complex tasks more efficiently.
 
-**Built-in Safeguards**: QBot includes read-only protections and query validation to prevent dangerous operations like `DROP`, `DELETE`, or `UPDATE` commands, ensuring your data stays safe while you focus on analysis rather than syntax.
+**Built-in Safeguards**: SQLBot includes read-only protections and query validation to prevent dangerous operations like `DROP`, `DELETE`, or `UPDATE` commands, ensuring your data stays safe while you focus on analysis rather than syntax.
 
 This layered approach gives you the best of all worlds: the raw power of SQL, the structure and reusability of dbt, the conversational intelligence of an AI Agent, and the peace of mind that comes with built-in safety controls.
 
@@ -85,7 +85,7 @@ Because the agent understands this stack, you no longer write SQL or dbt. You st
 
 **You:** "I want to run a 'customer of the month' promotion. First, identify our single best customer based on their total lifetime payment amount. Once you have that customer, find out which actor they have rented the most movies from. I'll need the customer's full name, their email address, the full name of their favorite actor, and the count of films they've rented by that actor."
 
-QBot accepts the task and begins its reasoning process, writing and executing the necessary SQL.
+SQLBot accepts the task and begins its reasoning process, writing and executing the necessary SQL.
 
 **Query 1: Find the Top Customer**
 
@@ -134,7 +134,7 @@ LIMIT 1
 
 It then delivers a synthesized answer, even suggesting the next logical step.
 
-**QBot:**
+**SQLBot:**
 > Got it — we'll find the top customer by total payments, then their most-rented actor.
 >
 > **Approach:**
@@ -157,7 +157,7 @@ The traditional approach requires you to:
 2. **Debug queries** - Fix syntax errors and performance issues  
 3. **Interpret results** - Manually analyze and synthesize findings
 
-QBot flips this model. Instead of writing SQL, you **delegate analysis**:
+SQLBot flips this model. Instead of writing SQL, you **delegate analysis**:
 1. **Ask business questions** - "Who are our top customers this quarter?"
 2. **Let the agent work** - It writes, executes, and chains multiple queries safely
 3. **Get insights** - Receive synthesized answers with suggested next steps
@@ -179,12 +179,10 @@ The result? You spend time on strategy and insights, not syntax and debugging.
 ### 1. Installation
 
 ```bash
-git clone <your-repo-url>
-cd QBot
-pip install -e .
+pip install sqlbot
 
 # Verify installation
-qbot --help
+sqlbot --help
 ```
 
 ### 2. Environment (.env)
@@ -195,7 +193,7 @@ Create a `.env` file in the root directory with your API key and database creden
 # OpenAI API Configuration
 OPENAI_API_KEY=your_openai_api_key_here
 
-# QBot LLM Configuration
+# SQLBot LLM Configuration
 QBOT_LLM_MODEL=gpt-5
 QBOT_LLM_MAX_TOKENS=10000
 QBOT_LLM_TEMPERATURE=0.1
@@ -203,7 +201,7 @@ QBOT_LLM_VERBOSITY=low
 QBOT_LLM_EFFORT=minimal
 QBOT_LLM_PROVIDER=openai
 
-# Optional: QBot Behavior Configuration
+# Optional: SQLBot Behavior Configuration
 # QBOT_READ_ONLY=true
 # QBOT_PREVIEW_MODE=false
 # QBOT_QUERY_TIMEOUT=60
@@ -284,27 +282,29 @@ sources:
 
 ```bash
 # Start interactive mode
-qbot
+sqlbot
 
 # Delegate a task from the command line
-qbot "How many new customers did we get last month?"
+sqlbot "How many new customers did we get last month?"
 ```
 
 ## Quick Start with Sample Data
 
-Want to try QBot immediately? Clone the project and set up the sample Sakila database:
+Want to try SQLBot immediately? Install the package and set up the sample Sakila database:
 
 ```bash
-# Clone and install QBot
-git clone <your-repo-url>
+# Install SQLBot
+pip install sqlbot
+
+# Clone the repository for sample data setup
+git clone https://github.com/AnthusAI/QBot
 cd QBot
-pip install -e .
 
 # Set up the sample Sakila database (SQLite)
 python setup_sakila_db.py
 
 # Start exploring with sample data
-qbot --profile Sakila
+sqlbot --profile Sakila
 ```
 
 The Sakila database comes pre-configured with a complete schema and sample data, so you can immediately start asking questions like:
@@ -312,8 +312,8 @@ The Sakila database comes pre-configured with a complete schema and sample data,
 - "Which films are most popular by rental count?"
 - "Show me rental trends by month"
 
-> **TODO**: Future versions will include `qbot setup` commands to:
-> - Import existing dbt profiles into QBot's `profiles/` structure
+> **TODO**: Future versions will include `sqlbot setup` commands to:
+> - Import existing dbt profiles into SQLBot's `profiles/` structure
 > - Download and configure Sakila database automatically
 > - Generate starter schema files for new databases
 
@@ -342,7 +342,7 @@ pytest
 ### Troubleshooting
 
 - **Agent gives wrong answers or fails to find tables**: The most likely cause is an unclear or incorrect `schema.yml`. Ensure your table and column descriptions are detailed and accurate.
-- **Connection issues**: Double-check your `.env` and `~/.dbt/profiles.yml` files. Run `qbot /debug` to test the connection.
+- **Connection issues**: Double-check your `.env` and `~/.dbt/profiles.yml` files. Run `sqlbot /debug` to test the connection.
 - **API errors**: Verify your `OPENAI_API_KEY` is correct in `.env`.
 
 </details>
@@ -351,4 +351,4 @@ pytest
 
 - **SQL Injection**: Mitigated by using dbt's compilation, which inherently parameterizes inputs.
 - **Credentials**: API keys and database passwords are loaded securely from environment variables.
-- **Permissions**: We strongly recommend running QBot with a read-only database user.
+- **Permissions**: We strongly recommend running SQLBot with a read-only database user.

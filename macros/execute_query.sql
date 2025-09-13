@@ -2,7 +2,7 @@
   {# Check if this is a SELECT query or DML/DDL #}
   {% set query_upper = query.upper().strip() %}
   
-  {% if query_upper.startswith('SELECT') or query_upper.startswith('WITH') %}
+  {% if query_upper.startswith('SELECT') or query_upper.startswith('WITH') or 'SELECT' in query_upper %}
     {# Use run_query for SELECT statements #}
     {% set result = run_query(query) %}
     {% if result and result.rows %}

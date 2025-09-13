@@ -704,6 +704,10 @@ def start_console():
     from sqlbot.interfaces.unified_display import execute_query_with_unified_display
     from sqlbot.conversation_memory import ConversationMemoryManager
     
+    # Show banner for interactive mode (even in test environment)
+    profile = os.getenv('DBT_PROFILE_NAME', 'sqlbot')
+    show_banner(is_no_repl=False, profile=profile, llm_model=None, llm_available=LLM_AVAILABLE)
+    
     # Create memory manager and execution function
     memory_manager = ConversationMemoryManager()
     def execute_llm_func(q: str) -> str:
@@ -712,7 +716,7 @@ def start_console():
         return handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds)
     
     # Start unified REPL
-    start_unified_repl(memory_manager, execute_llm_func, rich_console)
+    start_unified_repl(memory_manager, rich_console)
 
 def execute_dbt_run_unlimited(sql_query):
     """Execute SQL query with very high limit for now"""
@@ -1010,28 +1014,6 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
         ai_color = theme.get_color('ai_response')
         rich_console.print(Panel(markdown_content, border_style=ai_color))
 
-def _is_test_environment() -> bool:
-    """Check if we're running in a test environment."""
-    import sys
-    
-    # Check for pytest - this is the most reliable indicator
-    if 'pytest' in sys.modules:
-        return True
-    
-    # Check for pytest-specific environment variables
-    if os.getenv('PYTEST_CURRENT_TEST'):
-        return True
-    
-    # Check if we're being called from pytest
-    if len(sys.argv) > 0:
-        if any(arg in sys.argv[0] for arg in ['pytest', 'py.test']):
-            return True
-    
-    # Check if we're in a CI environment running tests
-    if os.getenv('CI') and any(os.getenv(var) for var in ['TESTING', 'GITHUB_ACTIONS']):
-        return True
-    
-    return False
 
 
 def main():
@@ -1193,13 +1175,10 @@ def main():
 
     # No query provided, start interactive mode based on interface choice
     else:
-        if args.text:
-            # Text-mode interactive REPL
+        if args.text or os.getenv('SQLBOT_TEXT_MODE'):
+            # Text-mode interactive REPL (can be forced via environment variable for testing)
             show_banner(is_no_repl=False, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
             _start_cli_interactive_mode(rich_console)
-        elif _is_test_environment():
-            # Use start_console for test compatibility
-            start_console()
         else:
             # Default: Use Textual interface
             from sqlbot.interfaces.textual_repl import create_textual_repl_from_args

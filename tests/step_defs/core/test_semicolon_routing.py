@@ -38,7 +38,12 @@ def in_qbot_interface():
 @given('I start SQLBot in Textual mode')
 def start_textual_mode():
     """Start SQLBot in Textual interface mode."""
-    pytest.skip("Textual mode testing requires special setup")
+    # Instead of full Textual setup, just test the shared session logic that Textual uses
+    from sqlbot.interfaces.shared_session import SQLBotSession
+    from sqlbot.core.config import SQLBotConfig
+    
+    config = SQLBotConfig(profile='sqlbot')
+    pytest.textual_session = SQLBotSession(config)
 
 @when(parsers.parse('I enter "{query}"'))
 def enter_query(query):

@@ -63,14 +63,13 @@ def run_qbot_with_query_and_flags(query, flags):
 @when('I start SQLBot in interactive mode')
 def start_qbot_interactive():
     """Start SQLBot in interactive mode (no query provided)."""
-    pytest.skip("Interactive mode banner test skipped due to test environment detection changes")
     from tests.conftest import setup_subprocess_environment
     
     env = setup_subprocess_environment()
     env['DBT_PROFILE_NAME'] = 'Sakila'
     
     # Use echo to provide input and exit quickly
-    cmd = ['python', '-m', 'sqlbot.repl', '--profile', 'Sakila']
+    cmd = ['python', '-m', 'sqlbot.repl', '--profile', 'Sakila', '--text']
     
     # Send exit command immediately to avoid hanging
     process = subprocess.Popen(

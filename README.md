@@ -208,9 +208,14 @@ QBOT_LLM_PROVIDER=openai
 # QBOT_MAX_ROWS=1000
 ```
 
-### 3. Database Connection (~/.dbt/profiles.yml)
+### 3. Database Connection (dbt profiles)
 
-Configure dbt to connect to your database. Create `~/.dbt/profiles.yml` if it doesn't exist.
+SQLBot supports both **local** and **global** dbt profile configurations:
+
+- **Local profiles** (recommended): Create `.dbt/profiles.yml` in your project directory for project-specific configurations
+- **Global profiles**: Use `~/.dbt/profiles.yml` for system-wide configurations
+
+SQLBot automatically detects and prioritizes local profiles when available. This allows you to have different database configurations per project while maintaining a global fallback.
 
 <details>
 <summary>Click to see example dbt configurations</summary>
@@ -288,9 +293,45 @@ sqlbot
 sqlbot "How many new customers did we get last month?"
 ```
 
+### Project-Specific Configuration
+
+SQLBot supports project-specific configurations using **local dbt profiles**:
+
+```bash
+# Create a local .dbt folder in your project
+mkdir .dbt
+
+# Create project-specific profiles
+cat > .dbt/profiles.yml << EOF
+my_project:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: myuser
+      password: mypass
+      dbname: myproject_db
+      port: 5432
+EOF
+
+# SQLBot will automatically detect and use the local configuration
+sqlbot --profile my_project
+```
+
+**Benefits of local profiles:**
+- Keep database credentials with your project
+- Different configurations per project/environment
+- Team members can share the same profile setup
+- No interference with global dbt configurations
+
+When SQLBot starts, you'll see confirmation in the banner:
+- `Profiles: Local .dbt/profiles.yml (detected)` - Using project-specific config
+- `Profiles: Global ~/.dbt/profiles.yml` - Using system-wide config
+
 ## Quick Start with Sample Data
 
-Want to try SQLBot immediately? Install the package and set up the sample Sakila database:
+Want to try SQLBot immediately **without setting up a database server**? Use our pre-configured SQLite sample database:
 
 ```bash
 # Install SQLBot
@@ -300,17 +341,27 @@ pip install sqlbot
 git clone https://github.com/AnthusAI/SQLBot
 cd SQLBot
 
-# Set up the sample Sakila database (SQLite)
-python setup_sakila_db.py
+# Install database dependencies (SQLite adapter for dbt)
+pip install -r requirements-integration.txt
+
+# Set up the sample Sakila database (SQLite - no server required!)
+python scripts/setup_sakila_db.py
 
 # Start exploring with sample data
 sqlbot --profile Sakila
 ```
 
-The Sakila database comes pre-configured with a complete schema and sample data, so you can immediately start asking questions like:
+**Why SQLite?** No database server installation required! The Sakila database runs entirely from a single `.db` file with:
+- **1,000 films** with ratings, categories, and descriptions
+- **599 customers** with rental history and payments
+- **16,000+ rental transactions** for realistic testing
+- **Complete relational structure** with actors, categories, inventory
+
+You can immediately start asking natural language questions like:
 - "Who are the top 5 customers by total payments?"
 - "Which films are most popular by rental count?"
 - "Show me rental trends by month"
+- "What's the average rental duration by film category?"
 
 > **TODO**: Future versions will include `sqlbot setup` commands to:
 > - Import existing dbt profiles into SQLBot's `profiles/` structure
@@ -361,13 +412,31 @@ docs: update installation instructions
 
 ### Testing
 
-To run the full test suite, which includes agent reasoning and error recovery scenarios against a real database:
+SQLBot includes comprehensive unit and integration tests.
 
+#### Unit Tests
+Run unit tests for core functionality:
 ```bash
-pip install -r requirements-integration.txt
-python setup_sakila_db.py  # Sets up a local SQLite DB with test data
 pytest
 ```
+
+#### Integration Tests
+Integration tests verify end-to-end functionality against the Sakila sample database. These tests cover database connectivity, query routing, safeguards, and real-world usage scenarios.
+
+**Quick setup:**
+```bash
+pip install -r requirements-integration.txt
+python scripts/setup_sakila_db.py
+pytest -m "integration" tests/integration/
+```
+
+**📖 For detailed integration testing documentation, see [tests/integration/README.md](tests/integration/README.md)**
+
+This includes:
+- Complete setup instructions
+- Test file organization and coverage
+- Troubleshooting guide
+- Environment configuration options
 
 ### Project Structure
 

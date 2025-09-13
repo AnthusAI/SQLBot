@@ -19,10 +19,10 @@ def check_sakila_database():
     """Verify Sakila SQLite database setup."""
     print("🔍 Checking Sakila Database Setup...")
     
-    sakila_db = Path('sakila.db')
+    sakila_db = Path('profiles/Sakila/data/sakila.db')
     if not sakila_db.exists():
         print("❌ Sakila database not found")
-        print("   Run: python setup_sakila_db.py --database sqlite")
+        print("   Run: python scripts/setup_sakila_db.py --database sqlite")
         return False
     
     print("✅ Sakila database file exists")
@@ -254,7 +254,7 @@ def test_sample_query():
     print("\n🔍 Testing Sample Business Query...")
     
     try:
-        sakila_db = Path('sakila.db')
+        sakila_db = Path('profiles/Sakila/data/sakila.db')
         conn = sqlite3.connect(str(sakila_db))
         cursor = conn.cursor()
         
@@ -320,12 +320,12 @@ def main():
         print("\nNext steps:")
         print("  • Run integration tests: pytest tests/integration/")
         print("  • Test with Sakila profile: export DBT_PROFILE_NAME=Sakila")
-        print("  • Try SQLBot with Sakila: qbot --profile Sakila")
+        print("  • Try SQLBot with Sakila: sqlbot --profile Sakila")
         return True
     else:
         print("⚠️  Some checks failed. Please review the errors above.")
         print("\nCommon fixes:")
-        print("  • Run: python setup_sakila_db.py --database sqlite")
+        print("  • Run: python scripts/setup_sakila_db.py --database sqlite")
         print("  • Run: pip install -r requirements-integration.txt")
         print("  • Check that all files are in the correct locations")
         return False

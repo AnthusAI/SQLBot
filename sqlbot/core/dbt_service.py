@@ -33,7 +33,16 @@ class DbtService:
         env_vars = self.config.to_env_dict()
         for key, value in env_vars.items():
             os.environ[key] = value
-        
+
+        # Configure dbt to use local .dbt folder if it exists
+        from .config import SQLBotConfig
+        profiles_dir, is_local = SQLBotConfig.detect_dbt_profiles_dir()
+        os.environ['DBT_PROFILES_DIR'] = profiles_dir
+
+        # Store detection result for banner/logging purposes
+        self._is_using_local_dbt = is_local
+        self._dbt_profiles_dir = profiles_dir
+
         # Set profile-specific log and target paths
         profile_name = self.config.profile
         
@@ -55,6 +64,19 @@ class DbtService:
         models_dir = Path('models')
         models_dir.mkdir(parents=True, exist_ok=True)
         return str(models_dir)
+
+    def get_dbt_config_info(self) -> dict:
+        """
+        Get information about current dbt configuration for display purposes.
+
+        Returns:
+            Dictionary with dbt configuration details
+        """
+        return {
+            'is_using_local_dbt': getattr(self, '_is_using_local_dbt', False),
+            'profiles_dir': getattr(self, '_dbt_profiles_dir', str(Path.home() / '.dbt')),
+            'profile_name': self.config.profile
+        }
     
     def _get_dbt_runner(self):
         """Get or create dbt runner instance"""

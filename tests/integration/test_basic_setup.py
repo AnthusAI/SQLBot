@@ -23,14 +23,14 @@ class TestBasicSetup:
         """Test that the Sakila SQLite database file exists."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         assert sakila_db_path.exists(), f"Sakila database file not found at {sakila_db_path}. Run: python setup_sakila_db.py --database sqlite"
     
     def test_sakila_database_connectivity(self):
         """Test basic SQLite connectivity to Sakila database."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         
         # Connect to database
         conn = sqlite3.connect(str(sakila_db_path))
@@ -48,7 +48,7 @@ class TestBasicSetup:
         """Test that Sakila database contains expected data."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         conn = sqlite3.connect(str(sakila_db_path))
         cursor = conn.cursor()
         
@@ -73,7 +73,7 @@ class TestBasicSetup:
         """Test that key tables have expected columns."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         conn = sqlite3.connect(str(sakila_db_path))
         cursor = conn.cursor()
         
@@ -140,7 +140,7 @@ class TestBasicSetup:
         """Test sample business queries that SQLBot should be able to handle."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
-        sakila_db_path = project_root / "sakila.db"
+        sakila_db_path = project_root / "profiles/Sakila/data/sakila.db"
         conn = sqlite3.connect(str(sakila_db_path))
         cursor = conn.cursor()
         

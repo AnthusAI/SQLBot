@@ -186,8 +186,46 @@ console.print("AI Response", style="ai_response")  # Uses MAGENTA1
 ### dbt Configuration
 - Uses dbt for SQL compilation and execution
 - **Profile-based configuration**: Sources and macros organized by profile
-- Database credentials in `~/.dbt/profiles.yml` (NEVER commit this file)
+- **Local .dbt folder support**: SQLBot automatically detects and uses local `.dbt/profiles.yml` when available
+- **Profile priority**: Local `.dbt/profiles.yml` > Global `~/.dbt/profiles.yml`
+- Database credentials stored in dbt profiles (NEVER commit profiles with credentials)
 - Global Secondary Indexes required (no full table scans)
+
+#### Local vs Global dbt Profiles
+
+SQLBot supports both local and global dbt profile configurations:
+
+**Local profiles** (`.dbt/profiles.yml` in project directory):
+- Automatically detected and prioritized
+- Project-specific database configurations
+- Can be committed to version control (without credentials)
+- Useful for team collaboration and environment isolation
+
+**Global profiles** (`~/.dbt/profiles.yml` in home directory):
+- System-wide fallback configuration
+- Used when no local `.dbt` folder exists
+- Traditional dbt profile location
+
+**Detection mechanism** (`sqlbot/core/config.py`):
+```python
+@staticmethod
+def detect_dbt_profiles_dir() -> Tuple[str, bool]:
+    """Detect dbt profiles directory with local .dbt folder support."""
+    # Check for local .dbt folder first
+    local_dbt_dir = Path('.dbt')
+    local_profiles_file = local_dbt_dir / 'profiles.yml'
+
+    if local_profiles_file.exists():
+        return str(local_dbt_dir.resolve()), True
+
+    # Fall back to global ~/.dbt folder
+    home_dbt_dir = Path.home() / '.dbt'
+    return str(home_dbt_dir), False
+```
+
+**Environment configuration** (`sqlbot/core/dbt_service.py`):
+- Sets `DBT_PROFILES_DIR` environment variable to detected directory
+- Banner displays current profile source: "Local .dbt/profiles.yml (detected)" or "Global ~/.dbt/profiles.yml"
 
 #### Profile-Based Architecture
 SQLBot supports multiple database profiles with isolated configurations:
@@ -293,6 +331,7 @@ def load_schema_info():
 - **Unit Tests** (`tests/unit/`): Implementation verification (42+ tests)
 - **BDD Scenarios** (`tests/step_defs/core/`): User workflow validation (10+ scenarios)
 - **Feature Files** (`tests/features/core/`): Gherkin scenarios in plain English
+- **Integration Tests** (`tests/integration/`): End-to-end functionality with real database (35+ tests)
 
 ### Test Coverage Areas
 1. **LLM Integration**: Configuration, query handling, error scenarios
@@ -300,11 +339,29 @@ def load_schema_info():
 3. **REPL Commands**: Slash commands, history, interactive features
 4. **CLI Interface**: Argument parsing, help, module execution
 5. **Database Connectivity**: Connection handling, query formatting
+6. **Integration Workflows**: Real database operations, safeguards, query routing
+
+### Integration Testing
+Integration tests verify end-to-end functionality against the **Sakila sample database**:
+
+- **Database**: 35 tests using SQLite version of Sakila (1000 films, 599 customers, 16K+ rentals)
+- **Coverage**: Database connectivity, schema loading, dbt compilation, safeguards, query routing
+- **Setup**: `pip install -r requirements-integration.txt && python scripts/setup_sakila_db.py`
+- **Execution**: `pytest -m "integration" tests/integration/`
+
+**📖 Complete guide**: See [tests/integration/README.md](tests/integration/README.md) for detailed setup, troubleshooting, and test organization.
+
+Key integration test files:
+- `test_basic_setup.py` - Database connectivity and setup verification
+- `test_sakila_integration.py` - Core dbt and schema functionality
+- `test_sakila_comprehensive_integration.py` - Safeguards and query routing
+- `test_local_dbt_folder_integration.py` - Local .dbt configuration features
 
 ### Mock Strategy
 - `mock_env` fixture for environment variables
 - `mock_database` fixture for database connections
 - `patch` decorators for external API calls (OpenAI, dbt)
+- Integration tests use **real Sakila database** (no mocking for database operations)
 
 ## Security Considerations
 

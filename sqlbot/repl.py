@@ -982,34 +982,48 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
     from sqlbot.interfaces.banner import get_banner_content, get_interactive_banner_content
     from rich.markdown import Markdown
     from rich.panel import Panel
-    
+
+    # Get dbt configuration information
+    dbt_config_info = None
+    try:
+        from sqlbot.core.dbt_service import get_dbt_service
+        from sqlbot.core.config import SQLBotConfig
+        config = SQLBotConfig.from_env(profile=profile)
+        dbt_service = get_dbt_service(config)
+        dbt_config_info = dbt_service.get_dbt_config_info()
+    except Exception:
+        # If we can't get dbt config info, continue without it
+        pass
+
     if is_no_repl:
         # CLI/no-repl mode banner with Markdown support
         banner_text = get_banner_content(
-            profile=profile, 
-            llm_model=llm_model, 
-            llm_available=llm_available, 
-            interface_type="text"
+            profile=profile,
+            llm_model=llm_model,
+            llm_available=llm_available,
+            interface_type="text",
+            dbt_config_info=dbt_config_info
         )
-        
+
         # Use Rich Markdown for proper formatting
         theme = get_theme_manager()
         markdown_content = Markdown(banner_text)
-        
+
         # Display in a panel with theme colors
         rich_console.print(Panel(markdown_content, border_style=theme.get_color('ai_response')))
     else:
         # Full interactive banner with Markdown support
         banner_text = get_interactive_banner_content(
             profile=profile,
-            llm_model=llm_model, 
-            llm_available=llm_available
+            llm_model=llm_model,
+            llm_available=llm_available,
+            dbt_config_info=dbt_config_info
         )
-        
+
         # Use Rich Markdown for proper formatting
         theme = get_theme_manager()
         markdown_content = Markdown(banner_text)
-        
+
         # Display in a panel with theme colors
         ai_color = theme.get_color('ai_response')
         rich_console.print(Panel(markdown_content, border_style=ai_color))

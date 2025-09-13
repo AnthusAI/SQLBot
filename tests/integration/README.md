@@ -11,16 +11,16 @@ This directory contains integration tests that require actual database connectio
 
 2. **Set up Sakila test database:**
    ```bash
-   python setup_sakila_db.py --database sqlite
+   python scripts/setup_sakila_db.py
    ```
 
 3. **Run integration tests:**
    ```bash
-   # Use the integration test script (recommended)
-   ./test_integration.sh
-   
-   # Or run directly with pytest
+   # Run directly with pytest
    pytest -m "integration" tests/integration/
+
+   # Run with verbose output
+   pytest -m "integration" tests/integration/ -v
    ```
 
 ## Test Database: Sakila
@@ -34,7 +34,7 @@ The integration tests use the **Sakila sample database**, a well-known DVD renta
 
 ### Why Sakila?
 
-- **Standardized**: Industry-standard sample database used by MySQL, PostgreSQL, and SQLite
+- **Standardized**: Industry-standard sample database, available as SQLite for easy setup
 - **Realistic**: Contains real-world business data patterns
 - **Comprehensive**: Tests complex queries, joins, and aggregations
 - **Lightweight**: SQLite version requires no server setup
@@ -47,7 +47,7 @@ The integration tests use the **Sakila sample database**, a well-known DVD renta
 ```bash
 # Install dependencies and set up Sakila database
 pip install -r requirements-integration.txt
-python setup_sakila_db.py --database sqlite
+python scripts/setup_sakila_db.py
 ```
 
 This creates:
@@ -55,16 +55,13 @@ This creates:
 - `~/.dbt/profiles.yml` - dbt configuration for Sakila profile
 - Profile-specific schema and macros in `profiles/Sakila/`
 
-### Manual Setup
+### Alternative Setup Options
 
-If you prefer manual setup or need MySQL instead of SQLite:
+If you need to customize the setup:
 
 ```bash
-# For MySQL (requires MySQL server)
-python setup_sakila_db.py --database mysql --user root --password your_password
-
-# For existing Sakila database, just configure dbt profiles
-# Edit ~/.dbt/profiles.yml to add your database connection
+# Skip creating local .dbt/profiles.yml (use global ~/.dbt/profiles.yml instead)
+python scripts/setup_sakila_db.py --no-local-profile
 ```
 
 ## Running Tests
@@ -72,10 +69,7 @@ python setup_sakila_db.py --database mysql --user root --password your_password
 ### Basic Test Execution
 
 ```bash
-# Run all integration tests (recommended)
-./test_integration.sh
-
-# Or run directly with pytest
+# Run all integration tests
 pytest -m "integration" tests/integration/
 
 # Run with verbose output
@@ -84,65 +78,59 @@ pytest -m "integration" tests/integration/ -v
 # Run specific test file
 pytest tests/integration/test_sakila_integration.py
 
-# Run tests with specific markers
-pytest tests/integration/ -m "sakila"
-pytest tests/integration/ -m "dbt"
-pytest tests/integration/ -m "llm"
+# Run specific test files
+pytest tests/integration/test_basic_setup.py
+pytest tests/integration/test_sakila_integration.py
+pytest tests/integration/test_sakila_comprehensive_integration.py
 ```
 
-### Test Categories and Markers
+### Test Categories
 
-Tests are automatically marked based on their functionality:
+Integration tests are organized into focused test files:
 
-- `@pytest.mark.integration` - All integration tests
-- `@pytest.mark.sakila` - Tests requiring Sakila database
-- `@pytest.mark.dbt` - Tests requiring dbt functionality
-- `@pytest.mark.llm` - Tests requiring OpenAI API (or mocked)
+- `test_basic_setup.py` - Basic database connectivity and setup verification
+- `test_sakila_integration.py` - Core Sakila database functionality testing
+- `test_sakila_comprehensive_integration.py` - Safeguards, query routing, and end-to-end workflows
+- `test_local_dbt_folder_integration.py` - Local .dbt folder feature testing
 
 ### Environment Variables
 
 ```bash
-# Optional: Configure LLM testing
-export OPENAI_API_KEY=your_api_key_here
-
-# Optional: Use different dbt profile
+# Required for integration tests
 export DBT_PROFILE_NAME=Sakila
 
-# Optional: Configure LLM model for testing
-export QBOT_LLM_MODEL=gpt-3.5-turbo
-export QBOT_LLM_MAX_TOKENS=500
+# Optional: Configure LLM testing (if using LLM features)
+export OPENAI_API_KEY=your_api_key_here
 ```
 
 ## Test Structure
 
-### `test_sakila_integration.py`
+### Test File Overview
 
-Comprehensive integration tests covering:
+**`test_basic_setup.py`** - Foundation verification:
+- SQLite database file accessibility
+- Data integrity verification (1000 films, 599 customers, etc.)
+- Schema structure validation
+- dbt profiles configuration
+- Integration test dependencies
 
-1. **Database Connectivity**
-   - SQLite database file accessibility
-   - Data integrity verification (1000 films, 599 customers, etc.)
-   - Schema structure validation
+**`test_sakila_integration.py`** - Core functionality:
+- Schema integration and profile path discovery
+- dbt debug and connection testing
+- Query compilation with `{{ source('sakila', 'table') }}` syntax
+- Macro execution (`get_films_by_category`, `get_customer_rentals`, etc.)
+- REPL integration and command-line functionality
 
-2. **Schema Integration**
-   - Profile path discovery (`profiles/Sakila/`)
-   - Schema loading from `profiles/Sakila/models/schema.yml`
-   - dbt source reference validation
+**`test_sakila_comprehensive_integration.py`** - Advanced workflows:
+- Safeguard systems (blocking dangerous queries)
+- Query routing (SQL vs natural language)
+- End-to-end CLI and session integration
+- LLM tool integration with safeguards
 
-3. **dbt Integration**
-   - dbt debug and connection testing
-   - Query compilation with `{{ source('sakila', 'table') }}` syntax
-   - Macro execution (`get_films_by_category`, `get_customer_rentals`, etc.)
-
-4. **LLM Integration**
-   - Natural language query processing with Sakila context
-   - Schema information injection into LLM prompts
-   - End-to-end query flow (LLM → dbt → SQLite → results)
-
-5. **REPL Integration**
-   - Command-line argument parsing (`--profile Sakila`)
-   - Profile-specific functionality
-   - Direct SQL query execution
+**`test_local_dbt_folder_integration.py`** - Configuration features:
+- Local .dbt folder detection and usage
+- Profile management and environment setup
+- Banner display integration
 
 ### `conftest.py`
 
@@ -196,7 +184,7 @@ Tests verify Sakila-specific macros work correctly:
 
 1. **"Sakila database not found"**
    ```bash
-   python setup_sakila_db.py --database sqlite
+   python scripts/setup_sakila_db.py
    ```
 
 2. **"dbt command not found"**
@@ -208,24 +196,25 @@ Tests verify Sakila-specific macros work correctly:
    - Check `~/.dbt/profiles.yml` exists and contains Sakila configuration
    - Verify `profiles/Sakila/models/schema.yml` exists
 
-4. **"OpenAI API key not configured"**
-   - Set `OPENAI_API_KEY` environment variable, or
-   - Run tests with `-m "not llm"` to skip LLM tests
+4. **"Local .dbt folder not detected"**
+   - Check if `.dbt/profiles.yml` exists in project root
+   - Verify profile configuration is correct
+   - Run `python -c "from sqlbot.core.config import SQLBotConfig; print(SQLBotConfig.detect_dbt_profiles_dir())"` to debug
 
 ### Debug Information
 
 ```bash
 # Check database setup
-sqlite3 sakila.db "SELECT COUNT(*) FROM film;"
+sqlite3 profiles/Sakila/data/sakila.db "SELECT COUNT(*) FROM film;"
 
 # Check dbt configuration
-dbt debug --profile Sakila
+env DBT_PROFILE_NAME=Sakila dbt debug --profile Sakila
 
 # Check profile paths
-python -c "from qbot.core.schema import get_profile_paths; print(get_profile_paths('Sakila'))"
+python -c "from sqlbot.core.schema import SchemaLoader; s=SchemaLoader('Sakila'); print(s.get_profile_paths())"
 
 # Run single test with full output
-pytest tests/integration/test_sakila_integration.py::TestSakilaDatabase::test_sakila_database_exists -v -s
+pytest tests/integration/test_basic_setup.py::TestBasicSetup::test_sakila_database_file_exists -v -s
 ```
 
 ## Requirements
@@ -236,6 +225,5 @@ Integration tests require additional dependencies not needed for core SQLBot fun
 - **pytest-timeout>=2.1.0** - Test timeout handling
 - **SQLite3** - Usually pre-installed on most systems
 
-Optional for extended testing:
-- **OpenAI API key** - For LLM integration tests
-- **MySQL server** - For MySQL-based testing (alternative to SQLite)
+Optional:
+- **OpenAI API key** - For LLM-related functionality (most tests work without it)

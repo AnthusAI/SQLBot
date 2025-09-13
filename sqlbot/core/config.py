@@ -3,8 +3,9 @@ Configuration management for SQLBot Core SDK
 """
 
 import os
-from typing import Optional
+from typing import Optional, Tuple
 from dataclasses import dataclass, field
+from pathlib import Path
 from .types import LLMConfig
 
 
@@ -27,6 +28,27 @@ class SQLBotConfig:
     query_timeout: int = 60
     max_rows: int = 1000
     
+    @staticmethod
+    def detect_dbt_profiles_dir() -> Tuple[str, bool]:
+        """
+        Detect dbt profiles directory with local .dbt folder support.
+
+        Returns:
+            Tuple of (profiles_dir_path, is_local) where:
+            - profiles_dir_path: Path to the profiles directory to use
+            - is_local: True if using local .dbt folder, False if using global ~/.dbt
+        """
+        # Check for local .dbt folder first
+        local_dbt_dir = Path('.dbt')
+        local_profiles_file = local_dbt_dir / 'profiles.yml'
+
+        if local_profiles_file.exists():
+            return str(local_dbt_dir.resolve()), True
+
+        # Fall back to global ~/.dbt folder
+        home_dbt_dir = Path.home() / '.dbt'
+        return str(home_dbt_dir), False
+
     @classmethod
     def from_env(cls, profile: Optional[str] = None) -> 'SQLBotConfig':
         """Create configuration from environment variables"""

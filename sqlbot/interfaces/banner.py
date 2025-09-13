@@ -19,16 +19,17 @@ def get_llm_config() -> Dict[str, Any]:
     }
 
 
-def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = None, llm_available: bool = False) -> str:
+def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = None, llm_available: bool = False, dbt_config_info: Optional[Dict[str, Any]] = None) -> str:
     """
     Get configuration-only banner for --no-repl mode.
     Shows profile and LLM info without REPL help.
-    
+
     Args:
         profile: Current dbt profile name
         llm_model: LLM model name (e.g., 'gpt-5')
         llm_available: Whether LLM integration is available
-        
+        dbt_config_info: Dictionary with dbt configuration details from DbtService
+
     Returns:
         Formatted configuration banner text
     """
@@ -36,7 +37,14 @@ def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = 
     config_lines = []
     if profile:
         config_lines.append(f"Profile: {profile}")
-    
+
+    # Add dbt profiles directory information
+    if dbt_config_info:
+        if dbt_config_info.get('is_using_local_dbt', False):
+            config_lines.append(f"Profiles: Local .dbt/profiles.yml (detected)")
+        else:
+            config_lines.append(f"Profiles: Global ~/.dbt/profiles.yml")
+
     if llm_available and llm_model:
         llm_config = get_llm_config()
         llm_info = f"LLM: {llm_model} (tokens={llm_config['max_tokens']}, verbosity={llm_config['verbosity']}, effort={llm_config['effort']})"
@@ -56,32 +64,40 @@ def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = 
     return content
 
 
-def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] = None, llm_available: bool = False, interface_type: str = "text") -> str:
+def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] = None, llm_available: bool = False, interface_type: str = "text", dbt_config_info: Optional[Dict[str, Any]] = None) -> str:
     """
     Get unified banner content for both text and Textual interfaces.
-    
+
     Args:
         profile: Current dbt profile name
         llm_model: LLM model name (e.g., 'gpt-5')
         llm_available: Whether LLM integration is available
         interface_type: 'text' for CLI mode, 'textual' for TUI mode
-        
+        dbt_config_info: Dictionary with dbt configuration details from DbtService
+
     Returns:
         Formatted banner text with modern Markdown formatting
     """
-    
+
     # Configuration section with proper formatting
     config_lines = []
     if profile:
         config_lines.append(f"**Profile:** `{profile}`")
-    
+
+    # Add dbt profiles directory information
+    if dbt_config_info:
+        if dbt_config_info.get('is_using_local_dbt', False):
+            config_lines.append(f"**Profiles:** Local `.dbt/profiles.yml` (detected)")
+        else:
+            config_lines.append(f"**Profiles:** Global `~/.dbt/profiles.yml`")
+
     if llm_available and llm_model:
         llm_config = get_llm_config()
         llm_info = f"**LLM:** `{llm_model}` (tokens={llm_config['max_tokens']}, verbosity={llm_config['verbosity']}, effort={llm_config['effort']})"
         config_lines.append(llm_info)
     else:
         config_lines.append("**LLM:** Not available")
-    
+
     config_text = "\n".join(config_lines) if config_lines else ""
     
     # Interface-specific content
@@ -137,31 +153,39 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
         return content
 
 
-def get_interactive_banner_content(profile: Optional[str] = None, llm_model: Optional[str] = None, llm_available: bool = False) -> str:
+def get_interactive_banner_content(profile: Optional[str] = None, llm_model: Optional[str] = None, llm_available: bool = False, dbt_config_info: Optional[Dict[str, Any]] = None) -> str:
     """
     Get full interactive banner content for text mode REPL.
-    
+
     Args:
         profile: Current dbt profile name
         llm_model: LLM model name
         llm_available: Whether LLM integration is available
-        
+        dbt_config_info: Dictionary with dbt configuration details from DbtService
+
     Returns:
         Full interactive banner with modern Markdown formatting
     """
-    
+
     # Configuration info with proper formatting
     config_lines = []
     if profile:
         config_lines.append(f"**Profile:** `{profile}`")
-    
+
+    # Add dbt profiles directory information
+    if dbt_config_info:
+        if dbt_config_info.get('is_using_local_dbt', False):
+            config_lines.append(f"**Profiles:** Local `.dbt/profiles.yml` (detected)")
+        else:
+            config_lines.append(f"**Profiles:** Global `~/.dbt/profiles.yml`")
+
     if llm_available and llm_model:
         llm_config = get_llm_config()
         llm_info = f"**LLM:** `{llm_model}` (tokens={llm_config['max_tokens']}, verbosity={llm_config['verbosity']}, effort={llm_config['effort']})"
         config_lines.append(llm_info)
     else:
         config_lines.append("**LLM:** Not available")
-    
+
     config_text = "\n".join(config_lines) if config_lines else ""
     
     # Full interactive content with modern Markdown

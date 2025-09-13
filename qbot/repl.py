@@ -976,19 +976,12 @@ def is_sql_query(query):
 def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=False):
     """Show SQLBot banner with setup information"""
     from rich.panel import Panel
+    import sys
     
     if is_no_repl:
-        # Simple CLI/no-repl mode banner - ensure it displays reliably
-        try:
-            banner_content = (
-                "[bold magenta2]SQLBot CLI[/bold magenta2]\n"
-                "[bold magenta2]SQLBot: Database Query Interface[/bold magenta2]"
-            )
-            rich_console.print(Panel(banner_content, border_style="magenta2"))
-        except Exception as e:
-            # Fallback to simple print if Rich fails
-            print("SQLBot CLI")
-            print("SQLBot: Database Query Interface")
+        # Simple CLI/no-repl mode banner - always use plain text for reliability
+        print("SQLBot CLI")
+        print("SQLBot: Database Query Interface")
     else:
         # Full interactive banner
         try:
@@ -1177,11 +1170,13 @@ def main():
                 
             if not is_interactive or args.no_repl:
                 # Non-interactive environment or explicit --no-repl: use CLI mode and exit
+                
+                # Show banner FIRST in no-repl mode for tests and user feedback
+                show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
+                
                 if not LLM_AVAILABLE:
                     rich_console.print("[yellow]LLM integration not available. Using CLI mode.[/yellow]")
                 
-                # Show banner in no-repl mode for tests and user feedback
-                show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
                 _execute_query_cli_mode(query, rich_console)
                 rich_console.print("\n[dim]Exiting (--no-repl mode)[/dim]")
                 return

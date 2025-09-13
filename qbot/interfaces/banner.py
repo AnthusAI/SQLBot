@@ -45,7 +45,7 @@ def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = 
         config_lines.append("LLM: Not available")
     
     # Simple configuration banner for --no-repl mode
-    title = "QBot CLI\nQBot: Database Query Interface"
+    title = "SQLBot CLI\nSQLBot: Database Query Interface"
     config_text = "\n".join(config_lines) if config_lines else ""
     
     content = f"{title}\n"
@@ -86,7 +86,7 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
     
     # Interface-specific content
     if interface_type == "textual":
-        title = "# Welcome to QBot!"
+        title = "# Welcome to SQLBot!"
         interface_help = (
             "### Interface Tips\n"
             "- Press `Ctrl+\\` to open command palette (switch views)\n"
@@ -94,7 +94,7 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
             "- Press `Ctrl+C`, `Ctrl+Q`, or `Escape` to exit"
         )
     else:  # text mode
-        title = "# QBot CLI\n## Database Query Interface"
+        title = "# SQLBot CLI\n## Database Query Interface"
         interface_help = (
             "### Tips\n"
             "- Use `↑`/`↓` arrows to navigate command history\n"
@@ -117,7 +117,7 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
         "- `/tables` - List database tables\n"
         "- `/preview` - Preview SQL compilation before execution\n"
         "- `/readonly` - Toggle read-only safeguard mode\n"
-        "- `exit`, `quit`, or `q` - Exit QBot"
+        "- `exit`, `quit`, or `q` - Exit SQLBot"
     )
     
     # Combine all sections with proper Markdown structure
@@ -166,7 +166,7 @@ def get_interactive_banner_content(profile: Optional[str] = None, llm_model: Opt
     
     # Full interactive content with modern Markdown
     content = (
-        "# QBot\n"
+        "# SQLBot\n"
         "*An agent with a dbt query tool to help you with your SQL.*\n\n"
         "**Ready for questions.**\n\n"
     )

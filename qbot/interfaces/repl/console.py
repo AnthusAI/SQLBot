@@ -47,14 +47,14 @@ class QBotREPL:
         if mode == "cli":
             # Abbreviated banner for CLI/no-repl mode
             self.console.print(Panel(
-                "[bold magenta2]QBot CLI[/bold magenta2]\n"
-                "[bold magenta2]QBot: Database Query Interface[/bold magenta2]",
+                "[bold magenta2]SQLBot CLI[/bold magenta2]\n"
+                "[bold magenta2]SQLBot: Database Query Interface[/bold magenta2]",
                 border_style="magenta2"
             ))
         else:
             # Full interactive banner
             self.console.print(Panel(
-                "[bold magenta2]QBot: An agent with a dbt query tool to help you with your SQL.[/bold magenta2]\n\n"
+                "[bold magenta2]SQLBot: An agent with a dbt query tool to help you with your SQL.[/bold magenta2]\n\n"
                 "[bold green]Ready for questions.[/bold green]\n\n"
                 "[bold green]🤖 Default: Natural Language Queries[/bold green]\n"
                 "• Just type your question in plain English\n"
@@ -67,7 +67,7 @@ class QBotREPL:
                 "• [bold magenta2]/tables[/bold magenta2] - List database tables\n"
                 "• [bold magenta2]/preview[/bold magenta2] - Preview SQL compilation before execution\n"
                 "• [bold magenta2]/dangerous[/bold magenta2] - Toggle dangerous mode (disables safeguards)\n"
-                "• [bold magenta2]exit[/bold magenta2] - Quit\n\n"
+                "• [bold magenta2]exit[/bold magenta2] - Quit SQLBot\n\n"
                 "[dim purple]💡 Tips:[/dim purple]\n"
                 "• Use ↑/↓ arrows to navigate command history\n"
                 "• Press [bold red]Ctrl+C[/bold red] to interrupt running queries",

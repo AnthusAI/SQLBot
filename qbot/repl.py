@@ -1142,6 +1142,10 @@ def main():
         
         # Execute query using CLI text mode with unified display
         if args.text:
+            # Show banner for --text mode
+            if args.no_repl:
+                show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
+            
             # Execute the initial query using unified display system
             _execute_query_cli_mode(query, rich_console)
             
@@ -1170,6 +1174,8 @@ def main():
                 if not LLM_AVAILABLE:
                     rich_console.print("[yellow]LLM integration not available. Using CLI mode.[/yellow]")
                 
+                # Show banner in no-repl mode for tests and user feedback
+                show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
                 _execute_query_cli_mode(query, rich_console)
                 rich_console.print("\n[dim]Exiting (--no-repl mode)[/dim]")
                 return

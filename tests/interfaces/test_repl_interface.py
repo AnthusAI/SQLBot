@@ -183,7 +183,7 @@ class TestQBotREPL:
         self.repl.show_banner("cli")
         
         output = self.console.file.getvalue()
-        assert "QBot CLI" in output
+        assert "SQLBot CLI" in output
         assert "Database Query Interface" in output
     
     def test_handle_query_input(self):

@@ -1,3 +1,10 @@
+## [1.0.7](https://github.com/AnthusAI/SQLBot/compare/v1.0.6...v1.0.7) (2025-09-13)
+
+
+### Bug Fixes
+
+* simplify banner display for no-repl mode reliability ([abb355b](https://github.com/AnthusAI/SQLBot/commit/abb355bb2febe4c77532eab208232c73d86591ef))
+
 ## [1.0.6](https://github.com/AnthusAI/SQLBot/compare/v1.0.5...v1.0.6) (2025-09-13)
 
 

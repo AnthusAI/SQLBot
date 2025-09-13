@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/AnthusAI/SQLBot/compare/v1.0.3...v1.0.4) (2025-09-13)
+
+
+### Bug Fixes
+
+* complete SQLBot rebranding in config and tests ([c0774b5](https://github.com/AnthusAI/SQLBot/commit/c0774b545f8245ad0dcf4e5381646856c7b8597e))
+
 ## [1.0.3](https://github.com/AnthusAI/SQLBot/compare/v1.0.2...v1.0.3) (2025-09-13)
 
 

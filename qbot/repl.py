@@ -1041,6 +1041,15 @@ def main():
     import sys
     import argparse
     
+    # FORCE banner display for --no-repl mode at the very beginning
+    if len(sys.argv) > 1 and '--no-repl' in sys.argv:
+        from rich.panel import Panel
+        banner_content = (
+            "[bold magenta2]SQLBot CLI[/bold magenta2]\n"
+            "[bold magenta2]SQLBot: Database Query Interface[/bold magenta2]"
+        )
+        rich_console.print(Panel(banner_content, border_style="magenta2"))
+    
     # Global variable declarations
     global PREVIEW_MODE, READONLY_MODE, READONLY_CLI_MODE, SHOW_HISTORY
     
@@ -1170,9 +1179,7 @@ def main():
                 # Non-interactive environment or explicit --no-repl: use CLI mode and exit
                 
                 # Show banner FIRST in no-repl mode for tests and user feedback
-                print("BANNER_DEBUG: About to show banner")
                 show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
-                print("BANNER_DEBUG: Banner shown")
                 
                 # Show starting message AFTER banner
                 rich_console.print(f"\nStarting with query: {query}")

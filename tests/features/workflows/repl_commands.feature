@@ -1,10 +1,10 @@
 Feature: REPL Commands and Navigation
-  As a user of QBot's interactive mode
+  As a user of SQLBot's interactive mode
   I want to use slash commands and navigate efficiently
   So that I can explore the database and manage my session
 
   Background:
-    Given I am in QBot interactive mode
+    Given I am in SQLBot interactive mode
     And the database connection is working
 
   Scenario: List available commands
@@ -46,7 +46,7 @@ Feature: REPL Commands and Navigation
 
   Scenario: Exit the REPL
     When I type "exit"
-    Then QBot should exit gracefully
+    Then SQLBot should exit gracefully
     And display a goodbye message
     And save my command history
 
@@ -58,6 +58,6 @@ Feature: REPL Commands and Navigation
 
   Scenario: Multi-line query support
     When I start typing a query with unclosed braces
-    Then QBot should prompt for continuation
+    Then SQLBot should prompt for continuation
     And I should be able to complete the query on multiple lines
     And the complete query should execute when finished

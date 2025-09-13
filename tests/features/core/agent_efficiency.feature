@@ -1,15 +1,15 @@
 Feature: Agent Query Efficiency
-  As a user of QBot
+  As a user of SQLBot
   I want the LLM agent to stop making queries when it gets the answer
   So that it doesn't waste time and resources on unnecessary database calls
 
   Background:
-    Given QBot is properly configured
+    Given SQLBot is properly configured
     And the LLM integration is available
     And the database connection is working
 
   Scenario: Agent stops after successful single query
-    Given I have a working QBot instance
+    Given I have a working SQLBot instance
     When I ask "How many tables are in the database?"
     Then the LLM should make exactly 1 database query
     And the query should return a count result
@@ -17,7 +17,7 @@ Feature: Agent Query Efficiency
     And the agent should not make additional queries
 
   Scenario: Agent stops after getting sufficient data
-    Given I have a working QBot instance  
+    Given I have a working SQLBot instance  
     When I ask "What tables exist in the database?"
     Then the LLM should make at most 2 database queries
     And the queries should return table information
@@ -25,7 +25,7 @@ Feature: Agent Query Efficiency
     And the agent should not hit the max iterations limit
 
   Scenario: Agent uses previous query results within same session
-    Given I have a working QBot instance
+    Given I have a working SQLBot instance
     And I ask "How many tables are there?" 
     And the agent successfully returns a count
     When I ask "List the table names"
@@ -34,7 +34,7 @@ Feature: Agent Query Efficiency
     And not repeat the same table counting query
 
   Scenario: Agent handles failed queries efficiently  
-    Given I have a working QBot instance
+    Given I have a working SQLBot instance
     When I ask a question that generates invalid SQL
     Then the LLM should try alternative approaches
     But should not make more than 3 total query attempts

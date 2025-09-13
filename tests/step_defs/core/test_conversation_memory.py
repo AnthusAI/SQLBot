@@ -14,7 +14,7 @@ scenarios('../../features/core/conversation_memory.feature')
 @pytest.fixture
 def memory_manager():
     """Create a fresh conversation memory manager for testing"""
-    from qbot.conversation_memory import ConversationMemoryManager
+    from sqlbot.conversation_memory import ConversationMemoryManager
     return ConversationMemoryManager(max_messages=20, max_content_length=2000)
 
 @pytest.fixture
@@ -28,9 +28,9 @@ def sample_conversation_data():
         "multi_tool_response": "I found multiple results:\n\n--- Query Details ---\nQuery: SELECT COUNT(*) FROM users\nResult: 100\n\nQuery: SELECT COUNT(*) FROM active_users\nResult: 75"
     }
 
-@given("QBot is properly configured")
+@given("SQLBot is properly configured")
 def qbot_configured():
-    """Ensure QBot is configured"""
+    """Ensure SQLBot is configured"""
     pass
 
 @given("the conversation memory system is initialized")

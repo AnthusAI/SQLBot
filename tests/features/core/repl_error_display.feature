@@ -1,14 +1,14 @@
 Feature: REPL Error Display for Users
-  As a user of the QBot REPL
+  As a user of the SQLBot REPL
   I want to see clear, detailed error messages when database queries fail
   So that I can understand what went wrong and how to fix it
 
   Background:
-    Given QBot REPL is running
+    Given SQLBot REPL is running
     And the database connection is configured
 
   Scenario: SQL syntax error is clearly displayed in REPL
-    Given I am in the QBot REPL
+    Given I am in the SQLBot REPL
     When I enter an invalid SQL query "SELECT * FROM table WHERE invalid syntax;"
     Then I should see an error message containing "syntax error"
     And the error message should be displayed in red color
@@ -16,7 +16,7 @@ Feature: REPL Error Display for Users
     And I should remain in the REPL for the next command
 
   Scenario: Table not found error shows helpful message
-    Given I am in the QBot REPL
+    Given I am in the SQLBot REPL
     When I ask "Show me data from nonexistent_table"
     And the LLM generates a query for a table that doesn't exist
     Then I should see an error message containing "table" and "not found"
@@ -25,8 +25,8 @@ Feature: REPL Error Display for Users
     And I should remain in the REPL for the next command
 
   Scenario: Database connection error is user-friendly
-    Given QBot is configured with invalid database credentials
-    When I start the QBot REPL
+    Given SQLBot is configured with invalid database credentials
+    When I start the SQLBot REPL
     And I ask "How many tables are there?"
     Then I should see a clear connection error message
     And the error should mention database connection issues
@@ -34,7 +34,7 @@ Feature: REPL Error Display for Users
     And the error should not expose sensitive connection details
 
   Scenario: Column not found error provides context
-    Given I am in the QBot REPL
+    Given I am in the SQLBot REPL
     When I ask "Show me the invalid_column from the film table"
     And the LLM generates a query with a nonexistent column
     Then I should see an error message about the invalid column
@@ -43,7 +43,7 @@ Feature: REPL Error Display for Users
     And I should remain in the REPL for the next command
 
   Scenario: Permission denied error is informative
-    Given QBot is in read-only mode
+    Given SQLBot is in read-only mode
     When I ask "Delete all records from the test table"
     And the LLM generates a DELETE query
     Then I should see a permission denied error
@@ -52,7 +52,7 @@ Feature: REPL Error Display for Users
     And I should remain in the REPL for the next command
 
   Scenario: Timeout error provides clear feedback
-    Given I am in the QBot REPL
+    Given I am in the SQLBot REPL
     When I ask a question that generates a very slow query
     And the query times out
     Then I should see a timeout error message
@@ -61,7 +61,7 @@ Feature: REPL Error Display for Users
     And I should remain in the REPL for the next command
 
   Scenario: Multiple error types are handled consistently
-    Given I am in the QBot REPL
+    Given I am in the SQLBot REPL
     When I encounter different types of database errors in sequence
     Then each error should be displayed clearly and consistently
     And each error should use appropriate color coding
@@ -69,7 +69,7 @@ Feature: REPL Error Display for Users
     And I should be able to continue using the REPL after each error
 
   Scenario: Error messages include query context
-    Given I am in the QBot REPL
+    Given I am in the SQLBot REPL
     When I ask "Show me sales data with invalid syntax"
     And the LLM generates a problematic query
     Then the error message should include or reference the failed query
@@ -77,7 +77,7 @@ Feature: REPL Error Display for Users
     And the error should help me reformulate my question
 
   Scenario: Error logging captures full details for debugging
-    Given I am in the QBot REPL with debug logging enabled
+    Given I am in the SQLBot REPL with debug logging enabled
     When a database query fails with any type of error
     Then the full error details should be logged
     And the log should include the original user question
@@ -86,7 +86,7 @@ Feature: REPL Error Display for Users
     And the log should include timestamp and context information
 
   Scenario: Non-interactive mode shows errors clearly
-    Given I run QBot in non-interactive mode with --no-repl
+    Given I run SQLBot in non-interactive mode with --no-repl
     When I provide a query that will cause a database error
     Then the error should be displayed to stdout/stderr
     And the error should be clearly formatted

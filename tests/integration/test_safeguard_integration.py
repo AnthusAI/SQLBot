@@ -13,13 +13,13 @@ import os
 
 def test_direct_sql_query_blocked_by_safeguards():
     """Test that direct SQL queries (ending with ;) are blocked by safeguards."""
-    from qbot.repl import execute_dbt_sql_rich, handle_safeguard_command
+    from sqlbot.repl import execute_dbt_sql_rich, handle_safeguard_command
     
     # Ensure safeguards are enabled
     handle_safeguard_command(['on'])
     
     # Set up environment
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     
     # Test dangerous queries are blocked
     dangerous_queries = [
@@ -38,16 +38,16 @@ def test_direct_sql_query_blocked_by_safeguards():
 
 def test_safe_sql_queries_allowed():
     """Test that safe SQL queries are allowed through safeguards."""
-    from qbot.repl import execute_dbt_sql_rich, handle_safeguard_command
+    from sqlbot.repl import execute_dbt_sql_rich, handle_safeguard_command
     
     # Ensure safeguards are enabled
     handle_safeguard_command(['on'])
     
     # Set up environment
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     
     # Mock the actual execution to avoid database calls
-    with patch('qbot.repl.execute_clean_sql') as mock_execute:
+    with patch('sqlbot.repl.execute_clean_sql') as mock_execute:
         mock_execute.return_value = "Query results: 5 rows"
         
         # Test safe queries are allowed
@@ -65,13 +65,13 @@ def test_safe_sql_queries_allowed():
 
 def test_cli_execution_path_respects_safeguards():
     """Test that the CLI execution path properly respects safeguards."""
-    from qbot.repl import _execute_query_cli_mode
+    from sqlbot.repl import _execute_query_cli_mode
     from rich.console import Console
     
     console = Console(file=open(os.devnull, 'w'))  # Suppress output
     
     # Test dangerous SQL query in CLI
-    with patch('qbot.repl.execute_dbt_sql_rich') as mock_execute:
+    with patch('sqlbot.repl.execute_dbt_sql_rich') as mock_execute:
         mock_execute.return_value = "Query blocked by safeguard"
         
         # Should not print the blocked message as success
@@ -82,14 +82,14 @@ def test_cli_execution_path_respects_safeguards():
 
 def test_shared_session_respects_safeguards():
     """Test that the shared session interface respects safeguards."""
-    from qbot.interfaces.shared_session import QBotSession
-    from qbot.core.config import QBotConfig
+    from sqlbot.interfaces.shared_session import SQLBotSession
+    from sqlbot.core.config import SQLBotConfig
     
-    config = QBotConfig(profile='qbot')
-    session = QBotSession(config)
+    config = SQLBotConfig(profile='sqlbot')
+    session = SQLBotSession(config)
     
     # Mock the SQL execution to return blocked result
-    with patch('qbot.repl.execute_dbt_sql_rich') as mock_execute:
+    with patch('sqlbot.repl.execute_dbt_sql_rich') as mock_execute:
         mock_execute.return_value = "Query blocked by safeguard"
         
         result = session.execute_query("DELETE FROM users;")
@@ -100,15 +100,15 @@ def test_shared_session_respects_safeguards():
 
 def test_dangerous_flag_disables_safeguards():
     """Test that --dangerous flag properly disables safeguards.""" 
-    from qbot.repl import handle_safeguard_command
-    import qbot.repl as repl_module
+    from sqlbot.repl import handle_safeguard_command
+    import sqlbot.repl as repl_module
     
     # Simulate --dangerous flag behavior
     repl_module.READONLY_MODE = False
     repl_module.READONLY_CLI_MODE = True
     
     # Mock the actual execution
-    with patch('qbot.repl.execute_clean_sql') as mock_execute:
+    with patch('sqlbot.repl.execute_clean_sql') as mock_execute:
         mock_execute.return_value = "Query executed successfully"
         
         result = repl_module.execute_dbt_sql_rich("DELETE FROM users;")
@@ -119,11 +119,11 @@ def test_dangerous_flag_disables_safeguards():
 
 def test_llm_tool_respects_safeguards():
     """Test that the LLM tool respects global safeguard settings."""
-    from qbot.llm_integration import DbtQueryTool
+    from sqlbot.llm_integration import DbtQueryTool
     from unittest.mock import MagicMock
     
     # Enable safeguards
-    import qbot.repl as repl_module
+    import sqlbot.repl as repl_module
     repl_module.READONLY_MODE = True
     
     # Create tool with mock display
@@ -139,11 +139,11 @@ def test_llm_tool_respects_safeguards():
 
 def test_safeguard_messages_display_correctly():
     """Test that safeguard messages display with correct icons."""
-    from qbot.llm_integration import DbtQueryTool
+    from sqlbot.llm_integration import DbtQueryTool
     from unittest.mock import MagicMock
     
     # Enable safeguards
-    import qbot.repl as repl_module
+    import sqlbot.repl as repl_module
     repl_module.READONLY_MODE = True
     
     # Create tool with mock display
@@ -154,7 +154,7 @@ def test_safeguard_messages_display_correctly():
     tool = DbtQueryTool(session_id="test", unified_display=mock_display)
     
     # Test safe query
-    with patch('qbot.core.dbt_service.get_dbt_service') as mock_service:
+    with patch('sqlbot.core.dbt_service.get_dbt_service') as mock_service:
         mock_result = MagicMock()
         mock_result.success = True
         mock_result.data = [{"count": 5}]
@@ -170,13 +170,13 @@ def test_safeguard_messages_display_correctly():
 
 def test_safeguard_integration_end_to_end():
     """End-to-end test of safeguard functionality."""
-    import qbot.repl as repl_module
+    import sqlbot.repl as repl_module
     
     # Start with safeguards enabled (default)
     assert repl_module.READONLY_MODE == True
     
     # Test that dangerous queries are blocked
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     result = repl_module.execute_safe_sql("DELETE FROM test_table")
     assert "Query blocked by safeguard" in result
     
@@ -185,7 +185,7 @@ def test_safeguard_integration_end_to_end():
     assert repl_module.READONLY_MODE == False
     
     # Mock execution for disabled safeguards test
-    with patch('qbot.repl.execute_clean_sql') as mock_execute:
+    with patch('sqlbot.repl.execute_clean_sql') as mock_execute:
         mock_execute.return_value = "Query executed"
         
         result = repl_module.execute_safe_sql("DELETE FROM test_table")
@@ -194,9 +194,9 @@ def test_safeguard_integration_end_to_end():
 
 def test_delete_from_film_semicolon_routing():
     """Specific test for the exact scenario: DELETE FROM film; should be blocked by safeguards."""
-    from qbot.repl import is_sql_query, execute_dbt_sql_rich
-    from qbot.interfaces.shared_session import QBotSession
-    from qbot.core.config import QBotConfig
+    from sqlbot.repl import is_sql_query, execute_dbt_sql_rich
+    from sqlbot.interfaces.shared_session import SQLBotSession
+    from sqlbot.core.config import SQLBotConfig
     
     # Test the exact query that was problematic
     query = "DELETE FROM film;"
@@ -205,13 +205,13 @@ def test_delete_from_film_semicolon_routing():
     assert is_sql_query(query), "DELETE FROM film; should be detected as SQL query"
     
     # 2. Test REPL routing
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     result = execute_dbt_sql_rich(query)
     assert result.startswith("Query blocked by safeguard"), f"Query should be blocked, got: {result}"
     
     # 3. Test shared session routing (used by Textual interface)
-    config = QBotConfig(profile='qbot')
-    session = QBotSession(config)
+    config = SQLBotConfig(profile='sqlbot')
+    session = SQLBotSession(config)
     session_result = session.execute_query(query)
     assert not session_result.success, "Session result should indicate failure"
     assert "Query blocked by safeguard" in session_result.error, f"Error should mention safeguard, got: {session_result.error}"
@@ -222,7 +222,7 @@ def test_delete_from_film_semicolon_routing():
 
 def test_semicolon_edge_cases():
     """Test edge cases for semicolon detection that might cause routing issues."""
-    from qbot.repl import is_sql_query
+    from sqlbot.repl import is_sql_query
     
     test_cases = [
         ("DELETE FROM film;", True, "Basic semicolon"),

@@ -8,14 +8,14 @@ import subprocess
 # Load scenarios from the feature file - temporarily skip until fully implemented
 # scenarios('../../features/core/dbt_setup_guidance.feature')
 
-@given('I have QBot installed')
+@given('I have SQLBot installed')
 def qbot_installed():
-    """QBot is installed and importable."""
+    """SQLBot is installed and importable."""
     try:
-        import qbot
+        import sqlbot
         return True
     except ImportError:
-        pytest.fail("QBot is not installed")
+        pytest.fail("SQLBot is not installed")
 
 @given('I have a valid OpenAI API key')
 def valid_openai_key():
@@ -30,7 +30,7 @@ def no_dbt_profile():
         result = Mock()
         result.returncode = 1
         result.stdout = ""
-        result.stderr = "Could not find profile named 'qbot'"
+        result.stderr = "Could not find profile named 'sqlbot'"
         return result
     
     return patch('subprocess.run', side_effect=mock_dbt_debug)
@@ -66,75 +66,75 @@ def ask_database_question():
     # This step will be implemented when the actual feature is complete
     pass
 
-@then('QBot should detect the missing dbt profile')
+@then('SQLBot should detect the missing dbt profile')
 def detect_missing_profile():
-    """QBot should detect that dbt profile is missing."""
+    """SQLBot should detect that dbt profile is missing."""
     # This will be implemented in the actual feature
     pass
 
 @then('show me a clear setup message with next steps')
 def show_setup_message():
-    """QBot should show clear setup instructions."""
+    """SQLBot should show clear setup instructions."""
     # This will be implemented in the actual feature
     pass
 
 @then('provide links to documentation')
 def provide_documentation_links():
-    """QBot should provide helpful documentation links."""
+    """SQLBot should provide helpful documentation links."""
     # This will be implemented in the actual feature
     pass
 
 @then('suggest the specific profile name I need to create')
 def suggest_profile_name():
-    """QBot should suggest the correct profile name 'qbot'."""
+    """SQLBot should suggest the correct profile name 'sqlbot'."""
     # This will be implemented in the actual feature
     pass
 
 @then('not show cryptic dbt error messages to the user')
 def no_cryptic_errors():
-    """QBot should hide raw dbt errors from users."""
+    """SQLBot should hide raw dbt errors from users."""
     # This will be implemented in the actual feature
     pass
 
-@then('QBot should detect the connection failure')
+@then('SQLBot should detect the connection failure')
 def detect_connection_failure():
-    """QBot should detect database connection issues."""
+    """SQLBot should detect database connection issues."""
     # This will be implemented in the actual feature
     pass
 
 @then('show me troubleshooting steps for database connection')
 def show_troubleshooting_steps():
-    """QBot should show database troubleshooting guidance."""
+    """SQLBot should show database troubleshooting guidance."""
     # This will be implemented in the actual feature
     pass
 
 @then('suggest running "dbt debug" to test the connection')
 def suggest_dbt_debug():
-    """QBot should suggest running dbt debug."""
+    """SQLBot should suggest running dbt debug."""
     # This will be implemented in the actual feature
     pass
 
 @then('provide guidance on common connection issues')
 def provide_connection_guidance():
-    """QBot should provide common connection issue guidance."""
+    """SQLBot should provide common connection issue guidance."""
     # This will be implemented in the actual feature
     pass
 
-@then('QBot should execute the query successfully')
+@then('SQLBot should execute the query successfully')
 def execute_query_successfully():
-    """QBot should execute queries when dbt is properly configured."""
+    """SQLBot should execute queries when dbt is properly configured."""
     # This will be implemented in the actual feature
     pass
 
 @then('return formatted results')
 def return_formatted_results():
-    """QBot should return properly formatted query results."""
+    """SQLBot should return properly formatted query results."""
     # This will be implemented in the actual feature
     pass
 
 @then('not show any setup messages')
 def no_setup_messages():
-    """QBot should not show setup messages when everything is working."""
+    """SQLBot should not show setup messages when everything is working."""
     # This will be implemented in the actual feature
     pass
 
@@ -155,53 +155,53 @@ def no_nonexistent_profile():
     """Mock missing 'nonexistent' profile."""
     pass
 
-@when('I run QBot with "--profile mycompany" and ask a database question')
+@when('I run SQLBot with "--profile mycompany" and ask a database question')
 def run_qbot_with_mycompany_profile():
-    """Run QBot with custom profile name."""
+    """Run SQLBot with custom profile name."""
     # This will test the --profile argument functionality
     pass
 
-@when('I run QBot with "--profile nonexistent" and ask a database question')
+@when('I run SQLBot with "--profile nonexistent" and ask a database question')
 def run_qbot_with_nonexistent_profile():
-    """Run QBot with non-existent profile name."""
+    """Run SQLBot with non-existent profile name."""
     # This will test error handling for invalid profile names
     pass
 
-@then('QBot should use the "mycompany" profile for database connection')
+@then('SQLBot should use the "mycompany" profile for database connection')
 def should_use_mycompany_profile():
-    """QBot should use the specified profile name."""
+    """SQLBot should use the specified profile name."""
     # This will be implemented in the actual feature
     pass
 
 @then('not show profile not found errors')
 def no_profile_not_found_errors():
-    """QBot should not show profile errors when profile exists."""
+    """SQLBot should not show profile errors when profile exists."""
     # This will be implemented in the actual feature
     pass
 
-@then('QBot should show a profile not found error')
+@then('SQLBot should show a profile not found error')
 def should_show_profile_not_found_error():
-    """QBot should show helpful error for missing profile."""
+    """SQLBot should show helpful error for missing profile."""
     # This will be implemented in the actual feature
     pass
 
 @then('suggest creating a profile named "nonexistent"')
 def suggest_creating_nonexistent_profile():
-    """QBot should suggest creating the specified profile name."""
+    """SQLBot should suggest creating the specified profile name."""
     # This will be implemented in the actual feature
     pass
 
 @then('provide setup instructions for the "nonexistent" profile')
 def provide_setup_instructions_for_nonexistent():
-    """QBot should provide setup instructions with the correct profile name."""
+    """SQLBot should provide setup instructions with the correct profile name."""
     # This will be implemented in the actual feature
     pass
 
 # Additional missing step definitions
 
-@given('I have a dbt profile named "qbot"')
-def dbt_profile_qbot():
-    """Mock a dbt profile named 'qbot'."""
+@given('I have a dbt profile named "sqlbot"')
+def dbt_profile_sqlbot():
+    """Mock a dbt profile named 'sqlbot'."""
     pass
 
 @then('execute the query successfully')

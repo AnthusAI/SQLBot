@@ -9,9 +9,9 @@ class TestLLMIntegration:
 
     def test_get_llm_with_default_config(self, mock_env):
         """Test LLM creation with default configuration."""
-        from qbot.llm_integration import get_llm
+        from sqlbot.llm_integration import get_llm
         
-        with patch('qbot.llm_integration.ChatOpenAI') as mock_chat:
+        with patch('sqlbot.llm_integration.ChatOpenAI') as mock_chat:
             llm = get_llm()
             
             mock_chat.assert_called_once()
@@ -23,13 +23,13 @@ class TestLLMIntegration:
 
     def test_get_llm_with_custom_config(self, mock_env):
         """Test LLM creation with custom configuration."""
-        from qbot.llm_integration import get_llm
+        from sqlbot.llm_integration import get_llm
         
         with patch.dict(os.environ, {
             'QBOT_LLM_MODEL': 'gpt-5',
             'QBOT_LLM_MAX_TOKENS': '2000'
         }):
-            with patch('qbot.llm_integration.ChatOpenAI') as mock_chat:
+            with patch('sqlbot.llm_integration.ChatOpenAI') as mock_chat:
                 llm = get_llm()
                 
                 call_args = mock_chat.call_args[1]
@@ -40,14 +40,14 @@ class TestLLMIntegration:
 
     def test_gpt5_parameter_validation(self, mock_env):
         """Test that GPT-5 doesn't receive temperature parameter."""
-        from qbot.llm_integration import get_llm
+        from sqlbot.llm_integration import get_llm
         
         # Even if temperature is set in environment, GPT-5 shouldn't get it
         with patch.dict(os.environ, {
             'QBOT_LLM_MODEL': 'gpt-5',
             'QBOT_LLM_MAX_TOKENS': '1500'
         }):
-            with patch('qbot.llm_integration.ChatOpenAI') as mock_chat:
+            with patch('sqlbot.llm_integration.ChatOpenAI') as mock_chat:
                 llm = get_llm()
                 
                 call_args = mock_chat.call_args[1]
@@ -61,10 +61,10 @@ class TestLLMIntegration:
 
     def test_dynamic_model_messaging(self, mock_env):
         """Test that model messages show the actual model being used."""
-        from qbot.llm_integration import handle_llm_query
+        from sqlbot.llm_integration import handle_llm_query
         
-        with patch('qbot.llm_integration.create_llm_agent') as mock_agent:
-            with patch('qbot.llm_integration.check_dbt_setup', return_value=(True, "OK")):
+        with patch('sqlbot.llm_integration.create_llm_agent') as mock_agent:
+            with patch('sqlbot.llm_integration.check_dbt_setup', return_value=(True, "OK")):
                 # Mock the agent to avoid actual LLM calls
                 mock_executor = Mock()
                 mock_executor.invoke.return_value = "Test response"
@@ -87,12 +87,12 @@ class TestLLMIntegration:
 
     def test_test_llm_basic_success(self, mock_env):
         """Test basic LLM functionality test."""
-        from qbot.llm_integration import test_llm_basic
+        from sqlbot.llm_integration import test_llm_basic
         
         mock_response = Mock()
         mock_response.content = "Hello from LLM integration!"
         
-        with patch('qbot.llm_integration.get_llm') as mock_get_llm:
+        with patch('sqlbot.llm_integration.get_llm') as mock_get_llm:
             mock_llm = Mock()
             mock_llm.invoke.return_value = mock_response
             mock_get_llm.return_value = mock_llm
@@ -104,9 +104,9 @@ class TestLLMIntegration:
 
     def test_test_llm_basic_failure(self, mock_env):
         """Test basic LLM functionality test failure."""
-        from qbot.llm_integration import test_llm_basic
+        from sqlbot.llm_integration import test_llm_basic
         
-        with patch('qbot.llm_integration.get_llm') as mock_get_llm:
+        with patch('sqlbot.llm_integration.get_llm') as mock_get_llm:
             mock_get_llm.side_effect = Exception("API Error")
             
             result = test_llm_basic()
@@ -115,8 +115,8 @@ class TestLLMIntegration:
 
     def test_dbt_query_tool_success(self, mock_env, tmp_path):
         """Test DbtQueryTool successful execution."""
-        from qbot.llm_integration import DbtQueryTool
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.llm_integration import DbtQueryTool
+        from sqlbot.core.types import QueryResult, QueryType
         
         tool = DbtQueryTool()
         
@@ -130,7 +130,7 @@ class TestLLMIntegration:
             row_count=1
         )
         
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_success_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_success_result):
             with patch('os.path.dirname', return_value=str(tmp_path)):
                 result = tool._run("SELECT 1")
                 
@@ -139,8 +139,8 @@ class TestLLMIntegration:
 
     def test_dbt_query_tool_failure(self, mock_env, tmp_path):
         """Test DbtQueryTool error handling."""
-        from qbot.llm_integration import DbtQueryTool
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.llm_integration import DbtQueryTool
+        from sqlbot.core.types import QueryResult, QueryType
         
         tool = DbtQueryTool()
         
@@ -152,7 +152,7 @@ class TestLLMIntegration:
             error="STDERR: SQL syntax error"
         )
         
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
             with patch('os.path.dirname', return_value=str(tmp_path)):
                 result = tool._run("INVALID SQL")
                 
@@ -162,7 +162,7 @@ class TestLLMIntegration:
 
     def test_dbt_query_tool_timeout(self, mock_env, tmp_path):
         """Test DbtQueryTool timeout handling."""
-        from qbot.llm_integration import DbtQueryTool
+        from sqlbot.llm_integration import DbtQueryTool
         import subprocess
         
         tool = DbtQueryTool()
@@ -176,7 +176,7 @@ class TestLLMIntegration:
 
     def test_load_schema_info_success(self, tmp_path):
         """Test loading schema information from YAML."""
-        from qbot.llm_integration import load_schema_info
+        from sqlbot.llm_integration import load_schema_info
         
         # Create mock schema.yml
         schema_content = """
@@ -204,7 +204,7 @@ sources:
 
     def test_load_schema_info_missing_file(self, tmp_path):
         """Test loading schema info when file is missing."""
-        from qbot.llm_integration import load_schema_info
+        from sqlbot.llm_integration import load_schema_info
         
         with patch('os.path.dirname', return_value=str(tmp_path)):
             result = load_schema_info()
@@ -213,7 +213,7 @@ sources:
 
     def test_load_macro_info_success(self, tmp_path):
         """Test loading macro information."""
-        from qbot.llm_integration import load_macro_info
+        from sqlbot.llm_integration import load_macro_info
         
         # Create mock macro file
         macro_content = """
@@ -235,10 +235,10 @@ WHERE id = {{ report_id }}
 
     def test_build_system_prompt(self, tmp_path):
         """Test building the system prompt."""
-        from qbot.llm_integration import build_system_prompt
+        from sqlbot.llm_integration import build_system_prompt
 
         # Test with default profile (should use generic template)
-        with patch('qbot.llm_integration.get_current_profile', return_value='qbot'):
+        with patch('sqlbot.llm_integration.get_current_profile', return_value='sqlbot'):
             prompt = build_system_prompt()
 
             assert "database analyst assistant" in prompt
@@ -249,11 +249,11 @@ WHERE id = {{ report_id }}
 
     def test_create_llm_agent(self, mock_env):
         """Test creating LLM agent."""
-        from qbot.llm_integration import create_llm_agent
+        from sqlbot.llm_integration import create_llm_agent
         
-        with patch('qbot.llm_integration.LoggingChatOpenAI') as mock_llm_class:
-            with patch('qbot.llm_integration.create_tool_calling_agent') as mock_create_agent:
-                with patch('qbot.llm_integration.AgentExecutor') as mock_executor:
+        with patch('sqlbot.llm_integration.LoggingChatOpenAI') as mock_llm_class:
+            with patch('sqlbot.llm_integration.create_tool_calling_agent') as mock_create_agent:
+                with patch('sqlbot.llm_integration.AgentExecutor') as mock_executor:
                     mock_llm = Mock()
                     mock_llm_class.return_value = mock_llm
                     
@@ -265,12 +265,12 @@ WHERE id = {{ report_id }}
 
     def test_system_prompt_template_escaping(self, mock_env):
         """Test that system prompt properly renders Jinja2 template with variables."""
-        from qbot.llm_integration import build_system_prompt
+        from sqlbot.llm_integration import build_system_prompt
 
         # Mock schema and macro loading
-        with patch('qbot.llm_integration.load_schema_info', return_value="Test schema"):
-            with patch('qbot.llm_integration.load_macro_info', return_value="Test macros"):
-                with patch('qbot.llm_integration.get_current_profile', return_value='qbot'):
+        with patch('sqlbot.llm_integration.load_schema_info', return_value="Test schema"):
+            with patch('sqlbot.llm_integration.load_macro_info', return_value="Test macros"):
+                with patch('sqlbot.llm_integration.get_current_profile', return_value='sqlbot'):
                     prompt = build_system_prompt()
 
                     # Check that template variables were properly substituted
@@ -283,7 +283,7 @@ WHERE id = {{ report_id }}
 
     def test_handle_llm_query_success(self, mock_env):
         """Test successful LLM query handling."""
-        from qbot.llm_integration import handle_llm_query
+        from sqlbot.llm_integration import handle_llm_query
         
         mock_agent = Mock()
         mock_result = {
@@ -292,8 +292,8 @@ WHERE id = {{ report_id }}
         }
         mock_agent.invoke.return_value = mock_result
         
-        with patch('qbot.llm_integration.create_llm_agent', return_value=mock_agent):
-            with patch('qbot.llm_integration.check_dbt_setup', return_value=(True, "dbt is configured")):
+        with patch('sqlbot.llm_integration.create_llm_agent', return_value=mock_agent):
+            with patch('sqlbot.llm_integration.check_dbt_setup', return_value=(True, "dbt is configured")):
                 result = handle_llm_query("How many tables are there?")
                 
                 assert "1,458 tables" in result
@@ -301,7 +301,7 @@ WHERE id = {{ report_id }}
 
     def test_handle_llm_query_with_context(self, mock_env):
         """Test LLM query handling with conversation context."""
-        from qbot.llm_integration import handle_llm_query, conversation_history
+        from sqlbot.llm_integration import handle_llm_query, conversation_history
         
         # Set up conversation history
         conversation_history.clear()
@@ -317,8 +317,8 @@ WHERE id = {{ report_id }}
         }
         mock_agent.invoke.return_value = mock_result
         
-        with patch('qbot.llm_integration.create_llm_agent', return_value=mock_agent):
-            with patch('qbot.llm_integration.check_dbt_setup', return_value=(True, "dbt is configured")):
+        with patch('sqlbot.llm_integration.create_llm_agent', return_value=mock_agent):
+            with patch('sqlbot.llm_integration.check_dbt_setup', return_value=(True, "dbt is configured")):
                 result = handle_llm_query("What about just report tables?")
                 
                 assert "report tables" in result
@@ -331,10 +331,10 @@ WHERE id = {{ report_id }}
 
     def test_handle_llm_query_dbt_setup_failure(self, mock_env):
         """Test LLM query handling when dbt setup fails."""
-        from qbot.llm_integration import handle_llm_query
+        from sqlbot.llm_integration import handle_llm_query
         
         # Mock dbt setup failure
-        with patch('qbot.llm_integration.check_dbt_setup', return_value=(False, "Profile not found")):
+        with patch('sqlbot.llm_integration.check_dbt_setup', return_value=(False, "Profile not found")):
             result = handle_llm_query("How many tables are there?")
             
             assert result == "Profile not found"

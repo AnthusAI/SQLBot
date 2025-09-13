@@ -50,9 +50,9 @@ def mock_agent_with_counter(query_counter):
     mock_agent.invoke = mock_invoke
     return mock_agent
 
-@given("QBot is properly configured")
+@given("SQLBot is properly configured")
 def qbot_properly_configured():
-    """Ensure QBot is properly configured"""
+    """Ensure SQLBot is properly configured"""
     pass
 
 @given("the LLM integration is available")
@@ -65,15 +65,15 @@ def database_connection_working():
     """Ensure database connection is working"""
     pass
 
-@given("I have a working QBot instance")
+@given("I have a working SQLBot instance")
 def working_qbot_instance():
-    """Set up a working QBot instance"""
+    """Set up a working SQLBot instance"""
     pass
 
 @given(parsers.parse('I ask "{question}"'))
 def given_ask_question(question, mock_agent_with_counter):
     """Ask a question as a given condition"""
-    with patch('qbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
+    with patch('sqlbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
         result = mock_agent_with_counter.invoke({"input": question})
         return result
 
@@ -85,7 +85,7 @@ def agent_returns_count_given():
 @when(parsers.parse('I ask "{question}"'))
 def ask_question(question, mock_agent_with_counter):
     """Ask a question to the agent"""
-    with patch('qbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
+    with patch('sqlbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
         # This would normally call handle_llm_query, but we're mocking the agent
         result = mock_agent_with_counter.invoke({"input": question})
         return result
@@ -93,7 +93,7 @@ def ask_question(question, mock_agent_with_counter):
 @when('I ask "How many tables are there?"')
 def ask_table_count_question(mock_agent_with_counter):
     """Ask about table count"""
-    with patch('qbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
+    with patch('sqlbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
         result = mock_agent_with_counter.invoke({"input": "How many tables are there?"})
         return result
 
@@ -105,7 +105,7 @@ def agent_returns_count():
 @when('I ask "List the table names"')
 def ask_table_names(mock_agent_with_counter):
     """Ask for table names"""
-    with patch('qbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
+    with patch('sqlbot.llm_integration.create_llm_agent', return_value=mock_agent_with_counter):
         result = mock_agent_with_counter.invoke({"input": "List the table names"})
         return result
 

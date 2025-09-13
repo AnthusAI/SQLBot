@@ -13,9 +13,9 @@ from unittest.mock import patch, MagicMock
 # Load all scenarios from the feature file
 scenarios('../../features/core/slash_command_routing.feature')
 
-@given('QBot is running')
+@given('SQLBot is running')
 def qbot_is_running():
-    """Ensure QBot is available and running."""
+    """Ensure SQLBot is available and running."""
     pass
 
 @given('the database is available')
@@ -23,26 +23,26 @@ def database_is_available():
     """Ensure database connection is available."""
     pass
 
-@given('I am in the QBot interface')
+@given('I am in the SQLBot interface')
 def in_qbot_interface():
-    """Set up QBot interface context."""
+    """Set up SQLBot interface context."""
     pass
 
 @given('dangerous mode is enabled')
 def dangerous_mode_enabled():
     """Enable dangerous mode for testing."""
-    import qbot.repl as repl_module
+    import sqlbot.repl as repl_module
     repl_module.READONLY_MODE = False  # Dangerous mode = safeguards off
 
 @when(parsers.parse('I enter "{command}"'))
 def enter_slash_command(command):
-    """Enter a slash command in the QBot interface."""
+    """Enter a slash command in the SQLBot interface."""
     # Test both the CLI routing and the shared session routing
     pytest.test_command = command
     
     # Test CLI routing first
-    from qbot.repl import handle_slash_command
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    from sqlbot.repl import handle_slash_command
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     
     try:
         pytest.cli_result = handle_slash_command(command)
@@ -51,11 +51,11 @@ def enter_slash_command(command):
         pytest.cli_result = None
     
     # Test shared session routing (used by Textual interface)
-    from qbot.interfaces.shared_session import QBotSession
-    from qbot.core.config import QBotConfig
+    from sqlbot.interfaces.shared_session import SQLBotSession
+    from sqlbot.core.config import SQLBotConfig
     
-    config = QBotConfig(profile='qbot')
-    session = QBotSession(config)
+    config = SQLBotConfig(profile='sqlbot')
+    session = SQLBotSession(config)
     
     try:
         pytest.session_result = session.execute_query(command)
@@ -63,13 +63,15 @@ def enter_slash_command(command):
         pytest.session_error = str(e)
         pytest.session_result = None
 
-@when(parsers.parse('I run QBot with query "{command}" and flag "{flag}"'))
+@when(parsers.parse('I run SQLBot with query "{command}" and flag "{flag}"'))
 def run_qbot_cli_with_command(command, flag):
-    """Run QBot in CLI mode with a slash command."""
-    env = os.environ.copy()
-    env['DBT_PROFILE_NAME'] = 'qbot'
+    """Run SQLBot in CLI mode with a slash command."""
+    from tests.conftest import setup_subprocess_environment
     
-    cmd = ['python', '-m', 'qbot.repl', flag, '--profile', 'qbot', command]
+    env = setup_subprocess_environment()
+    env['DBT_PROFILE_NAME'] = 'sqlbot'
+    
+    cmd = ['python', '-m', 'sqlbot.repl', flag, '--profile', 'sqlbot', command]
     
     result = subprocess.run(
         cmd,
@@ -218,8 +220,8 @@ def test_slash_command_detection_logic():
 
 def test_dangerous_command_handler_directly():
     """Test the dangerous command handler directly."""
-    from qbot.repl import handle_dangerous_command
-    import qbot.repl as repl_module
+    from sqlbot.repl import handle_dangerous_command
+    import sqlbot.repl as repl_module
     
     # Test status check
     original_mode = repl_module.READONLY_MODE

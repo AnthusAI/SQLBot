@@ -297,8 +297,8 @@ Want to try SQLBot immediately? Install the package and set up the sample Sakila
 pip install sqlbot
 
 # Clone the repository for sample data setup
-git clone https://github.com/AnthusAI/QBot
-cd QBot
+git clone https://github.com/AnthusAI/SQLBot
+cd SQLBot
 
 # Set up the sample Sakila database (SQLite)
 python setup_sakila_db.py

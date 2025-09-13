@@ -1,5 +1,5 @@
-# Sample QBot User Theme
-# Copy this file to ~/.qbot/themes/mytheme.yaml to create your own theme
+# Sample SQLBot User Theme
+# Copy this file to ~/.sqlbot/themes/mytheme.yaml to create your own theme
 # 
 # REQUIRED FIELDS:
 # - name: Theme name
@@ -45,7 +45,7 @@ error: "#ef4444"      # Red
 success: "#10b981"    # Emerald
 dark: true
 
-# QBot message colors (recommended: only style user and AI messages)
+# SQLBot message colors (recommended: only style user and AI messages)
 # user_message: "#0087ff"     # Dodger Blue (dodger_blue1) for dark themes OR "#005fd7" for light themes  
 # ai_response: "#d700d7"      # Magenta (magenta3) for dark themes OR "#d70087" for light themes
 # 

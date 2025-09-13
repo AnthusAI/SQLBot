@@ -1,10 +1,10 @@
 Feature: Conversation Memory Management
-  As a user of QBot
+  As a user of SQLBot
   I want the system to properly manage conversation history
   So that the LLM can maintain context across multiple queries
 
   Background:
-    Given QBot is properly configured
+    Given SQLBot is properly configured
     And the conversation memory system is initialized
 
   Scenario: Basic conversation history tracking

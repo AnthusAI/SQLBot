@@ -3,7 +3,7 @@
 Basic Integration Test Setup Verification
 
 Simple tests to verify that the Sakila database and integration testing
-infrastructure is properly set up, without importing complex QBot modules.
+infrastructure is properly set up, without importing complex SQLBot modules.
 """
 
 import os
@@ -137,7 +137,7 @@ class TestBasicSetup:
             pytest.fail("dbt-sqlite not installed. Run: pip install -r requirements-integration.txt")
     
     def test_sample_business_queries(self):
-        """Test sample business queries that QBot should be able to handle."""
+        """Test sample business queries that SQLBot should be able to handle."""
         # Use absolute path relative to project root
         project_root = Path(__file__).parent.parent.parent
         sakila_db_path = project_root / "sakila.db"

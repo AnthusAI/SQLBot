@@ -1,3 +1,3 @@
-"""QBot test package."""
+"""SQLBot test package."""
 
 

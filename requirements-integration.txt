@@ -1,4 +1,4 @@
-# Additional requirements for QBot integration tests
+# Additional requirements for SQLBot integration tests
 # These are separate from core requirements to avoid forcing users
 # to install database drivers they don't need
 

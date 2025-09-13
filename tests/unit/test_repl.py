@@ -13,7 +13,7 @@ class TestREPLCore:
 
     def test_is_sql_query_true(self):
         """Test SQL query detection for valid SQL."""
-        from qbot.repl import is_sql_query
+        from sqlbot.repl import is_sql_query
         
         assert is_sql_query("SELECT * FROM table;") is True
         assert is_sql_query("  SELECT 1;  ") is True
@@ -21,7 +21,7 @@ class TestREPLCore:
 
     def test_is_sql_query_false(self):
         """Test SQL query detection for non-SQL."""
-        from qbot.repl import is_sql_query
+        from sqlbot.repl import is_sql_query
         
         assert is_sql_query("How many tables are there?") is False
         assert is_sql_query("SELECT * FROM table") is False  # No semicolon
@@ -32,7 +32,7 @@ class TestDBTIntegration:
 
     def test_run_dbt_success(self, tmp_path):
         """Test successful dbt command execution."""
-        from qbot.repl import run_dbt
+        from sqlbot.repl import run_dbt
         
         mock_result = Mock()
         mock_result.success = True
@@ -41,8 +41,8 @@ class TestDBTIntegration:
         mock_runner = Mock()
         mock_runner.invoke.return_value = mock_result
         
-        with patch('qbot.repl.dbt', mock_runner):
-            with patch('qbot.repl.PROJECT_ROOT', tmp_path):
+        with patch('sqlbot.repl.dbt', mock_runner):
+            with patch('sqlbot.repl.PROJECT_ROOT', tmp_path):
                 result = run_dbt(['debug'])
                 
                 assert result.success is True
@@ -50,7 +50,7 @@ class TestDBTIntegration:
 
     def test_run_dbt_failure(self, tmp_path):
         """Test failed dbt command execution."""
-        from qbot.repl import run_dbt
+        from sqlbot.repl import run_dbt
         
         mock_result = Mock()
         mock_result.success = False
@@ -59,49 +59,49 @@ class TestDBTIntegration:
         mock_runner = Mock()
         mock_runner.invoke.return_value = mock_result
         
-        with patch('qbot.repl.dbt', mock_runner):
-            with patch('qbot.repl.PROJECT_ROOT', tmp_path):
+        with patch('sqlbot.repl.dbt', mock_runner):
+            with patch('sqlbot.repl.PROJECT_ROOT', tmp_path):
                 result = run_dbt(['invalid-command'])
                 
                 assert result.success is False
 
     def test_dbt_debug(self):
         """Test dbt debug command."""
-        from qbot.repl import dbt_debug
+        from sqlbot.repl import dbt_debug
         
-        with patch('qbot.repl.run_dbt') as mock_run:
+        with patch('sqlbot.repl.run_dbt') as mock_run:
             dbt_debug()
             mock_run.assert_called_once_with(['debug'])
 
     def test_dbt_run_without_select(self):
         """Test dbt run command without selection."""
-        from qbot.repl import dbt_run
+        from sqlbot.repl import dbt_run
         
-        with patch('qbot.repl.run_dbt') as mock_run:
+        with patch('sqlbot.repl.run_dbt') as mock_run:
             dbt_run()
             mock_run.assert_called_once_with(['run'])
 
     def test_dbt_run_with_select(self):
         """Test dbt run command with model selection."""
-        from qbot.repl import dbt_run
+        from sqlbot.repl import dbt_run
         
-        with patch('qbot.repl.run_dbt') as mock_run:
+        with patch('sqlbot.repl.run_dbt') as mock_run:
             dbt_run('my_model')
             mock_run.assert_called_once_with(['run', '--select', 'my_model'])
 
     def test_dbt_test_without_select(self):
         """Test dbt test command without selection."""
-        from qbot.repl import dbt_test
+        from sqlbot.repl import dbt_test
         
-        with patch('qbot.repl.run_dbt') as mock_run:
+        with patch('sqlbot.repl.run_dbt') as mock_run:
             dbt_test()
             mock_run.assert_called_once_with(['test'])
 
     def test_dbt_show(self):
         """Test dbt show command."""
-        from qbot.repl import dbt_show
+        from sqlbot.repl import dbt_show
         
-        with patch('qbot.repl.run_dbt') as mock_run:
+        with patch('sqlbot.repl.run_dbt') as mock_run:
             dbt_show('my_model', 20)
             mock_run.assert_called_once_with(['show', '--select', 'my_model', '--limit', '20'])
 
@@ -110,46 +110,46 @@ class TestSlashCommands:
 
     def test_handle_slash_command_debug(self):
         """Test /debug command."""
-        from qbot.repl import handle_slash_command
+        from sqlbot.repl import handle_slash_command
         
-        with patch('qbot.repl.dbt_debug') as mock_debug:
+        with patch('sqlbot.repl.dbt_debug') as mock_debug:
             handle_slash_command('/debug')
             mock_debug.assert_called_once()
 
     def test_handle_slash_command_run(self):
         """Test /run command."""
-        from qbot.repl import handle_slash_command
+        from sqlbot.repl import handle_slash_command
         
-        with patch('qbot.repl.dbt_run') as mock_run:
+        with patch('sqlbot.repl.dbt_run') as mock_run:
             handle_slash_command('/run')
             mock_run.assert_called_once_with()
 
     def test_handle_slash_command_run_with_model(self):
         """Test /run command with model selection."""
-        from qbot.repl import handle_slash_command
+        from sqlbot.repl import handle_slash_command
         
-        with patch('qbot.repl.dbt_run') as mock_run:
+        with patch('sqlbot.repl.dbt_run') as mock_run:
             handle_slash_command('/run my_model')
             mock_run.assert_called_once_with('my_model')
 
     def test_handle_slash_command_help(self, capsys):
         """Test /help command."""
-        from qbot.repl import handle_slash_command
+        from sqlbot.repl import handle_slash_command
         
-        with patch('qbot.repl.rich_console') as mock_console:
+        with patch('sqlbot.repl.rich_console') as mock_console:
             handle_slash_command('/help')
             mock_console.print.assert_called()
 
     def test_handle_slash_command_exit(self):
         """Test /exit command."""
-        from qbot.repl import handle_slash_command
+        from sqlbot.repl import handle_slash_command
         
         result = handle_slash_command('/exit')
         assert result == 'EXIT'
 
     def test_handle_slash_command_unknown(self, capsys):
         """Test unknown slash command."""
-        from qbot.repl import handle_slash_command
+        from sqlbot.repl import handle_slash_command
         
         handle_slash_command('/unknown')
         captured = capsys.readouterr()
@@ -157,7 +157,7 @@ class TestSlashCommands:
 
     def test_handle_slash_command_not_slash(self):
         """Test non-slash command."""
-        from qbot.repl import handle_slash_command
+        from sqlbot.repl import handle_slash_command
         
         result = handle_slash_command('regular command')
         assert result is None
@@ -167,7 +167,7 @@ class TestSQLExecution:
 
     def test_execute_dbt_sql_success(self, tmp_path):
         """Test successful dbt SQL execution."""
-        from qbot.repl import execute_dbt_sql
+        from sqlbot.repl import execute_dbt_sql
         
         # Create models directory
         models_dir = tmp_path / 'models'
@@ -175,15 +175,15 @@ class TestSQLExecution:
         
         mock_result = "Query executed successfully"
         
-        with patch('qbot.repl.PROJECT_ROOT', tmp_path):
-            with patch('qbot.repl.execute_clean_sql', return_value=mock_result):
+        with patch('sqlbot.repl.PROJECT_ROOT', tmp_path):
+            with patch('sqlbot.repl.execute_clean_sql', return_value=mock_result):
                 result = execute_dbt_sql("SELECT 1")
                 
                 assert result == "Query executed successfully"
 
     def test_execute_dbt_sql_cleanup(self, tmp_path):
         """Test that temporary files are cleaned up."""
-        from qbot.repl import execute_dbt_sql
+        from sqlbot.repl import execute_dbt_sql
         
         # Create models directory
         models_dir = tmp_path / 'models'
@@ -192,8 +192,8 @@ class TestSQLExecution:
         mock_result = Mock()
         mock_result.success = True
         
-        with patch('qbot.repl.PROJECT_ROOT', tmp_path):
-            with patch('qbot.repl.run_dbt', return_value=mock_result):
+        with patch('sqlbot.repl.PROJECT_ROOT', tmp_path):
+            with patch('sqlbot.repl.run_dbt', return_value=mock_result):
                 execute_dbt_sql("SELECT 1")
                 
                 # Check that no temp files remain
@@ -205,9 +205,9 @@ class TestHistoryManagement:
 
     def test_setup_history_success(self, tmp_path):
         """Test successful history setup."""
-        from qbot.repl import setup_history
+        from sqlbot.repl import setup_history
         
-        with patch('qbot.repl.HISTORY_FILE', tmp_path / 'test_history'):
+        with patch('sqlbot.repl.HISTORY_FILE', tmp_path / 'test_history'):
             with patch('readline.set_history_length') as mock_set_length:
                 with patch('readline.read_history_file') as mock_read:
                     with patch('atexit.register') as mock_register:
@@ -218,7 +218,7 @@ class TestHistoryManagement:
 
     def test_setup_history_no_readline(self, tmp_path):
         """Test history setup when readline is not available."""
-        from qbot.repl import setup_history
+        from sqlbot.repl import setup_history
         
         with patch('readline.set_history_length', side_effect=Exception("No readline")):
             # Should not raise exception
@@ -226,7 +226,7 @@ class TestHistoryManagement:
 
     def test_save_history_success(self, tmp_path):
         """Test successful history saving."""
-        from qbot.repl import save_history
+        from sqlbot.repl import save_history
         
         with patch('readline.set_history_length') as mock_set_length:
             with patch('readline.write_history_file') as mock_write:
@@ -237,7 +237,7 @@ class TestHistoryManagement:
 
     def test_save_history_failure(self):
         """Test history saving failure handling."""
-        from qbot.repl import save_history
+        from sqlbot.repl import save_history
         
         with patch('readline.write_history_file', side_effect=Exception("Write failed")):
             # Should not raise exception
@@ -249,22 +249,22 @@ class TestMainFunction:
     @pytest.mark.skip(reason="Test hangs waiting for stdin - main function help handling works in practice")
     def test_main_with_help(self, capsys):
         """Test main function with help argument."""
-        from qbot.repl import main
+        from sqlbot.repl import main
         
-        with patch('sys.argv', ['qbot', '--help']):
+        with patch('sys.argv', ['sqlbot', '--help']):
             with patch('sys.exit') as mock_exit:
                 main()
                 mock_exit.assert_called_once_with(0)
 
     def test_main_with_query(self):
         """Test main function with query argument in --no-repl mode."""
-        from qbot.repl import main
+        from sqlbot.repl import main
         
-        with patch('sys.argv', ['qbot', '--no-repl', 'test query']):
-            with patch('qbot.repl.handle_llm_query') as mock_llm:
-                with patch('qbot.repl.start_console') as mock_console:
-                    with patch('qbot.repl.LLM_AVAILABLE', True):
-                        with patch('qbot.repl.show_banner'):  # Mock banner to avoid output
+        with patch('sys.argv', ['sqlbot', '--no-repl', 'test query']):
+            with patch('sqlbot.repl.handle_llm_query') as mock_llm:
+                with patch('sqlbot.repl.start_console') as mock_console:
+                    with patch('sqlbot.repl.LLM_AVAILABLE', True):
+                        with patch('sqlbot.repl.show_banner'):  # Mock banner to avoid output
                             main()
                         
                         # Check that handle_llm_query was called with the right basic parameters
@@ -279,13 +279,13 @@ class TestMainFunction:
 
     def test_main_interactive_mode(self):
         """Test main function in interactive mode."""
-        from qbot.repl import main
+        from sqlbot.repl import main
         
-        with patch('sys.argv', ['qbot']):
-            with patch('qbot.repl.start_console') as mock_console:
-                with patch('qbot.repl.show_banner'):  # Mock banner to avoid output
-                    with patch('qbot.repl.rich_console') as mock_rich_console:  # Mock rich console to avoid output
-                        with patch('qbot.repl._is_test_environment', return_value=True) as mock_test_env:
+        with patch('sys.argv', ['sqlbot']):
+            with patch('sqlbot.repl.start_console') as mock_console:
+                with patch('sqlbot.repl.show_banner'):  # Mock banner to avoid output
+                    with patch('sqlbot.repl.rich_console') as mock_rich_console:  # Mock rich console to avoid output
+                        with patch('sqlbot.repl._is_test_environment', return_value=True) as mock_test_env:
                             # Force test environment detection to return True
                             main()
                             mock_test_env.assert_called()

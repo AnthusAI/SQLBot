@@ -1,4 +1,4 @@
-"""Pytest configuration and shared fixtures for QBot tests."""
+"""Pytest configuration and shared fixtures for SQLBot tests."""
 
 import pytest
 import os
@@ -9,6 +9,27 @@ from pathlib import Path
 # Add the project root to Python path for imports
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+def setup_subprocess_environment(env=None):
+    """Set up environment for subprocess tests to find local qbot module.
+    
+    Args:
+        env: Environment dict to modify, or None to create a new one
+        
+    Returns:
+        Modified environment dict with PYTHONPATH set correctly
+    """
+    if env is None:
+        env = os.environ.copy()
+    
+    # Add project root to PYTHONPATH so subprocess can find qbot module
+    current_pythonpath = env.get('PYTHONPATH', '')
+    if current_pythonpath:
+        env['PYTHONPATH'] = f"{project_root}:{current_pythonpath}"
+    else:
+        env['PYTHONPATH'] = str(project_root)
+    
+    return env
 
 @pytest.fixture
 def mock_env():
@@ -43,7 +64,7 @@ def mock_llm():
     mock_llm_instance = Mock()
     mock_llm_instance.invoke.return_value = mock_response
     
-    with patch('qbot.llm_integration.ChatOpenAI', return_value=mock_llm_instance):
+    with patch('sqlbot.llm_integration.ChatOpenAI', return_value=mock_llm_instance):
         yield mock_llm_instance
 
 @pytest.fixture
@@ -56,14 +77,14 @@ def mock_dbt():
     mock_runner = Mock()
     mock_runner.invoke.return_value = mock_result
     
-    with patch('qbot.repl.dbtRunner', return_value=mock_runner):
+    with patch('sqlbot.repl.dbtRunner', return_value=mock_runner):
         yield mock_runner
 
 @pytest.fixture
 def qbot_instance(mock_env, mock_database, mock_llm, mock_dbt):
-    """Create a QBot instance with all dependencies mocked."""
+    """Create a SQLBot instance with all dependencies mocked."""
     # Import after mocking to ensure mocks are in place
-    from qbot import repl
+    from sqlbot import repl
     
     # Mock the LLM_AVAILABLE flag
     repl.LLM_AVAILABLE = True
@@ -92,8 +113,6 @@ config-version: 2
 model-paths: ["models"]
 macro-paths: ["macros"]
 target-path: "target"
-
-target: dev
 """
     (tmp_path / "dbt_project.yml").write_text(dbt_project)
     
@@ -102,7 +121,7 @@ target: dev
 @pytest.fixture(autouse=True)
 def reset_readonly_mode():
     """Reset READONLY_MODE to default (True) after each test."""
-    import qbot.repl as repl_module
+    import sqlbot.repl as repl_module
     
     yield
     
@@ -116,5 +135,5 @@ def setup_test_environment(monkeypatch, temp_project_dir):
     monkeypatch.chdir(temp_project_dir)
     
     # Mock the PROJECT_ROOT to point to temp directory
-    with patch('qbot.repl.PROJECT_ROOT', temp_project_dir):
+    with patch('sqlbot.repl.PROJECT_ROOT', temp_project_dir):
         yield

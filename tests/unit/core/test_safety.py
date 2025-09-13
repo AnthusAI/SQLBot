@@ -1,10 +1,10 @@
 """
-Unit tests for QBot Core SDK Safety Analysis
+Unit tests for SQLBot Core SDK Safety Analysis
 """
 
 import pytest
-from qbot.core.safety import SQLSafetyAnalyzer, analyze_sql_safety
-from qbot.core.types import SafetyLevel
+from sqlbot.core.safety import SQLSafetyAnalyzer, analyze_sql_safety
+from sqlbot.core.types import SafetyLevel
 
 
 class TestSQLSafetyAnalyzer:
@@ -119,7 +119,7 @@ class TestSafetyAnalysisDataClass:
     
     def test_safety_analysis_creation(self):
         """Test creating SafetyAnalysis objects"""
-        from qbot.core.types import SafetyAnalysis
+        from sqlbot.core.types import SafetyAnalysis
         
         analysis = SafetyAnalysis(
             level=SafetyLevel.DANGEROUS,

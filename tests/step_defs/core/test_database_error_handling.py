@@ -29,39 +29,39 @@ def mock_llm_agent():
 
 @pytest.fixture
 def qbot_with_test_db():
-    """QBot instance configured with test database"""
-    with patch('qbot.llm_integration.conversation_history', []):
+    """SQLBot instance configured with test database"""
+    with patch('sqlbot.llm_integration.conversation_history', []):
         yield
 
-@given("QBot is configured with a test database profile")
+@given("SQLBot is configured with a test database profile")
 def qbot_configured_with_test_db(qbot_with_test_db):
-    """Set up QBot with test database configuration"""
+    """Set up SQLBot with test database configuration"""
     pass
 
 @given("the LLM integration is available")
 def llm_integration_available():
     """Ensure LLM integration is available for testing"""
-    with patch('qbot.repl.LLM_AVAILABLE', True):
+    with patch('sqlbot.repl.LLM_AVAILABLE', True):
         pass
 
-@given("I start a new conversation with QBot")
+@given("I start a new conversation with SQLBot")
 def start_new_conversation(mock_conversation_history):
     """Start a new conversation, clearing any existing history"""
     mock_conversation_history.clear()
 
-@given("QBot is configured with invalid database credentials")
+@given("SQLBot is configured with invalid database credentials")
 def qbot_with_invalid_credentials():
-    """Configure QBot with invalid database credentials"""
+    """Configure SQLBot with invalid database credentials"""
     pass
 
-@given("QBot is configured with read-only database access")
+@given("SQLBot is configured with read-only database access")
 def qbot_with_readonly_access():
-    """Configure QBot with read-only database access"""
+    """Configure SQLBot with read-only database access"""
     pass
 
 @when(parsers.parse('I ask "{question}"'))
 def ask_question(question, mock_llm_agent):
-    """Simulate asking a question to QBot"""
+    """Simulate asking a question to SQLBot"""
     # Store the question for later verification
     mock_llm_agent.last_question = question
 
@@ -101,7 +101,7 @@ def llm_queries_nonexistent_table(mock_llm_agent):
     """Simulate LLM querying a nonexistent table"""
     mock_llm_agent.table_error = "Table 'table_that_does_not_exist' doesn't exist"
     
-    with patch('qbot.llm_integration.conversation_history') as mock_history:
+    with patch('sqlbot.llm_integration.conversation_history') as mock_history:
         mock_history.append({
             'role': 'tool',
             'content': f"Database error: {mock_llm_agent.table_error}"
@@ -112,7 +112,7 @@ def llm_queries_invalid_column(mock_llm_agent):
     """Simulate LLM querying with invalid column"""
     mock_llm_agent.column_error = "Column 'nonexistent_column' not found in table 'film'"
     
-    with patch('qbot.llm_integration.conversation_history') as mock_history:
+    with patch('sqlbot.llm_integration.conversation_history') as mock_history:
         mock_history.append({
             'role': 'tool',
             'content': f"Column error: {mock_llm_agent.column_error}"
@@ -123,7 +123,7 @@ def llm_generates_delete_query(mock_llm_agent):
     """Simulate LLM generating a DELETE query"""
     mock_llm_agent.permission_error = "Permission denied: DELETE operations not allowed in read-only mode"
     
-    with patch('qbot.llm_integration.conversation_history') as mock_history:
+    with patch('sqlbot.llm_integration.conversation_history') as mock_history:
         mock_history.append({
             'role': 'tool',
             'content': f"Permission error: {mock_llm_agent.permission_error}"
@@ -137,7 +137,7 @@ def llm_generates_multi_error_query(mock_llm_agent):
         "Column 'wrong_column' not found"
     ]
     
-    with patch('qbot.llm_integration.conversation_history') as mock_history:
+    with patch('sqlbot.llm_integration.conversation_history') as mock_history:
         for error in mock_llm_agent.multi_errors:
             mock_history.append({
                 'role': 'tool',
@@ -149,7 +149,7 @@ def llm_generates_another_error_query(mock_llm_agent):
     """Simulate LLM generating another query with errors"""
     mock_llm_agent.additional_error = "Column 'still_wrong_column' not found"
     
-    with patch('qbot.llm_integration.conversation_history') as mock_history:
+    with patch('sqlbot.llm_integration.conversation_history') as mock_history:
         mock_history.append({
             'role': 'tool',
             'content': f"Database error: {mock_llm_agent.additional_error}"
@@ -160,7 +160,7 @@ def llm_generates_detailed_error(mock_llm_agent):
     """Simulate LLM generating SQL with detailed error"""
     mock_llm_agent.detailed_error = "Syntax error at line 2, column 15: Expected ')' but found 'FROM'"
     
-    with patch('qbot.llm_integration.conversation_history') as mock_history:
+    with patch('sqlbot.llm_integration.conversation_history') as mock_history:
         mock_history.append({
             'role': 'tool',
             'content': f"Detailed SQL error: {mock_llm_agent.detailed_error}"

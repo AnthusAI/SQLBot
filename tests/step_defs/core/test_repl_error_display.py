@@ -31,9 +31,9 @@ def mock_subprocess_result():
     result.stderr = "Error: Connection failed"
     return result
 
-@given("QBot REPL is running")
+@given("SQLBot REPL is running")
 def qbot_repl_running():
-    """Set up QBot REPL environment"""
+    """Set up SQLBot REPL environment"""
     pass
 
 @given("the database connection is configured")
@@ -41,36 +41,36 @@ def database_connection_configured():
     """Ensure database connection is set up"""
     pass
 
-@given("I am in the QBot REPL")
+@given("I am in the SQLBot REPL")
 def in_qbot_repl(mock_repl_console):
-    """Simulate being in the QBot REPL"""
+    """Simulate being in the SQLBot REPL"""
     pass
 
-@given("QBot is configured with invalid database credentials")
+@given("SQLBot is configured with invalid database credentials")
 def invalid_database_credentials():
-    """Configure QBot with invalid credentials"""
+    """Configure SQLBot with invalid credentials"""
     pass
 
-@given("QBot is in read-only mode")
+@given("SQLBot is in read-only mode")
 def qbot_readonly_mode():
-    """Set QBot to read-only mode"""
+    """Set SQLBot to read-only mode"""
     pass
 
-@given("I am in the QBot REPL with debug logging enabled")
+@given("I am in the SQLBot REPL with debug logging enabled")
 def qbot_repl_debug_logging():
-    """Enable debug logging in QBot REPL"""
+    """Enable debug logging in SQLBot REPL"""
     pass
 
-@given("I run QBot in non-interactive mode with --no-repl")
+@given("I run SQLBot in non-interactive mode with --no-repl")
 def run_qbot_noninteractive():
-    """Run QBot in non-interactive mode"""
+    """Run SQLBot in non-interactive mode"""
     pass
 
 @when(parsers.parse('I enter an invalid SQL query "{query}"'))
 def enter_invalid_sql(query, mock_subprocess_result):
     """Simulate entering invalid SQL"""
     # Mock the execute_clean_sql function to return an error
-    with patch('qbot.repl.execute_clean_sql') as mock_execute:
+    with patch('sqlbot.repl.execute_clean_sql') as mock_execute:
         mock_execute.return_value = f"Error executing query:\nSTDOUT: {mock_subprocess_result.stdout}\nSTDERR: {mock_subprocess_result.stderr}"
 
 @when(parsers.parse('I ask "{question}"'))
@@ -83,9 +83,9 @@ def llm_generates_nonexistent_table_query():
     """Simulate LLM generating query for nonexistent table"""
     pass
 
-@when("I start the QBot REPL")
+@when("I start the SQLBot REPL")
 def start_qbot_repl():
-    """Simulate starting QBot REPL"""
+    """Simulate starting SQLBot REPL"""
     pass
 
 @when("the LLM generates a query with a nonexistent column")

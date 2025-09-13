@@ -14,7 +14,7 @@ scenarios('../../features/core/conversation_history_with_tools.feature')
 @pytest.fixture
 def mock_conversation_history():
     """Mock the global conversation_history list"""
-    with patch('qbot.llm_integration.conversation_history', []) as mock_history:
+    with patch('sqlbot.llm_integration.conversation_history', []) as mock_history:
         yield mock_history
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def mock_console():
 
 @pytest.fixture
 def qbot_session(mock_conversation_history, mock_memory_manager, mock_console):
-    """Set up a QBot session for testing"""
+    """Set up a SQLBot session for testing"""
     session_data = {
         'conversation_history': mock_conversation_history,
         'memory_manager': mock_memory_manager,
@@ -49,9 +49,9 @@ def qbot_session(mock_conversation_history, mock_memory_manager, mock_console):
 
 # Background steps
 
-@given("QBot is configured with the Sakila profile")
+@given("SQLBot is configured with the Sakila profile")
 def qbot_configured_sakila(qbot_session):
-    """Configure QBot with Sakila profile"""
+    """Configure SQLBot with Sakila profile"""
     os.environ['DBT_PROFILE_NAME'] = 'Sakila'
     qbot_session['profile'] = 'Sakila'
 
@@ -82,7 +82,7 @@ def start_new_conversation(qbot_session):
 
 @when(parsers.parse('I ask "{question}"'))
 def ask_question(question, qbot_session):
-    """Ask a question to QBot"""
+    """Ask a question to SQLBot"""
     # Add user message to conversation history
     qbot_session['conversation_history'].append({
         "role": "user", 

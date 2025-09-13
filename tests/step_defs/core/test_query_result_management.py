@@ -9,9 +9,9 @@ from pathlib import Path
 from pytest_bdd import scenarios, given, when, then, parsers
 import pytest
 
-from qbot.core.query_result_list import QueryResultList, get_query_result_list
-from qbot.core.query_result_lookup_tool import create_query_result_lookup_tool
-from qbot.core.types import QueryResult, QueryType
+from sqlbot.core.query_result_list import QueryResultList, get_query_result_list
+from sqlbot.core.query_result_lookup_tool import create_query_result_lookup_tool
+from sqlbot.core.types import QueryResult, QueryType
 
 # Load scenarios from feature file
 scenarios('../../features/core/query_result_management.feature')
@@ -33,7 +33,7 @@ def temp_storage_dir():
 @pytest.fixture
 def query_result_list(test_session_id, temp_storage_dir):
     """Provide a clean QueryResultList for testing"""
-    from qbot.core.query_result_list import _query_result_lists
+    from sqlbot.core.query_result_list import _query_result_lists
     
     storage_path = temp_storage_dir / f"{test_session_id}.json"
     result_list = QueryResultList(test_session_id, storage_path)
@@ -58,9 +58,9 @@ def lookup_tool(test_session_id):
 
 # Background steps
 
-@given("QBot is initialized with a test session")
+@given("SQLBot is initialized with a test session")
 def qbot_initialized(query_result_list):
-    """QBot is initialized with a test session"""
+    """SQLBot is initialized with a test session"""
     assert query_result_list.session_id.startswith("test_session_")
 
 

@@ -5,8 +5,8 @@ Unit tests for SQLBot Core SDK Configuration
 import os
 import pytest
 from unittest.mock import patch
-from qbot.core.config import SQLBotConfig
-from qbot.core.types import LLMConfig
+from sqlbot.core.config import SQLBotConfig
+from sqlbot.core.types import LLMConfig
 
 
 class TestSQLBotConfig:

@@ -1,10 +1,10 @@
 Feature: Conversation History with Tool Calls
-  As a user of QBot
+  As a user of SQLBot
   I want the conversation history to include tool calls and results
   So that I can see the complete context sent to the LLM and understand follow-up queries
 
   Background:
-    Given QBot is configured with the Sakila profile
+    Given SQLBot is configured with the Sakila profile
     And the --history flag is enabled
     And LLM integration is available
 

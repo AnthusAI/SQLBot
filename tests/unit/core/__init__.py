@@ -1,3 +1,3 @@
 """
-Unit tests for QBot Core SDK
+Unit tests for SQLBot Core SDK
 """

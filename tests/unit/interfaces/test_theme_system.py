@@ -1,5 +1,5 @@
 """
-Unit tests for the QBot theme system.
+Unit tests for the SQLBot theme system.
 
 This test suite ensures that the theme system works correctly and provides
 consistent colors across both Textual TUI and Rich CLI interfaces.
@@ -8,8 +8,8 @@ consistent colors across both Textual TUI and Rich CLI interfaces.
 import pytest
 from unittest.mock import patch, MagicMock
 
-from qbot.interfaces.theme_system import (
-    QBotThemeManager, ThemeMode, 
+from sqlbot.interfaces.theme_system import (
+    SQLBotThemeManager, ThemeMode, 
     DODGER_BLUE_DARK, DODGER_BLUE_LIGHT, MAGENTA1, DEEP_PINK_LIGHT,
     PURE_BLUE_TEXT, PURE_BLUE_INPUT_BORDER,
     QBOT_MESSAGE_COLORS, get_theme_manager
@@ -53,22 +53,22 @@ class TestThemeConstants:
             assert brightness > 150, f"Color {color} should be light (brightness > 150), got {brightness}"
 
 
-class TestQBotThemeManager:
-    """Test the QBotThemeManager class"""
+class TestSQLBotThemeManager:
+    """Test the SQLBotThemeManager class"""
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_manager_initialization(self, mock_app):
         """Test that theme manager initializes correctly"""
-        manager = QBotThemeManager(ThemeMode.QBOT)
+        manager = SQLBotThemeManager(ThemeMode.QBOT)
         
         assert manager.current_mode == ThemeMode.QBOT
         assert manager.is_builtin_theme is True
         assert manager.current_textual_theme_name == "tokyo-night"
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_manager_get_color_builtin_theme(self, mock_app):
         """Test getting colors from built-in themes"""
-        manager = QBotThemeManager(ThemeMode.QBOT)
+        manager = SQLBotThemeManager(ThemeMode.QBOT)
         
         # Test getting AI response color
         ai_color = manager.get_color('ai_response')
@@ -78,18 +78,18 @@ class TestQBotThemeManager:
         user_color = manager.get_color('user_message')
         assert user_color == PURE_BLUE_TEXT
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_manager_get_color_unknown_type(self, mock_app):
         """Test getting unknown color type returns None"""
-        manager = QBotThemeManager(ThemeMode.QBOT)
+        manager = SQLBotThemeManager(ThemeMode.QBOT)
         
         unknown_color = manager.get_color('nonexistent_color')
         assert unknown_color is None
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_manager_set_theme(self, mock_app):
         """Test changing themes"""
-        manager = QBotThemeManager(ThemeMode.QBOT)
+        manager = SQLBotThemeManager(ThemeMode.QBOT)
         
         # Change to light theme
         manager.set_theme(ThemeMode.TEXTUAL_LIGHT)
@@ -100,18 +100,18 @@ class TestQBotThemeManager:
         ai_color = manager.get_color('ai_response')
         assert ai_color == DEEP_PINK_LIGHT
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_manager_get_textual_theme_name(self, mock_app):
         """Test getting Textual theme name"""
-        manager = QBotThemeManager(ThemeMode.TOKYO_NIGHT)
+        manager = SQLBotThemeManager(ThemeMode.TOKYO_NIGHT)
         
         theme_name = manager.get_textual_theme_name()
         assert theme_name == "tokyo-night"
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_manager_get_available_themes(self, mock_app):
         """Test getting list of available themes"""
-        manager = QBotThemeManager()
+        manager = SQLBotThemeManager()
         
         available = manager.get_available_themes()
         
@@ -138,7 +138,7 @@ class TestThemeMessageColors:
         # Should have default theme
         assert "default" in QBOT_MESSAGE_COLORS
         
-        # Should have tokyo-night theme (QBot default)
+        # Should have tokyo-night theme (SQLBot default)
         assert "tokyo-night" in QBOT_MESSAGE_COLORS
         
         # Each theme should have required color types
@@ -177,14 +177,14 @@ class TestThemeMessageColors:
 class TestGlobalThemeManager:
     """Test the global theme manager singleton"""
     
-    @patch('qbot.interfaces.theme_system.QBotThemeManager')
+    @patch('sqlbot.interfaces.theme_system.SQLBotThemeManager')
     def test_get_theme_manager_singleton(self, mock_theme_manager_class):
         """Test that get_theme_manager returns a singleton"""
         mock_instance = MagicMock()
         mock_theme_manager_class.return_value = mock_instance
         
         # Clear any existing global instance
-        import qbot.interfaces.theme_system as theme_module
+        import sqlbot.interfaces.theme_system as theme_module
         theme_module._theme_manager = None
         
         # First call should create instance
@@ -203,10 +203,10 @@ class TestGlobalThemeManager:
 class TestThemeIntegration:
     """Integration tests for theme system"""
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_system_provides_consistent_colors(self, mock_app):
         """Test that theme system provides consistent colors across different themes"""
-        manager = QBotThemeManager()
+        manager = SQLBotThemeManager()
         
         # Test different themes
         themes_to_test = [ThemeMode.QBOT, ThemeMode.TEXTUAL_DARK, ThemeMode.TEXTUAL_LIGHT]
@@ -227,10 +227,10 @@ class TestThemeIntegration:
             if ai_color:
                 assert ai_color.startswith('#') and len(ai_color) == 7
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_theme_system_handles_missing_colors_gracefully(self, mock_app):
         """Test that theme system handles missing colors gracefully"""
-        manager = QBotThemeManager()
+        manager = SQLBotThemeManager()
         
         # Test getting a color that might not exist in all themes
         tool_color = manager.get_color('tool_call')
@@ -242,10 +242,10 @@ class TestThemeIntegration:
 class TestThemeSystemRegression:
     """Regression tests for theme system issues"""
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_ai_messages_not_white_regression(self, mock_app):
         """Regression test: AI messages should not be pure white"""
-        manager = QBotThemeManager(ThemeMode.QBOT)
+        manager = SQLBotThemeManager(ThemeMode.QBOT)
         
         ai_color = manager.get_color('ai_response')
         
@@ -262,10 +262,10 @@ class TestThemeSystemRegression:
         # At least one component should be significantly less than 255
         assert min(r, g, b) < 240, f"AI color {ai_color} is too close to white"
     
-    @patch('qbot.interfaces.theme_system.App')
+    @patch('sqlbot.interfaces.theme_system.App')
     def test_colors_are_appropriately_light(self, mock_app):
         """Regression test: Colors should be light but still visible"""
-        manager = QBotThemeManager(ThemeMode.QBOT)
+        manager = SQLBotThemeManager(ThemeMode.QBOT)
         
         ai_color = manager.get_color('ai_response')
         user_color = manager.get_color('user_message')

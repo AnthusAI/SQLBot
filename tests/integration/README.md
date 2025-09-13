@@ -1,6 +1,6 @@
-# QBot Integration Tests
+# SQLBot Integration Tests
 
-This directory contains integration tests that require actual database connections and verify QBot functionality against real databases.
+This directory contains integration tests that require actual database connections and verify SQLBot functionality against real databases.
 
 ## Quick Start
 
@@ -157,7 +157,7 @@ Shared test configuration providing:
 
 ### Sample Sakila Queries
 
-The tests verify QBot can handle realistic business queries:
+The tests verify SQLBot can handle realistic business queries:
 
 ```sql
 -- Film catalog queries
@@ -230,7 +230,7 @@ pytest tests/integration/test_sakila_integration.py::TestSakilaDatabase::test_sa
 
 ## Requirements
 
-Integration tests require additional dependencies not needed for core QBot functionality:
+Integration tests require additional dependencies not needed for core SQLBot functionality:
 
 - **dbt-sqlite>=1.0.0** - SQLite adapter for dbt
 - **pytest-timeout>=2.1.0** - Test timeout handling

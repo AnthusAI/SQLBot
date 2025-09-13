@@ -1,5 +1,5 @@
 """
-Unit tests for Decimal serialization and JSON compatibility throughout QBot.
+Unit tests for Decimal serialization and JSON compatibility throughout SQLBot.
 
 This test suite ensures that all data types returned from database queries
 can be properly serialized to JSON without errors, particularly focusing
@@ -12,9 +12,9 @@ from decimal import Decimal
 from datetime import datetime, date
 from unittest.mock import Mock, patch
 
-from qbot.core.types import QueryResult, QueryType
-from qbot.core.dbt_service import DbtService
-from qbot.core.config import QBotConfig
+from sqlbot.core.types import QueryResult, QueryType
+from sqlbot.core.dbt_service import DbtService
+from sqlbot.core.config import SQLBotConfig
 
 
 class TestQueryResultSerialization:
@@ -170,7 +170,7 @@ class TestDbtServiceSerialization:
     
     def setup_method(self):
         """Set up test fixtures"""
-        self.config = QBotConfig()
+        self.config = SQLBotConfig()
         self.dbt_service = DbtService(self.config)
     
     def test_serialize_value_method(self):
@@ -260,7 +260,7 @@ class TestLLMIntegrationSerialization:
     
     def test_llm_integration_serialization_works(self):
         """Test that LLM integration can handle Decimal data without errors"""
-        from qbot.llm_integration import DbtQueryTool
+        from sqlbot.llm_integration import DbtQueryTool
         
         # Create result with Decimal data that would cause JSON errors
         mock_result = QueryResult(
@@ -294,7 +294,7 @@ class TestQueryResultLookupSerialization:
     
     def test_query_result_lookup_serialization(self):
         """Test that lookup tool can handle Decimal data serialization"""
-        from qbot.core.query_result_lookup_tool import QueryResultLookupTool
+        from sqlbot.core.query_result_lookup_tool import QueryResultLookupTool
         
         # Create mock result with Decimal data
         mock_result = QueryResult(
@@ -365,7 +365,7 @@ class TestIntegrationSerialization:
         assert parsed['data'][0]['amount'] == 4.99
         
         # Test QueryResultEntry serialization (for storage)
-        from qbot.core.query_result_list import QueryResultEntry
+        from sqlbot.core.query_result_list import QueryResultEntry
         from datetime import datetime
         import uuid
         entry = QueryResultEntry(
@@ -383,7 +383,7 @@ class TestIntegrationSerialization:
     
     def test_storage_serialization_robustness(self):
         """Test that the storage system handles various edge cases"""
-        from qbot.core.query_result_list import QueryResultList
+        from sqlbot.core.query_result_list import QueryResultList
         
         # Create results with various problematic data types
         results_data = [

@@ -2,7 +2,7 @@
 """
 Integration Test Configuration
 
-Shared fixtures and configuration for QBot integration tests.
+Shared fixtures and configuration for SQLBot integration tests.
 """
 
 import os
@@ -37,7 +37,7 @@ def integration_test_env():
 @pytest.fixture
 def mock_openai_api():
     """Mock OpenAI API for tests that don't need real API calls."""
-    with patch('qbot.llm_integration.openai') as mock_openai:
+    with patch('sqlbot.llm_integration.openai') as mock_openai:
         # Set up default mock response
         mock_response = type('MockResponse', (), {})()
         mock_response.choices = [type('MockChoice', (), {})()]
@@ -79,7 +79,7 @@ def sakila_profile_env():
     
     # Also set in the module
     try:
-        import qbot.llm_integration as llm
+        import sqlbot.llm_integration as llm
         original_module_profile = llm.DBT_PROFILE_NAME
         llm.DBT_PROFILE_NAME = 'Sakila'
     except ImportError:
@@ -95,7 +95,7 @@ def sakila_profile_env():
     
     if original_module_profile is not None:
         try:
-            import qbot.llm_integration as llm
+            import sqlbot.llm_integration as llm
             llm.DBT_PROFILE_NAME = original_module_profile
         except ImportError:
             pass

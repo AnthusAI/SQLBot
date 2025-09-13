@@ -1,43 +1,43 @@
 """
-Unit tests for QBot Core SDK Agent
+Unit tests for SQLBot Core SDK Agent
 """
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from qbot.core.agent import QBotAgent, QBotAgentFactory
-from qbot.core.config import QBotConfig
-from qbot.core.types import QueryResult, QueryType, SafetyLevel
+from sqlbot.core.agent import SQLBotAgent, SQLBotAgentFactory
+from sqlbot.core.config import SQLBotConfig
+from sqlbot.core.types import QueryResult, QueryType, SafetyLevel
 
 
-class TestQBotAgent:
-    """Test QBot agent functionality"""
+class TestSQLBotAgent:
+    """Test SQLBot agent functionality"""
     
     def setup_method(self):
         """Setup test configuration"""
-        self.config = QBotConfig(
+        self.config = SQLBotConfig(
             profile="test_profile",
             read_only=False,
             preview_mode=False
         )
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_agent_initialization(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test agent initialization"""
-        agent = QBotAgent(self.config)
+        agent = SQLBotAgent(self.config)
         
         assert agent.config == self.config
         assert agent.safety_analyzer is not None
         assert agent.schema_loader is not None
         assert agent.dbt_executor is not None
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_query_routing_sql(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test query routing for SQL queries"""
-        agent = QBotAgent(self.config)
+        agent = SQLBotAgent(self.config)
         
         # Mock execute_sql method
         expected_result = QueryResult(
@@ -52,12 +52,12 @@ class TestQBotAgent:
         agent.execute_sql.assert_called_once_with("SELECT * FROM users;")
         assert result == expected_result
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_query_routing_natural_language(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test query routing for natural language queries"""
-        agent = QBotAgent(self.config)
+        agent = SQLBotAgent(self.config)
         
         # Mock execute_natural_language method
         expected_result = QueryResult(
@@ -74,23 +74,23 @@ class TestQBotAgent:
     
     def test_empty_query(self):
         """Test handling of empty queries"""
-        with patch('qbot.core.agent.SchemaLoader'), \
-             patch('qbot.core.agent.DbtExecutor'), \
-             patch('qbot.core.agent.LLMAgent'):
+        with patch('sqlbot.core.agent.SchemaLoader'), \
+             patch('sqlbot.core.agent.DbtExecutor'), \
+             patch('sqlbot.core.agent.LLMAgent'):
             
-            agent = QBotAgent(self.config)
+            agent = SQLBotAgent(self.config)
             
             result = agent.query("")
             
             assert result.success == False
             assert result.error == "Empty query"
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_sql_execution_with_safety_check(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test SQL execution with safety analysis"""
-        agent = QBotAgent(self.config)
+        agent = SQLBotAgent(self.config)
         
         # Mock safety analyzer
         mock_safety_analysis = Mock()
@@ -117,12 +117,12 @@ class TestQBotAgent:
         # Verify result includes safety analysis
         assert result.safety_analysis == mock_safety_analysis
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_dangerous_query_blocked(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test that dangerous queries are blocked"""
-        agent = QBotAgent(self.config)
+        agent = SQLBotAgent(self.config)
         
         # Mock dangerous safety analysis
         mock_safety_analysis = Mock()
@@ -136,13 +136,13 @@ class TestQBotAgent:
         assert "Dangerous query blocked" in result.error
         assert result.safety_analysis == mock_safety_analysis
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_read_only_mode_blocks_writes(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test that read-only mode blocks write operations"""
-        config = QBotConfig(read_only=True)
-        agent = QBotAgent(config)
+        config = SQLBotConfig(read_only=True)
+        agent = SQLBotAgent(config)
         
         # Mock safety analysis for write operation
         mock_safety_analysis = Mock()
@@ -155,13 +155,13 @@ class TestQBotAgent:
         assert result.success == False
         assert "Query blocked by read-only mode" in result.error
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_preview_mode_compiles_only(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test that preview mode only compiles, doesn't execute"""
-        config = QBotConfig(preview_mode=True)
-        agent = QBotAgent(config)
+        config = SQLBotConfig(preview_mode=True)
+        agent = SQLBotAgent(config)
         
         # Mock safety analysis
         mock_safety_analysis = Mock()
@@ -170,7 +170,7 @@ class TestQBotAgent:
         agent.safety_analyzer.analyze = Mock(return_value=mock_safety_analysis)
         
         # Mock compilation
-        from qbot.core.types import CompilationResult
+        from sqlbot.core.types import CompilationResult
         mock_compilation = CompilationResult(
             success=True,
             compiled_sql="SELECT * FROM actual_table_name"
@@ -186,29 +186,29 @@ class TestQBotAgent:
         assert result.compiled_sql == "SELECT * FROM actual_table_name"
 
 
-class TestQBotAgentFactory:
-    """Test QBot agent factory"""
+class TestSQLBotAgentFactory:
+    """Test SQLBot agent factory"""
     
     @patch.dict('os.environ', {
         'DBT_PROFILE_NAME': 'test_profile',
         'QBOT_READ_ONLY': 'true'
     })
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_create_from_env(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test creating agent from environment"""
-        agent = QBotAgentFactory.create_from_env()
+        agent = SQLBotAgentFactory.create_from_env()
         
         assert agent.config.profile == 'test_profile'
         assert agent.config.read_only == True
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_create_from_env_with_overrides(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test creating agent with configuration overrides"""
-        agent = QBotAgentFactory.create_from_env(
+        agent = SQLBotAgentFactory.create_from_env(
             profile='override_profile',
             max_rows=500
         )
@@ -216,22 +216,22 @@ class TestQBotAgentFactory:
         assert agent.config.profile == 'override_profile'
         assert agent.config.max_rows == 500
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_create_read_only(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test creating read-only agent"""
-        agent = QBotAgentFactory.create_read_only('test_profile')
+        agent = SQLBotAgentFactory.create_read_only('test_profile')
         
         assert agent.config.profile == 'test_profile'
         assert agent.config.read_only == True
     
-    @patch('qbot.core.agent.SchemaLoader')
-    @patch('qbot.core.agent.DbtExecutor')
-    @patch('qbot.core.agent.LLMAgent')
+    @patch('sqlbot.core.agent.SchemaLoader')
+    @patch('sqlbot.core.agent.DbtExecutor')
+    @patch('sqlbot.core.agent.LLMAgent')
     def test_create_preview_mode(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test creating preview mode agent"""
-        agent = QBotAgentFactory.create_preview_mode('test_profile')
+        agent = SQLBotAgentFactory.create_preview_mode('test_profile')
         
         assert agent.config.profile == 'test_profile'
         assert agent.config.preview_mode == True

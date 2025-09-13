@@ -11,9 +11,9 @@ import os
 # Load scenarios from the feature file
 scenarios('../../features/core/query_results_display.feature')
 
-@given('QBot is configured with a valid database connection')
+@given('SQLBot is configured with a valid database connection')
 def qbot_configured():
-    """QBot is set up with valid database configuration"""
+    """SQLBot is set up with valid database configuration"""
     pass
 
 @given('I have access to database tables')

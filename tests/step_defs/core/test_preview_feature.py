@@ -20,9 +20,9 @@ def mock_input_output():
          patch('sys.stdout', mock_stdout):
         yield mock_input, mock_stdout
 
-@given('QBot is running in interactive mode')
+@given('SQLBot is running in interactive mode')
 def qbot_interactive():
-    """Ensure QBot is running in interactive mode."""
+    """Ensure SQLBot is running in interactive mode."""
     # This is handled by conftest.py fixtures
     pass
 
@@ -32,16 +32,16 @@ def database_available():
     # This is handled by conftest.py fixtures
     pass
 
-@given('I am in the QBot REPL')
+@given('I am in the SQLBot REPL')
 def in_qbot_repl():
-    """Ensure we're in the QBot REPL context."""
+    """Ensure we're in the SQLBot REPL context."""
     # Set up REPL context
     pass
 
 @when('I enter "//preview"')
 def enter_preview_command():
     """User enters the //preview command."""
-    from qbot.repl import handle_double_slash_command
+    from sqlbot.repl import handle_double_slash_command
     
     with mock_input_output() as (mock_input, mock_stdout):
         # Mock empty input to cancel preview
@@ -178,8 +178,8 @@ def should_see_available_commands():
 # Integration test that actually tests the preview functionality
 def test_preview_functionality_integration():
     """Integration test for preview functionality."""
-    from qbot.repl import preview_sql_compilation, execute_clean_sql
-    from qbot.core.types import CompilationResult
+    from sqlbot.repl import preview_sql_compilation, execute_clean_sql
+    from sqlbot.core.types import CompilationResult
     import os
     
     # Set up environment
@@ -194,7 +194,7 @@ def test_preview_functionality_integration():
         compiled_sql='SELECT TOP 3 * FROM "sakila"."film"'
     )
     
-    with patch('qbot.core.dbt_service.DbtService.compile_query_preview') as mock_compile:
+    with patch('sqlbot.core.dbt_service.DbtService.compile_query_preview') as mock_compile:
         mock_compile.return_value = mock_compilation_result
         
         result = preview_sql_compilation(test_sql)
@@ -204,8 +204,8 @@ def test_preview_functionality_integration():
 
 def test_preview_with_source_syntax():
     """Test preview with dbt source syntax."""
-    from qbot.repl import preview_sql_compilation
-    from qbot.core.types import CompilationResult
+    from sqlbot.repl import preview_sql_compilation
+    from sqlbot.core.types import CompilationResult
     import os
     
     os.environ['DBT_PROFILE_NAME'] = 'Sakila'
@@ -218,7 +218,7 @@ def test_preview_with_source_syntax():
         compiled_sql='SELECT TOP 5 * FROM "sakila"."film"'
     )
     
-    with patch('qbot.core.dbt_service.DbtService.compile_query_preview') as mock_compile:
+    with patch('sqlbot.core.dbt_service.DbtService.compile_query_preview') as mock_compile:
         mock_compile.return_value = mock_compilation_result
         
         result = preview_sql_compilation(test_sql)

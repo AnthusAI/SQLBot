@@ -12,14 +12,14 @@ import os
 # Add the project root to Python path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
-from qbot.repl import execute_clean_sql
+from sqlbot.repl import execute_clean_sql
 
 class TestDatabaseErrorHandling:
-    """Test database error handling in QBot"""
+    """Test database error handling in SQLBot"""
 
     def test_execute_clean_sql_captures_stderr_details(self):
         """Test that execute_clean_sql captures detailed error information from dbt SDK"""
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.core.types import QueryResult, QueryType
         
         # Mock dbt service to return error result
         mock_error_result = QueryResult(
@@ -29,7 +29,7 @@ class TestDatabaseErrorHandling:
             error="Database Error: Table 'nonexistent_table' doesn't exist"
         )
 
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
             result = execute_clean_sql("SELECT * FROM nonexistent_table")
             
             assert "Error executing query:" in result
@@ -37,7 +37,7 @@ class TestDatabaseErrorHandling:
 
     def test_execute_clean_sql_captures_stdout_details(self):
         """Test that execute_clean_sql captures detailed error information from dbt SDK"""
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.core.types import QueryResult, QueryType
         
         # Mock dbt service to return error result  
         mock_error_result = QueryResult(
@@ -47,7 +47,7 @@ class TestDatabaseErrorHandling:
             error="Runtime Error\nDatabase Error in sql_operation inline_query\nno such table: INFORMATION_SCHEMA.TABLES"
         )
 
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
             result = execute_clean_sql("SELECT * FROM INFORMATION_SCHEMA.TABLES")
             
             assert "Error executing query:" in result
@@ -56,7 +56,7 @@ class TestDatabaseErrorHandling:
 
     def test_execute_clean_sql_captures_both_stdout_and_stderr(self):
         """Test that execute_clean_sql captures combined error information from dbt SDK"""
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.core.types import QueryResult, QueryType
         
         # Mock dbt service to return error result with combined error info
         mock_error_result = QueryResult(
@@ -66,7 +66,7 @@ class TestDatabaseErrorHandling:
             error="Connection failed\nRuntime Error: Database connection timeout"
         )
 
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
             result = execute_clean_sql("SELECT * FROM test_table")
             
             assert "Error executing query:" in result
@@ -75,7 +75,7 @@ class TestDatabaseErrorHandling:
 
     def test_execute_clean_sql_handles_empty_error_output(self):
         """Test that execute_clean_sql handles cases where error is empty"""
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.core.types import QueryResult, QueryType
         
         # Mock dbt service to return error result with empty error message
         mock_error_result = QueryResult(
@@ -85,14 +85,14 @@ class TestDatabaseErrorHandling:
             error=""
         )
 
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
             result = execute_clean_sql("SELECT * FROM test_table")
             
             assert "Error executing query:" in result
 
     def test_execute_clean_sql_handles_whitespace_only_errors(self):
         """Test that execute_clean_sql handles cases where error is only whitespace"""
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.core.types import QueryResult, QueryType
         
         # Mock dbt service to return error result with whitespace-only error
         mock_error_result = QueryResult(
@@ -102,14 +102,14 @@ class TestDatabaseErrorHandling:
             error="   \n  \t  "
         )
 
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
             result = execute_clean_sql("SELECT * FROM test_table")
             
             assert "Error executing query:" in result
 
     def test_execute_clean_sql_successful_query(self):
         """Test that execute_clean_sql returns formatted table for successful queries"""
-        from qbot.core.types import QueryResult, QueryType
+        from sqlbot.core.types import QueryResult, QueryType
         
         # Mock dbt service to return successful result
         mock_success_result = QueryResult(
@@ -121,7 +121,7 @@ class TestDatabaseErrorHandling:
             row_count=1
         )
 
-        with patch('qbot.core.dbt_service.DbtService.execute_query', return_value=mock_success_result):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_success_result):
             result = execute_clean_sql("SELECT * FROM test_table")
             
             assert "| id | name |" in result
@@ -129,7 +129,7 @@ class TestDatabaseErrorHandling:
 
     def test_execute_clean_sql_exception_handling(self):
         """Test that execute_clean_sql handles exceptions properly"""
-        with patch('qbot.core.dbt_service.DbtService.execute_query', side_effect=Exception("dbt service error")):
+        with patch('sqlbot.core.dbt_service.DbtService.execute_query', side_effect=Exception("dbt service error")):
             result = execute_clean_sql("SELECT * FROM test_table")
             
             assert "Failed to execute query:" in result
@@ -138,10 +138,10 @@ class TestDatabaseErrorHandling:
 class TestConversationHistoryErrorCapture:
     """Test that database errors are captured in LLM conversation history"""
 
-    @patch('qbot.llm_integration.conversation_history', [])
+    @patch('sqlbot.llm_integration.conversation_history', [])
     def test_database_errors_added_to_conversation_history(self):
         """Test that database errors from tool execution are added to conversation history"""
-        from qbot.llm_integration import conversation_history
+        from sqlbot.llm_integration import conversation_history
         
         # Simulate the tool execution that would happen in _execute_llm_query
         mock_agent_result = {
@@ -207,7 +207,7 @@ class TestConversationHistoryErrorCapture:
 class TestErrorDisplayInREPL:
     """Test that errors are properly displayed to users in REPL"""
 
-    @patch('qbot.repl.rich_console')
+    @patch('sqlbot.repl.rich_console')
     def test_error_displayed_to_user_in_repl(self, mock_console):
         """Test that database errors are displayed to users via Rich console"""
         # This would test the actual REPL error display

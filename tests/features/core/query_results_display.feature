@@ -1,10 +1,10 @@
 Feature: Query Results Display
-  As a QBot user
+  As a SQLBot user
   I want to see the actual database query results
   So that I can verify the data and understand what the query returned
 
   Background:
-    Given QBot is configured with a valid database connection
+    Given SQLBot is configured with a valid database connection
     And I have access to database tables
 
   Scenario: Database query results are always displayed to user

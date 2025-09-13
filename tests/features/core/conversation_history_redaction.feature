@@ -1,10 +1,10 @@
 Feature: Conversation History Redaction
-  As a QBot user
+  As a SQLBot user
   I want query results to be redacted in conversation history
   So that the conversation stays manageable while preserving access to data
 
   Background:
-    Given QBot is initialized with conversation memory
+    Given SQLBot is initialized with conversation memory
     And the query result list is empty
 
   Scenario: Most recent query result shows full data in conversation history
@@ -53,9 +53,9 @@ Feature: Conversation History Redaction
 
   Scenario: Redaction preserves conversation flow and context
     Given I ask "Show me user data"
-    And QBot executes "SELECT name, age FROM users" returning 100 rows
+    And SQLBot executes "SELECT name, age FROM users" returning 100 rows
     And I ask "What's the average age?"
-    And QBot executes "SELECT AVG(age) FROM users" returning 1 row
+    And SQLBot executes "SELECT AVG(age) FROM users" returning 1 row
     When I check the conversation history
     Then I should see my questions in full
     And I should see a placeholder for the first query (100 rows)

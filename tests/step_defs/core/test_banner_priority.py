@@ -9,9 +9,9 @@ from unittest.mock import patch
 # Load all scenarios from the feature file
 scenarios('../../features/core/banner_priority.feature')
 
-@given('QBot is available')
+@given('SQLBot is available')
 def qbot_is_available():
-    """Ensure QBot is available."""
+    """Ensure SQLBot is available."""
     pass
 
 @given('dbt is configured with profile "Sakila"')
@@ -19,13 +19,15 @@ def dbt_configured():
     """Ensure dbt is configured with the test profile."""
     pass
 
-@when(parsers.parse('I run QBot with query "{query}" and flag "{flag}"'))
+@when(parsers.parse('I run SQLBot with query "{query}" and flag "{flag}"'))
 def run_qbot_with_query_and_flag(query, flag):
-    """Run QBot with a specific query and CLI flag."""
-    env = os.environ.copy()
+    """Run SQLBot with a specific query and CLI flag."""
+    from tests.conftest import setup_subprocess_environment
+    
+    env = setup_subprocess_environment()
     env['DBT_PROFILE_NAME'] = 'Sakila'
     
-    cmd = ['python', '-m', 'qbot.repl', flag, '--profile', 'Sakila', query]
+    cmd = ['python', '-m', 'sqlbot.repl', flag, '--profile', 'Sakila', query]
     
     result = subprocess.run(
         cmd,
@@ -37,14 +39,16 @@ def run_qbot_with_query_and_flag(query, flag):
     
     pytest.qbot_result = result
 
-@when(parsers.parse('I run QBot with query "{query}" and flags "{flags}"'))
+@when(parsers.parse('I run SQLBot with query "{query}" and flags "{flags}"'))
 def run_qbot_with_query_and_flags(query, flags):
-    """Run QBot with a specific query and multiple CLI flags."""
-    env = os.environ.copy()
+    """Run SQLBot with a specific query and multiple CLI flags."""
+    from tests.conftest import setup_subprocess_environment
+    
+    env = setup_subprocess_environment()
     env['DBT_PROFILE_NAME'] = 'Sakila'
     
     flag_list = flags.split()
-    cmd = ['python', '-m', 'qbot.repl'] + flag_list + ['--profile', 'Sakila', query]
+    cmd = ['python', '-m', 'sqlbot.repl'] + flag_list + ['--profile', 'Sakila', query]
     
     result = subprocess.run(
         cmd,
@@ -56,15 +60,17 @@ def run_qbot_with_query_and_flags(query, flags):
     
     pytest.qbot_result = result
 
-@when('I start QBot in interactive mode')
+@when('I start SQLBot in interactive mode')
 def start_qbot_interactive():
-    """Start QBot in interactive mode (no query provided)."""
+    """Start SQLBot in interactive mode (no query provided)."""
     pytest.skip("Interactive mode banner test skipped due to test environment detection changes")
-    env = os.environ.copy()
+    from tests.conftest import setup_subprocess_environment
+    
+    env = setup_subprocess_environment()
     env['DBT_PROFILE_NAME'] = 'Sakila'
     
     # Use echo to provide input and exit quickly
-    cmd = ['python', '-m', 'qbot.repl', '--profile', 'Sakila']
+    cmd = ['python', '-m', 'sqlbot.repl', '--profile', 'Sakila']
     
     # Send exit command immediately to avoid hanging
     process = subprocess.Popen(
@@ -157,11 +163,11 @@ def banner_should_be_first():
     if 'Initializing' in output or 'ready' in output:
         assert banner_end_found and init_message_found, "Initialization messages should appear after banner"
 
-@then('I should see the "QBot CLI" banner')
+@then('I should see the "SQLBot CLI" banner')
 def should_see_cli_banner():
     """Verify the CLI banner is displayed."""
     output = pytest.qbot_result.stdout
-    assert "QBot CLI" in output, "Should show CLI banner for --no-repl mode"
+    assert "SQLBot CLI" in output, "Should show CLI banner for --no-repl mode"
 
 @then('I should see the "Ready for questions." banner')
 def should_see_interactive_banner():

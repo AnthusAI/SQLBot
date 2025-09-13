@@ -12,9 +12,9 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 from datetime import datetime
 
-from qbot.core.types import QueryResult, QueryType
-from qbot.core.dbt_service import DbtService
-from qbot.core.config import QBotConfig
+from sqlbot.core.types import QueryResult, QueryType
+from sqlbot.core.dbt_service import DbtService
+from sqlbot.core.config import SQLBotConfig
 
 
 class TestDecimalSerializationRegression:
@@ -62,8 +62,8 @@ class TestDecimalSerializationRegression:
         """
         Test the specific LLM integration code path that was failing
         """
-        from qbot.llm_integration import DbtQueryTool
-        from qbot.core.query_result_list import QueryResultEntry
+        from sqlbot.llm_integration import DbtQueryTool
+        from sqlbot.core.query_result_list import QueryResultEntry
         
         # Create the exact type of data that was causing issues
         problematic_data = [
@@ -116,7 +116,7 @@ class TestDecimalSerializationRegression:
         """
         Test the query result storage code path that was failing
         """
-        from qbot.core.query_result_list import QueryResultList, QueryResultEntry
+        from sqlbot.core.query_result_list import QueryResultList, QueryResultEntry
         
         # Create data with Decimals that would be stored
         revenue_data = [
@@ -166,7 +166,7 @@ class TestDecimalSerializationRegression:
         """
         Test the agate table data extraction that was the root cause
         """
-        config = QBotConfig()
+        config = SQLBotConfig()
         dbt_service = DbtService(config)
         
         # Mock an agate table with the exact structure that was problematic
@@ -257,7 +257,7 @@ class TestDecimalSerializationRegression:
         """
         Test that the specific warning message from the original issue is gone
         """
-        from qbot.core.query_result_list import QueryResultList
+        from sqlbot.core.query_result_list import QueryResultList
         import io
         import sys
         

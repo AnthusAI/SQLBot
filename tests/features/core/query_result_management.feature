@@ -1,10 +1,10 @@
 Feature: Query Result Management
-  As a QBot user
+  As a SQLBot user
   I want my query results to be stored and indexed
   So that I can reference them later in the conversation
 
   Background:
-    Given QBot is initialized with a test session
+    Given SQLBot is initialized with a test session
     And the query result list is empty
 
   Scenario: First query result is recorded with index 1

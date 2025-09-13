@@ -6,7 +6,7 @@ particularly for LLM responses that may contain JSON with single quotes and apos
 """
 
 import pytest
-from qbot.interfaces.message_formatter import (
+from sqlbot.interfaces.message_formatter import (
     format_llm_response,
     _extract_text_from_json,
     MessageSymbols

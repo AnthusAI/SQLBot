@@ -83,25 +83,25 @@ models/temp_user_display_*.sql
 models/temp_rich_*.sql
 
 # QBot query results cache
-.qbot/query_results/
+.sqlbot/query_results/
 
 # Profile-specific temporary files
 profiles/*/models/temp/
-.qbot/profiles/*/models/temp/
+.sqlbot/profiles/*/models/temp/
 
 # Profile-specific dbt output directories
 profiles/*/logs/
 profiles/*/target/
-.qbot/profiles/*/logs/
-.qbot/profiles/*/target/
+.sqlbot/profiles/*/logs/
+.sqlbot/profiles/*/target/
 
-# QBot profile configurations (may contain sensitive client data)
-.qbot/profiles/*/
-!.qbot/profiles/qbot/
+# SQLBot profile configurations (may contain sensitive client data)
+.sqlbot/profiles/*/
+!.sqlbot/profiles/sqlbot/
 
 # Alternative profile location
 profiles/*/
-!profiles/qbot/
+!profiles/sqlbot/
 
 # Call Criteria specific (sensitive)
 *call_criteria*

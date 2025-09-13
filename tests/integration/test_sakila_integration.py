@@ -2,8 +2,8 @@
 """
 Sakila Database Integration Tests
 
-Tests QBot functionality against the Sakila sample database using SQLite.
-These tests verify that QBot can properly:
+Tests SQLBot functionality against the Sakila sample database using SQLite.
+These tests verify that SQLBot can properly:
 - Connect to the Sakila SQLite database
 - Execute SQL queries against real data
 - Use dbt compilation with Sakila schema
@@ -21,18 +21,18 @@ from unittest.mock import patch, MagicMock
 # Mark all tests in this file as integration tests
 pytestmark = pytest.mark.integration
 
-# Import QBot modules
+# Import SQLBot modules
 try:
-    from qbot.repl import execute_safe_sql as execute_dbt_query
-    from qbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME
-    from qbot.repl import main as repl_main
+    from sqlbot.repl import execute_safe_sql as execute_dbt_query
+    from sqlbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME
+    from sqlbot.repl import main as repl_main
 except ImportError:
     # Fallback for direct script execution
     import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-    from qbot.repl import execute_safe_sql as execute_dbt_query
-    from qbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME
-    from qbot.repl import main as repl_main
+    from sqlbot.repl import execute_safe_sql as execute_dbt_query
+    from sqlbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME
+    from sqlbot.repl import main as repl_main
 
 
 class TestSakilaDatabase:
@@ -41,7 +41,7 @@ class TestSakilaDatabase:
     @pytest.fixture(autouse=True)
     def setup_sakila_profile(self):
         """Set up Sakila profile for all tests."""
-        import qbot.llm_integration as llm
+        import sqlbot.llm_integration as llm
         llm.DBT_PROFILE_NAME = 'Sakila'
         os.environ['DBT_PROFILE_NAME'] = 'Sakila'
         yield
@@ -118,12 +118,12 @@ class TestSakilaDatabase:
 
 
 class TestSakilaSchemaIntegration:
-    """Test QBot schema loading with Sakila profile."""
+    """Test SQLBot schema loading with Sakila profile."""
     
     @pytest.fixture(autouse=True)
     def setup_sakila_profile(self):
         """Set up Sakila profile for all tests."""
-        import qbot.llm_integration as llm
+        import sqlbot.llm_integration as llm
         llm.DBT_PROFILE_NAME = 'Sakila'
         os.environ['DBT_PROFILE_NAME'] = 'Sakila'
         yield
@@ -176,7 +176,7 @@ class TestSakilaDbtIntegration:
     @pytest.fixture(autouse=True)
     def setup_sakila_profile(self):
         """Set up Sakila profile for all tests."""
-        import qbot.llm_integration as llm
+        import sqlbot.llm_integration as llm
         llm.DBT_PROFILE_NAME = 'Sakila'
         os.environ['DBT_PROFILE_NAME'] = 'Sakila'
         yield
@@ -236,7 +236,7 @@ class TestSakilaLLMIntegration:
     @pytest.fixture(autouse=True)
     def setup_sakila_profile(self):
         """Set up Sakila profile for all tests."""
-        import qbot.llm_integration as llm
+        import sqlbot.llm_integration as llm
         llm.DBT_PROFILE_NAME = 'Sakila'
         os.environ['DBT_PROFILE_NAME'] = 'Sakila'
         yield
@@ -300,7 +300,7 @@ class TestSakilaREPLIntegration:
     @pytest.fixture(autouse=True)
     def setup_sakila_profile(self):
         """Set up Sakila profile for all tests."""
-        import qbot.llm_integration as llm
+        import sqlbot.llm_integration as llm
         llm.DBT_PROFILE_NAME = 'Sakila'
         os.environ['DBT_PROFILE_NAME'] = 'Sakila'
         yield
@@ -315,7 +315,7 @@ class TestSakilaREPLIntegration:
         import sys
         from unittest.mock import patch
         
-        test_args = ['qbot', '--profile', 'Sakila', '--help']
+        test_args = ['sqlbot', '--profile', 'Sakila', '--help']
         
         with patch.object(sys, 'argv', test_args):
             try:

@@ -1,5 +1,5 @@
 """
-Tests for QBot REPL Interface
+Tests for SQLBot REPL Interface
 """
 
 import pytest
@@ -7,9 +7,9 @@ from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
 from rich.console import Console
 
-from qbot.core import QBotAgent, QBotConfig
-from qbot.core.types import QueryResult, QueryType
-from qbot.interfaces.repl import QBotREPL, ResultFormatter, CommandHandler
+from sqlbot.core import SQLBotAgent, SQLBotConfig
+from sqlbot.core.types import QueryResult, QueryType
+from sqlbot.interfaces.repl import SQLBotREPL, ResultFormatter, CommandHandler
 
 
 class TestResultFormatter:
@@ -82,7 +82,7 @@ class TestCommandHandler:
     
     def setup_method(self):
         """Setup test environment"""
-        self.mock_agent = Mock(spec=QBotAgent)
+        self.mock_agent = Mock(spec=SQLBotAgent)
         self.console = Console(file=StringIO(), width=80)
         self.formatter = ResultFormatter(self.console)
         self.handler = CommandHandler(self.mock_agent, self.formatter)
@@ -93,11 +93,11 @@ class TestCommandHandler:
         
         assert result == True  # Should continue REPL
         output = self.console.file.getvalue()
-        assert "QBot Commands:" in output
+        assert "SQLBot Commands:" in output
     
     def test_tables_command(self):
         """Test /tables command"""
-        from qbot.core.types import TableInfo
+        from sqlbot.core.types import TableInfo
         
         mock_tables = [
             TableInfo(name="users", schema="dbo", description="User data"),
@@ -153,15 +153,15 @@ class TestCommandHandler:
         assert "Unknown command" in output
 
 
-class TestQBotREPL:
-    """Test QBot REPL functionality"""
+class TestSQLBotREPL:
+    """Test SQLBot REPL functionality"""
     
     def setup_method(self):
         """Setup test environment"""
-        self.mock_agent = Mock(spec=QBotAgent)
-        self.mock_agent.config = QBotConfig()
+        self.mock_agent = Mock(spec=SQLBotAgent)
+        self.mock_agent.config = SQLBotConfig()
         self.console = Console(file=StringIO(), width=80)
-        self.repl = QBotREPL(self.mock_agent, self.console)
+        self.repl = SQLBotREPL(self.mock_agent, self.console)
     
     def test_repl_initialization(self):
         """Test REPL initialization"""
@@ -183,7 +183,7 @@ class TestQBotREPL:
         self.repl.show_banner("cli")
         
         output = self.console.file.getvalue()
-        assert "QBot CLI" in output
+        assert "SQLBot CLI" in output
         assert "Database Query Interface" in output
     
     def test_handle_query_input(self):
@@ -230,10 +230,10 @@ class TestQBotREPL:
 class TestREPLIntegration:
     """Integration tests for REPL components"""
     
-    @patch('qbot.interfaces.repl.console.QBotAgent')
+    @patch('sqlbot.interfaces.repl.console.SQLBotAgent')
     def test_create_repl_from_args(self, mock_agent_class):
         """Test creating REPL from command line arguments"""
-        from qbot.interfaces.repl.console import create_repl_from_args
+        from sqlbot.interfaces.repl.console import create_repl_from_args
         
         # Mock arguments
         mock_args = Mock()
@@ -247,5 +247,5 @@ class TestREPLIntegration:
         
         repl = create_repl_from_args(mock_args)
         
-        assert isinstance(repl, QBotREPL)
+        assert isinstance(repl, SQLBotREPL)
         assert repl.agent == mock_agent

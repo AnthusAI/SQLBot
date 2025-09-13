@@ -10,9 +10,9 @@ from contextlib import contextmanager
 # Load all scenarios from the feature file
 scenarios('../../features/core/readonly_safeguard.feature')
 
-@given('QBot is running in interactive mode')
+@given('SQLBot is running in interactive mode')
 def qbot_interactive():
-    """Ensure QBot is running in interactive mode."""
+    """Ensure SQLBot is running in interactive mode."""
     # This is handled by conftest.py fixtures
     pass
 
@@ -22,9 +22,9 @@ def database_available():
     # This is handled by conftest.py fixtures
     pass
 
-@given('I am in the QBot REPL')
+@given('I am in the SQLBot REPL')
 def in_qbot_repl():
-    """Ensure we're in the QBot REPL context."""
+    """Ensure we're in the SQLBot REPL context."""
     # Set up REPL context
     pass
 
@@ -37,13 +37,13 @@ def safeguards_enabled_by_default():
 @given('safeguard mode is disabled')
 def safeguard_mode_disabled():
     """Disable safeguard mode for testing."""
-    from qbot.repl import handle_safeguard_command
+    from sqlbot.repl import handle_safeguard_command
     handle_safeguard_command(['off'])
 
-@given('QBot is started with the --dangerous flag')
+@given('SQLBot is started with the --dangerous flag')
 def qbot_started_with_dangerous_flag():
-    """QBot is started with --dangerous flag to disable safeguards."""
-    import qbot.repl as repl_module
+    """SQLBot is started with --dangerous flag to disable safeguards."""
+    import sqlbot.repl as repl_module
     repl_module.READONLY_MODE = False
     repl_module.READONLY_CLI_MODE = True
 
@@ -89,7 +89,7 @@ def ctrl_c_at_override():
 @when(parsers.parse('I enter "{command}"'))
 def enter_command_step(command):
     """Enter a command in the REPL."""
-    from qbot.repl import handle_double_slash_command, handle_slash_command
+    from sqlbot.repl import handle_double_slash_command, handle_slash_command
     
     if command.startswith('//'):
         # Handle double-slash commands
@@ -226,7 +226,7 @@ def should_see_message(message):
 # Integration tests for the safety functionality
 def test_sql_safety_analysis():
     """Test SQL safety analysis function."""
-    from qbot.repl import analyze_sql_safety
+    from sqlbot.repl import analyze_sql_safety
     
     # Test safe queries
     safe_queries = [
@@ -243,7 +243,7 @@ def test_sql_safety_analysis():
 
 def test_dangerous_sql_detection():
     """Test detection of dangerous SQL operations."""
-    from qbot.repl import analyze_sql_safety
+    from sqlbot.repl import analyze_sql_safety
     
     # Test dangerous queries
     dangerous_queries = [
@@ -264,7 +264,7 @@ def test_dangerous_sql_detection():
 
 def test_sql_with_comments():
     """Test SQL analysis with comments containing dangerous keywords."""
-    from qbot.repl import analyze_sql_safety
+    from sqlbot.repl import analyze_sql_safety
     
     # Query with dangerous keywords in comments should be safe
     query_with_comments = """
@@ -279,8 +279,8 @@ def test_sql_with_comments():
 
 def test_safeguard_mode_toggle():
     """Test safeguard mode toggle functionality."""
-    from qbot.repl import handle_safeguard_command, READONLY_MODE
-    import qbot.repl as repl_module
+    from sqlbot.repl import handle_safeguard_command, READONLY_MODE
+    import sqlbot.repl as repl_module
     
     # Test enabling
     handle_safeguard_command(['on'])
@@ -296,7 +296,7 @@ def test_safeguard_mode_toggle():
 
 def test_execute_safe_sql_when_safeguards_disabled():
     """Test that execute_safe_sql bypasses checks when safeguard mode is disabled."""
-    from qbot.repl import execute_safe_sql, handle_safeguard_command
+    from sqlbot.repl import execute_safe_sql, handle_safeguard_command
     import os
     
     os.environ['DBT_PROFILE_NAME'] = 'Sakila'
@@ -305,7 +305,7 @@ def test_execute_safe_sql_when_safeguards_disabled():
     handle_safeguard_command(['off'])
     
     # Mock the clean execution
-    with patch('qbot.repl.execute_clean_sql') as mock_execute:
+    with patch('sqlbot.repl.execute_clean_sql') as mock_execute:
         mock_execute.return_value = "Query executed successfully"
         
         result = execute_safe_sql("DELETE FROM test_table")
@@ -314,7 +314,7 @@ def test_execute_safe_sql_when_safeguards_disabled():
 
 def test_execute_safe_sql_blocks_when_safeguards_enabled():
     """Test that execute_safe_sql blocks dangerous queries when safeguard mode is enabled."""
-    from qbot.repl import execute_safe_sql, handle_safeguard_command
+    from sqlbot.repl import execute_safe_sql, handle_safeguard_command
     import os
     
     os.environ['DBT_PROFILE_NAME'] = 'Sakila'

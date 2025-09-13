@@ -14,11 +14,13 @@ pytestmark = pytest.mark.integration
 
 def test_cli_semicolon_dangerous_query_end_to_end():
     """Test that dangerous queries with semicolon are blocked in CLI mode."""
-    env = os.environ.copy()
-    env['DBT_PROFILE_NAME'] = 'qbot'
+    from tests.conftest import setup_subprocess_environment
+    
+    env = setup_subprocess_environment()
+    env['DBT_PROFILE_NAME'] = 'sqlbot'
     
     # Test dangerous query
-    cmd = ['python', '-m', 'qbot.repl', '--no-repl', '--profile', 'qbot', 'DELETE FROM film;']
+    cmd = ['python', '-m', 'sqlbot.repl', '--no-repl', '--profile', 'sqlbot', 'DELETE FROM film;']
     
     result = subprocess.run(
         cmd,
@@ -49,11 +51,13 @@ def test_cli_semicolon_dangerous_query_end_to_end():
 
 def test_cli_semicolon_safe_query_end_to_end():
     """Test that safe queries with semicolon work correctly in CLI mode."""
-    env = os.environ.copy()
-    env['DBT_PROFILE_NAME'] = 'qbot'
+    from tests.conftest import setup_subprocess_environment
+    
+    env = setup_subprocess_environment()
+    env['DBT_PROFILE_NAME'] = 'sqlbot'
     
     # Test safe query
-    cmd = ['python', '-m', 'qbot.repl', '--no-repl', '--profile', 'qbot', 'SELECT 42 AS test;']
+    cmd = ['python', '-m', 'sqlbot.repl', '--no-repl', '--profile', 'sqlbot', 'SELECT 42 AS test;']
     
     result = subprocess.run(
         cmd,
@@ -81,10 +85,10 @@ def test_cli_semicolon_safe_query_end_to_end():
 
 def test_textual_interface_semicolon_routing():
     """Test semicolon routing in the Textual interface logic directly."""
-    from qbot.interfaces.textual_app import QBotTextualApp
+    from sqlbot.interfaces.textual_app import SQLBotTextualApp
     
     # Test the query detection logic directly
-    app = QBotTextualApp()
+    app = SQLBotTextualApp()
     
     # Test cases
     test_cases = [
@@ -101,13 +105,13 @@ def test_textual_interface_semicolon_routing():
 
 def test_shared_session_semicolon_routing_comprehensive():
     """Comprehensive test of shared session semicolon routing."""
-    from qbot.interfaces.shared_session import QBotSession
-    from qbot.core.config import QBotConfig
+    from sqlbot.interfaces.shared_session import SQLBotSession
+    from sqlbot.core.config import SQLBotConfig
     
-    config = QBotConfig(profile='qbot')
-    session = QBotSession(config)
+    config = SQLBotConfig(profile='sqlbot')
+    session = SQLBotSession(config)
     
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     
     # Test dangerous query with semicolon
     result = session.execute_query("DROP TABLE film;")
@@ -125,7 +129,7 @@ def test_shared_session_semicolon_routing_comprehensive():
     # Note: might fail due to dbt config issues, but should still be routed as SQL
     
     # Test natural language query (no semicolon)
-    with patch('qbot.interfaces.shared_session.QBotSession._call_handle_llm_query_safely') as mock_llm:
+    with patch('sqlbot.interfaces.shared_session.SQLBotSession._call_handle_llm_query_safely') as mock_llm:
         mock_llm.return_value = "This is an LLM response"
         
         result = session.execute_query("How many films are there")
@@ -136,7 +140,7 @@ def test_shared_session_semicolon_routing_comprehensive():
 
 def test_message_formatter_structured_response_issue():
     """Test the [Structured Response] formatting issue."""
-    from qbot.interfaces.message_formatter import format_llm_response
+    from sqlbot.interfaces.message_formatter import format_llm_response
     
     # Test various problematic responses that might cause [Structured Response]
     problematic_responses = [
@@ -158,16 +162,16 @@ def test_message_formatter_structured_response_issue():
 
 def test_no_semicolon_goes_to_llm():
     """Test that queries without semicolon properly go to LLM."""
-    from qbot.interfaces.shared_session import QBotSession
-    from qbot.core.config import QBotConfig
+    from sqlbot.interfaces.shared_session import SQLBotSession
+    from sqlbot.core.config import SQLBotConfig
     
-    config = QBotConfig(profile='qbot')
-    session = QBotSession(config)
+    config = SQLBotConfig(profile='sqlbot')
+    session = SQLBotSession(config)
     
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     
     # Mock the LLM call to avoid actual LLM execution
-    with patch('qbot.interfaces.shared_session.QBotSession._call_handle_llm_query_safely') as mock_llm:
+    with patch('sqlbot.interfaces.shared_session.SQLBotSession._call_handle_llm_query_safely') as mock_llm:
         mock_llm.return_value = "This is a natural language response"
         
         result = session.execute_query("How many films are in the database")

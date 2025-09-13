@@ -4,7 +4,7 @@ import os
 from unittest.mock import patch, MagicMock
 from io import StringIO
 from pytest_bdd import scenarios, given, when, then, parsers
-from qbot.repl import main, handle_slash_command
+from sqlbot.repl import main, handle_slash_command
 import sys
 
 # Load all scenarios from the feature file
@@ -41,12 +41,14 @@ def captured_output():
 @when(parsers.parse('I run SQLBot with query "{query}" and flag "{flag}"'))
 def run_qbot_with_query_and_flag(query, flag):
     """Run SQLBot with a specific query and CLI flag."""
+    from tests.conftest import setup_subprocess_environment
+    
     # Set up environment
-    env = os.environ.copy()
+    env = setup_subprocess_environment()
     env['DBT_PROFILE_NAME'] = 'Sakila'
     
     # Build command
-    cmd = ['python', '-m', 'qbot.repl', flag, '--profile', 'Sakila', query]
+    cmd = ['python', '-m', 'sqlbot.repl', flag, '--profile', 'Sakila', query]
     
     # Run SQLBot command
     result = subprocess.run(
@@ -63,13 +65,15 @@ def run_qbot_with_query_and_flag(query, flag):
 @when(parsers.parse('I run SQLBot with query "{query}" and flags "{flags}"'))
 def run_qbot_with_query_and_flags(query, flags):
     """Run SQLBot with a specific query and multiple CLI flags."""
+    from tests.conftest import setup_subprocess_environment
+    
     # Set up environment
-    env = os.environ.copy()
+    env = setup_subprocess_environment()
     env['DBT_PROFILE_NAME'] = 'Sakila'
     
     # Build command - split flags and add query
     flag_list = flags.split()
-    cmd = ['python', '-m', 'qbot.repl'] + flag_list + ['--profile', 'Sakila', query]
+    cmd = ['python', '-m', 'sqlbot.repl'] + flag_list + ['--profile', 'Sakila', query]
     
     # Run SQLBot command
     result = subprocess.run(
@@ -87,10 +91,10 @@ def run_qbot_with_query_and_flags(query, flags):
 def should_see_ready_banner():
     """Verify the ready banner is displayed."""
     output = pytest.qbot_result.stdout
-    # For --no-repl mode, we show abbreviated banner
-    assert "SQLBot: Database Query Interface" in output
-    # Could show either full banner or abbreviated CLI banner
-    assert ("Ready for questions." in output or "SQLBot CLI" in output)
+    # For --no-repl mode, we show CLI banner
+    assert "Database Query Interface" in output
+    # Should show CLI banner
+    assert "SQLBot CLI" in output
 
 @then(parsers.parse('I should see "{text}"'))
 def should_see_text(text):
@@ -160,7 +164,7 @@ def should_exit():
 def enter_help_command():
     """User enters the /help command."""
     from io import StringIO
-    with patch('qbot.repl.rich_console') as mock_console:
+    with patch('sqlbot.repl.rich_console') as mock_console:
         # Mock the console to capture what would be printed
         mock_console.print = MagicMock()
         handle_slash_command("/help") 

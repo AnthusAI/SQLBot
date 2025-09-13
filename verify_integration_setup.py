@@ -288,7 +288,7 @@ def test_sample_query():
 
 def main():
     """Run all verification checks."""
-    print("🚀 QBot Integration Setup Verification")
+    print("🚀 SQLBot Integration Setup Verification")
     print("=" * 50)
     
     checks = [
@@ -320,7 +320,7 @@ def main():
         print("\nNext steps:")
         print("  • Run integration tests: pytest tests/integration/")
         print("  • Test with Sakila profile: export DBT_PROFILE_NAME=Sakila")
-        print("  • Try QBot with Sakila: qbot --profile Sakila")
+        print("  • Try SQLBot with Sakila: qbot --profile Sakila")
         return True
     else:
         print("⚠️  Some checks failed. Please review the errors above.")

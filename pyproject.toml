@@ -35,7 +35,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["qbot"]
+packages = ["sqlbot"]
 
 [project.optional-dependencies]
 sqlserver = [
@@ -53,7 +53,7 @@ dev = [
 ]
 
 [project.scripts]
-sqlbot = "qbot.repl:main"
+sqlbot = "sqlbot.repl:main"
 
 [project.urls]
 Homepage = "https://github.com/AnthusAI/SQLBot"
@@ -98,7 +98,7 @@ warn_unreachable = true
 strict_equality = true
 
 [tool.coverage.run]
-source = ["qbot"]
+source = ["sqlbot"]
 omit = [
     "*/tests/*",
     "*/test_*",

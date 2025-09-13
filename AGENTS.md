@@ -106,7 +106,7 @@ DEEP_PINK_LIGHT = "#ffccff"    # AI responses (light themes)
 **Textual Integration**: Uses `SQLBotThemeManager` class
 - Leverages Textual's built-in themes (`tokyo-night`, `textual-dark`, etc.)
 - Adds SQLBot-specific message colors on top
-- Supports user-defined themes in `~/.qbot/themes/`
+- Supports user-defined themes in `~/.sqlbot/themes/`
 - Gracefully handles missing textual dependency for Rich CLI
 
 **Rich Integration**: `qbot/interfaces/rich_themes.py`
@@ -143,7 +143,7 @@ console.print("AI Response", style="ai_response")  # Uses MAGENTA1
 
 **Textual App Themes**:
 - Built-in: `tokyo-night` (default), `textual-dark`, `textual-light`, `catppuccin-latte`, etc.
-- Custom: User themes in `~/.qbot/themes/` (YAML format)
+- Custom: User themes in `~/.sqlbot/themes/` (YAML format)
 - Aliases: `qbot` → `tokyo-night` for convenience
 
 **Rich CLI Themes**:
@@ -233,7 +233,7 @@ sources:
 ```python
 def load_schema_info():
     """Load schema with profile discovery priority:
-    1. .qbot/profiles/{profile}/models/schema.yml (preferred)
+    1. .sqlbot/profiles/{profile}/models/schema.yml (preferred)
     2. profiles/{profile}/models/schema.yml (fallback)
     3. models/schema.yml (legacy)
     """
@@ -382,7 +382,7 @@ print(schema_info)  # Should contain your table definitions
 - **"Source not found"** - Source name in query doesn't match profile's `schema.yml`
 - **"Table not found"** - Table name in `schema.yml` doesn't exist in database
 - **"Compilation error"** - YAML syntax error in profile's `schema.yml`
-- **"Profile not found"** - Profile directory doesn't exist in `profiles/` or `.qbot/profiles/`
+- **"Profile not found"** - Profile directory doesn't exist in `profiles/` or `.sqlbot/profiles/`
 
 #### Macro Debugging
 ```python

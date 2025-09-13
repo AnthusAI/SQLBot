@@ -1,14 +1,14 @@
 Feature: Database Error Handling in Conversation History
-  As a user of QBot
+  As a user of SQLBot
   I want database query errors to be visible to both me and the LLM
   So that the LLM can learn from errors and adjust its approach
 
   Background:
-    Given QBot is configured with a test database profile
+    Given SQLBot is configured with a test database profile
     And the LLM integration is available
 
   Scenario: Database query error is added to LLM conversation history
-    Given I start a new conversation with QBot
+    Given I start a new conversation with SQLBot
     When I ask "Show me data from nonexistent_table"
     And the LLM generates a query that fails with a database error
     Then the database error should be captured in the conversation history
@@ -17,7 +17,7 @@ Feature: Database Error Handling in Conversation History
     And the LLM should reference the previous error in its response
 
   Scenario: SQL syntax error is visible to LLM for learning
-    Given I start a new conversation with QBot
+    Given I start a new conversation with SQLBot
     When I ask "Count all records with invalid SQL syntax"
     And the LLM generates invalid SQL that causes a syntax error
     Then the SQL syntax error should be captured in the conversation history
@@ -26,7 +26,7 @@ Feature: Database Error Handling in Conversation History
     And the LLM should generate corrected SQL
 
   Scenario: Database connection error is handled properly
-    Given QBot is configured with invalid database credentials
+    Given SQLBot is configured with invalid database credentials
     When I ask "How many tables are there?"
     Then I should see a clear database connection error message
     And the error should be captured in the conversation history
@@ -34,7 +34,7 @@ Feature: Database Error Handling in Conversation History
     Then the LLM should reference the connection issue
 
   Scenario: Table not found error guides LLM to correct approach
-    Given I start a new conversation with QBot
+    Given I start a new conversation with SQLBot
     When I ask "Show me data from table_that_does_not_exist"
     And the LLM generates a query for the nonexistent table
     Then I should see a "table not found" error message
@@ -44,7 +44,7 @@ Feature: Database Error Handling in Conversation History
     And the LLM should generate a query to list available tables
 
   Scenario: Column not found error helps LLM adjust query
-    Given I start a new conversation with QBot
+    Given I start a new conversation with SQLBot
     When I ask "Show me the nonexistent_column from the film table"
     And the LLM generates a query with an invalid column name
     Then I should see a "column not found" error message
@@ -54,7 +54,7 @@ Feature: Database Error Handling in Conversation History
     And the LLM should generate a query to describe the table structure
 
   Scenario: Permission denied error is handled gracefully
-    Given QBot is configured with read-only database access
+    Given SQLBot is configured with read-only database access
     When I ask "Delete all records from the test table"
     And the LLM generates a DELETE query
     Then I should see a permission denied or read-only error
@@ -64,7 +64,7 @@ Feature: Database Error Handling in Conversation History
     And the LLM should generate a SELECT query instead
 
   Scenario: Multiple consecutive errors build conversation context
-    Given I start a new conversation with QBot
+    Given I start a new conversation with SQLBot
     When I ask "Show me data from wrong_table with wrong_column"
     And the LLM generates a query with multiple errors
     Then I should see database error messages
@@ -78,7 +78,7 @@ Feature: Database Error Handling in Conversation History
     And the LLM should generate a corrected query
 
   Scenario: Error details are preserved in conversation history
-    Given I start a new conversation with QBot
+    Given I start a new conversation with SQLBot
     When I ask "Execute invalid SQL query"
     And the LLM generates SQL that produces a detailed error message
     Then the complete error message should be captured

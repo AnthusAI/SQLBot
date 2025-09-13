@@ -13,9 +13,9 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from qbot.core.types import QueryResult, QueryType
-from qbot.core.dbt_service import DbtService
-from qbot.core.config import QBotConfig
+from sqlbot.core.types import QueryResult, QueryType
+from sqlbot.core.dbt_service import DbtService
+from sqlbot.core.config import SQLBotConfig
 
 
 def generate_decimal_values():
@@ -233,7 +233,7 @@ class TestSerializationPropertyTests:
     
     def test_dbt_service_serialize_value_property(self):
         """Property: DbtService._serialize_value should handle all common database types"""
-        config = QBotConfig()
+        config = SQLBotConfig()
         dbt_service = DbtService(config)
         
         test_values = [
@@ -267,7 +267,7 @@ class TestSerializationPropertyTests:
     
     def test_agate_table_extraction_property(self):
         """Property: Agate table extraction should handle any combination of database values"""
-        config = QBotConfig()
+        config = SQLBotConfig()
         dbt_service = DbtService(config)
         
         database_values = generate_database_values()

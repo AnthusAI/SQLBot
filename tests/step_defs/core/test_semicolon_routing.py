@@ -13,9 +13,9 @@ from unittest.mock import patch, MagicMock
 # Load all scenarios from the feature file
 scenarios('../../features/core/semicolon_routing.feature')
 
-@given('QBot is running')
+@given('SQLBot is running')
 def qbot_is_running():
-    """Ensure QBot is available and running."""
+    """Ensure SQLBot is available and running."""
     pass
 
 @given('the database is available')
@@ -26,37 +26,37 @@ def database_is_available():
 @given('safeguards are enabled by default')
 def safeguards_enabled_by_default():
     """Verify safeguards are enabled by default."""
-    import qbot.repl as repl_module
+    import sqlbot.repl as repl_module
     assert repl_module.READONLY_MODE == True, "Safeguards should be enabled by default"
 
-@given('I am in the QBot interface')
+@given('I am in the SQLBot interface')
 def in_qbot_interface():
-    """Set up QBot interface context."""
+    """Set up SQLBot interface context."""
     # This will be handled by the when steps
     pass
 
-@given('I start QBot in Textual mode')
+@given('I start SQLBot in Textual mode')
 def start_textual_mode():
-    """Start QBot in Textual interface mode."""
+    """Start SQLBot in Textual interface mode."""
     pytest.skip("Textual mode testing requires special setup")
 
 @when(parsers.parse('I enter "{query}"'))
 def enter_query(query):
-    """Enter a query in the QBot interface."""
+    """Enter a query in the SQLBot interface."""
     # Test the routing logic directly
-    from qbot.repl import is_sql_query
-    from qbot.interfaces.shared_session import QBotSession
-    from qbot.core.config import QBotConfig
+    from sqlbot.repl import is_sql_query
+    from sqlbot.interfaces.shared_session import SQLBotSession
+    from sqlbot.core.config import SQLBotConfig
     
     # Store the query for later assertions
     pytest.test_query = query
     pytest.is_semicolon_query = is_sql_query(query)
     
     # Test the shared session routing (used by Textual interface)
-    config = QBotConfig(profile='qbot')
-    session = QBotSession(config)
+    config = SQLBotConfig(profile='sqlbot')
+    session = SQLBotSession(config)
     
-    os.environ['DBT_PROFILE_NAME'] = 'qbot'
+    os.environ['DBT_PROFILE_NAME'] = 'sqlbot'
     
     try:
         pytest.session_result = session.execute_query(query)
@@ -64,13 +64,15 @@ def enter_query(query):
         pytest.session_error = str(e)
         pytest.session_result = None
 
-@when(parsers.parse('I run QBot with query "{query}" and flag "{flag}"'))
+@when(parsers.parse('I run SQLBot with query "{query}" and flag "{flag}"'))
 def run_qbot_cli_with_query(query, flag):
-    """Run QBot in CLI mode with a specific query."""
-    env = os.environ.copy()
-    env['DBT_PROFILE_NAME'] = 'qbot'
+    """Run SQLBot in CLI mode with a specific query."""
+    from tests.conftest import setup_subprocess_environment
     
-    cmd = ['python', '-m', 'qbot.repl', flag, '--profile', 'qbot', query]
+    env = setup_subprocess_environment()
+    env['DBT_PROFILE_NAME'] = 'sqlbot'
+    
+    cmd = ['python', '-m', 'sqlbot.repl', flag, '--profile', 'sqlbot', query]
     
     result = subprocess.run(
         cmd,
@@ -89,7 +91,7 @@ def query_routed_to_direct_sql():
     query = pytest.test_query
     
     # 1. Test semicolon detection
-    from qbot.repl import is_sql_query
+    from sqlbot.repl import is_sql_query
     assert is_sql_query(query), f"Query '{query}' should be detected as SQL query (ends with semicolon)"
     
     # 2. Test that session routing worked
@@ -109,7 +111,7 @@ def query_routed_to_llm():
     query = pytest.test_query
     
     # Should NOT be detected as SQL query
-    from qbot.repl import is_sql_query
+    from sqlbot.repl import is_sql_query
     assert not is_sql_query(query), f"Query '{query}' should NOT be detected as SQL query (no semicolon)"
 
 @then('the query should be executed directly')

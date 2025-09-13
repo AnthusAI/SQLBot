@@ -7,9 +7,9 @@ from unittest.mock import Mock, patch, MagicMock
 # Load all scenarios from the feature file
 scenarios('../../features/core/natural_language_queries.feature')
 
-@given('QBot is running with LLM integration enabled')
+@given('SQLBot is running with LLM integration enabled')
 def qbot_with_llm():
-    """Ensure QBot is running with LLM capabilities."""
+    """Ensure SQLBot is running with LLM capabilities."""
     # This is handled by conftest.py fixtures
     pass
 
@@ -38,9 +38,9 @@ def ask_natural_language_query(query):
     pytest.current_query = query
     pytest.current_response = f"Mock response for: {query}"
 
-@then('QBot should understand this is a table count request')
+@then('SQLBot should understand this is a table count request')
 def should_understand_table_count():
-    """Verify QBot recognizes table counting intent."""
+    """Verify SQLBot recognizes table counting intent."""
     assert "table" in pytest.current_query.lower()
     assert any(word in pytest.current_query.lower() for word in ["how many", "count", "number"])
 
@@ -62,9 +62,9 @@ def should_show_executed_sql():
     # In a real implementation, we'd verify SQL display
     pass
 
-@then('QBot should identify this needs agent and call data')
+@then('SQLBot should identify this needs agent and call data')
 def should_identify_agent_call_data():
-    """Verify QBot recognizes the need for agent and call data."""
+    """Verify SQLBot recognizes the need for agent and call data."""
     assert "agent" in pytest.current_query.lower()
     assert any(word in pytest.current_query.lower() for word in ["call", "volume", "performance"])
 
@@ -92,9 +92,9 @@ def should_sort_by_volume_desc():
     # In a real implementation, we'd verify ORDER BY logic
     pass
 
-@then('QBot should understand this needs report and agent filtering')
+@then('SQLBot should understand this needs report and agent filtering')
 def should_understand_report_agent_filtering():
-    """Verify QBot recognizes report and agent filtering needs."""
+    """Verify SQLBot recognizes report and agent filtering needs."""
     query = pytest.current_query.lower()
     assert "report" in query
     assert "agent" in query or "smith" in query
@@ -117,9 +117,9 @@ def should_format_readable_table():
     # In a real implementation, we'd check table formatting
     pass
 
-@then('QBot should identify this needs call duration and department data')
+@then('SQLBot should identify this needs call duration and department data')
 def should_identify_duration_department_data():
-    """Verify QBot recognizes duration and department data needs."""
+    """Verify SQLBot recognizes duration and department data needs."""
     query = pytest.current_query.lower()
     assert "duration" in query or "average" in query
     assert "department" in query
@@ -142,15 +142,15 @@ def should_return_department_duration_results():
     # In a real implementation, we'd check result structure
     pass
 
-@then('QBot should use the conversation context')
+@then('SQLBot should use the conversation context')
 def should_use_conversation_context():
-    """Verify QBot considers previous conversation."""
+    """Verify SQLBot considers previous conversation."""
     # In a real implementation, we'd verify context usage
     pass
 
 @then('understand this is filtering the previous agent query')
 def should_understand_filtering_context():
-    """Verify QBot understands this is a filter on previous query."""
+    """Verify SQLBot understands this is a filter on previous query."""
     # In a real implementation, we'd check context interpretation
     pass
 
@@ -166,44 +166,44 @@ def should_return_sales_agents():
     # In a real implementation, we'd verify filtered results
     pass
 
-@then('QBot should recognize this is too vague')
+@then('SQLBot should recognize this is too vague')
 def should_recognize_vague_query():
-    """Verify QBot identifies vague queries."""
+    """Verify SQLBot identifies vague queries."""
     assert pytest.current_query.lower() in ["show me the data", "get data", "data"]
 
 @then('ask for clarification about what specific data I want')
 def should_ask_for_clarification():
-    """Verify QBot asks for clarification."""
+    """Verify SQLBot asks for clarification."""
     # In a real implementation, we'd check for clarification prompts
     pass
 
 @then('suggest some common query types')
 def should_suggest_query_types():
-    """Verify QBot suggests alternative query types."""
+    """Verify SQLBot suggests alternative query types."""
     # In a real implementation, we'd check for query suggestions
     pass
 
 @then('wait for a more specific request')
 def should_wait_for_specific_request():
-    """Verify QBot waits for user clarification."""
+    """Verify SQLBot waits for user clarification."""
     # In a real implementation, we'd verify interactive behavior
     pass
 
-@then('QBot should understand this requires performance metrics')
+@then('SQLBot should understand this requires performance metrics')
 def should_understand_performance_metrics():
-    """Verify QBot recognizes performance analysis needs."""
+    """Verify SQLBot recognizes performance analysis needs."""
     query = pytest.current_query.lower()
     assert "underperforming" in query or "performance" in query
 
 @then('either ask me to define "underperforming" criteria')
 def should_ask_for_criteria_definition():
-    """Verify QBot asks for performance criteria if needed."""
+    """Verify SQLBot asks for performance criteria if needed."""
     # In a real implementation, we'd check for criteria clarification
     pass
 
 @then('use reasonable default thresholds if no criteria provided')
 def should_use_default_thresholds():
-    """Verify QBot can use reasonable defaults."""
+    """Verify SQLBot can use reasonable defaults."""
     # In a real implementation, we'd verify default threshold logic
     pass
 
@@ -219,7 +219,7 @@ def should_return_underperforming_agents():
     # In a real implementation, we'd verify threshold filtering
     pass
 
-@then('QBot should generate SQL to describe table structure')
+@then('SQLBot should generate SQL to describe table structure')
 def should_generate_describe_sql():
     """Verify SQL describes table structure."""
     # In a real implementation, we'd check DESCRIBE or INFORMATION_SCHEMA queries
@@ -237,7 +237,7 @@ def should_format_table_structure():
     # In a real implementation, we'd check metadata formatting
     pass
 
-@then('QBot should generate SQL with date grouping and counting')
+@then('SQLBot should generate SQL with date grouping and counting')
 def should_generate_trend_sql():
     """Verify SQL includes date grouping for trends."""
     # In a real implementation, we'd check DATE grouping and COUNT logic
@@ -251,30 +251,30 @@ def should_return_date_ordered_results():
 
 @then('suggest visualization options if available')
 def should_suggest_visualization():
-    """Verify QBot suggests visualization options."""
+    """Verify SQLBot suggests visualization options."""
     # In a real implementation, we'd check for visualization suggestions
     pass
 
-@then("QBot should recognize this doesn't make sense for a database")
+@then("SQLBot should recognize this doesn't make sense for a database")
 def should_recognize_nonsense_query():
-    """Verify QBot identifies nonsensical queries."""
+    """Verify SQLBot identifies nonsensical queries."""
     query = pytest.current_query.lower()
     assert "color" in query  # Example of nonsensical database query
 
 @then("politely explain that databases don't have colors")
 def should_explain_politely():
-    """Verify QBot provides polite explanations."""
+    """Verify SQLBot provides polite explanations."""
     # In a real implementation, we'd check for polite error messages
     pass
 
 @then('suggest alternative queries about database properties')
 def should_suggest_alternatives():
-    """Verify QBot suggests meaningful alternatives."""
+    """Verify SQLBot suggests meaningful alternatives."""
     # In a real implementation, we'd check for alternative suggestions
     pass
 
 @then('maintain a helpful tone')
 def should_maintain_helpful_tone():
-    """Verify QBot maintains helpfulness even with bad queries."""
+    """Verify SQLBot maintains helpfulness even with bad queries."""
     # In a real implementation, we'd verify tone and helpfulness
     pass

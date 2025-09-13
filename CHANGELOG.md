@@ -1,3 +1,11 @@
+## [1.0.8](https://github.com/AnthusAI/SQLBot/compare/v1.0.7...v1.0.8) (2025-09-13)
+
+
+### Bug Fixes
+
+* force banner display at start of main() for --no-repl mode ([8345d1e](https://github.com/AnthusAI/SQLBot/commit/8345d1e5fa2848061e5eb067660c1dc037d8858d))
+* move banner display before query execution ([e83976e](https://github.com/AnthusAI/SQLBot/commit/e83976e78f386072a45f0cfa23ad0d6b1076f346))
+
 ## [1.0.7](https://github.com/AnthusAI/SQLBot/compare/v1.0.6...v1.0.7) (2025-09-13)
 
 

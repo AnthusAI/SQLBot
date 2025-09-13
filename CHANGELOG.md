@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/AnthusAI/SQLBot/compare/v1.0.1...v1.0.2) (2025-09-13)
+
+
+### Bug Fixes
+
+* test PyPI automation with credentials ([41b7508](https://github.com/AnthusAI/SQLBot/commit/41b750877dd664fddadcea77955b0fd8e822d810))
+
 ## [1.0.1](https://github.com/AnthusAI/SQLBot/compare/v1.0.0...v1.0.1) (2025-09-13)
 
 

@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/AnthusAI/SQLBot/compare/v1.0.0...v1.0.1) (2025-09-13)
+
+
+### Bug Fixes
+
+* update repository URL to SQLBot ([a588dba](https://github.com/AnthusAI/SQLBot/commit/a588dbaaa421bdf7848579797101c4224ddd2cba))
+
 # 1.0.0 (2025-09-13)
 
 

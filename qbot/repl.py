@@ -974,41 +974,47 @@ def is_sql_query(query):
     return query.strip().endswith(';')
 
 def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=False):
-    """Show QBot banner with setup information"""
-    from qbot.interfaces.banner import get_banner_content, get_interactive_banner_content
-    from rich.markdown import Markdown
+    """Show SQLBot banner with setup information"""
     from rich.panel import Panel
     
     if is_no_repl:
-        # CLI/no-repl mode banner with Markdown support
-        banner_text = get_banner_content(
-            profile=profile, 
-            llm_model=llm_model, 
-            llm_available=llm_available, 
-            interface_type="text"
-        )
-        
-        # Use Rich Markdown for proper formatting
-        theme = get_theme_manager()
-        markdown_content = Markdown(banner_text)
-        
-        # Display in a panel with theme colors
-        rich_console.print(Panel(markdown_content, border_style=theme.get_color('ai_response')))
+        # Simple CLI/no-repl mode banner - ensure it displays reliably
+        try:
+            banner_content = (
+                "[bold magenta2]SQLBot CLI[/bold magenta2]\n"
+                "[bold magenta2]SQLBot: Database Query Interface[/bold magenta2]"
+            )
+            rich_console.print(Panel(banner_content, border_style="magenta2"))
+        except Exception as e:
+            # Fallback to simple print if Rich fails
+            print("SQLBot CLI")
+            print("SQLBot: Database Query Interface")
     else:
-        # Full interactive banner with Markdown support
-        banner_text = get_interactive_banner_content(
-            profile=profile,
-            llm_model=llm_model, 
-            llm_available=llm_available
-        )
-        
-        # Use Rich Markdown for proper formatting
-        theme = get_theme_manager()
-        markdown_content = Markdown(banner_text)
-        
-        # Display in a panel with theme colors
-        ai_color = theme.get_color('ai_response')
-        rich_console.print(Panel(markdown_content, border_style=ai_color))
+        # Full interactive banner
+        try:
+            from qbot.interfaces.banner import get_interactive_banner_content
+            from rich.markdown import Markdown
+            
+            banner_text = get_interactive_banner_content(
+                profile=profile,
+                llm_model=llm_model, 
+                llm_available=llm_available
+            )
+            
+            # Use Rich Markdown for proper formatting
+            theme = get_theme_manager()
+            markdown_content = Markdown(banner_text)
+            
+            # Display in a panel with theme colors
+            ai_color = theme.get_color('ai_response')
+            rich_console.print(Panel(markdown_content, border_style=ai_color))
+        except Exception as e:
+            # Fallback banner
+            rich_console.print(Panel(
+                "[bold magenta2]SQLBot: Database Query Interface[/bold magenta2]\n"
+                "[green]Ready for questions.[/green]",
+                border_style="magenta2"
+            ))
 
 def _is_test_environment() -> bool:
     """Check if we're running in a test environment."""

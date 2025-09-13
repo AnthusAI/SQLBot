@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/AnthusAI/SQLBot/compare/v1.0.4...v1.0.5) (2025-09-13)
+
+
+### Bug Fixes
+
+* update banner text from QBot to SQLBot ([02e8e46](https://github.com/AnthusAI/SQLBot/commit/02e8e46dcffae6b0c647acb9a830e3565b20849c))
+
 ## [1.0.4](https://github.com/AnthusAI/SQLBot/compare/v1.0.3...v1.0.4) (2025-09-13)
 
 

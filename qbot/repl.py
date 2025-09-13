@@ -979,9 +979,12 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
     import sys
     
     if is_no_repl:
-        # Simple CLI/no-repl mode banner - always use plain text for reliability
-        print("SQLBot CLI")
-        print("SQLBot: Database Query Interface")
+        # CLI/no-repl mode banner - use Rich panel for proper formatting
+        banner_content = (
+            "[bold magenta2]SQLBot CLI[/bold magenta2]\n"
+            "[bold magenta2]SQLBot: Database Query Interface[/bold magenta2]"
+        )
+        rich_console.print(Panel(banner_content, border_style="magenta2"))
     else:
         # Full interactive banner
         try:
@@ -1123,18 +1126,13 @@ def main():
         
         # Don't show banner when executing initial queries - just execute directly
         
-        # Show starting message for CLI mode
-        rich_console.print(f"\nStarting with query: {query}")
-        
-        # Set global mode flags
+        # Set global mode flags - but don't print messages yet
         if args.preview:
             PREVIEW_MODE = True
-            rich_console.print("Preview Mode Enabled - SQL will be shown before execution")
         
         if args.dangerous:
             READONLY_MODE = False
             READONLY_CLI_MODE = True  # CLI mode - safeguards explicitly disabled
-            rich_console.print("Dangerous Mode Enabled - Safeguards disabled, all operations allowed")
         
         if args.history:
             SHOW_HISTORY = True
@@ -1172,7 +1170,19 @@ def main():
                 # Non-interactive environment or explicit --no-repl: use CLI mode and exit
                 
                 # Show banner FIRST in no-repl mode for tests and user feedback
+                print("BANNER_DEBUG: About to show banner")
                 show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
+                print("BANNER_DEBUG: Banner shown")
+                
+                # Show starting message AFTER banner
+                rich_console.print(f"\nStarting with query: {query}")
+                
+                # Show mode messages AFTER banner
+                if args.preview:
+                    rich_console.print("Preview Mode Enabled - SQL will be shown before execution")
+                
+                if args.dangerous:
+                    rich_console.print("Dangerous Mode Enabled - Safeguards disabled, all operations allowed")
                 
                 if not LLM_AVAILABLE:
                     rich_console.print("[yellow]LLM integration not available. Using CLI mode.[/yellow]")

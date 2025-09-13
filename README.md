@@ -1,4 +1,4 @@
-# ✦ SQLBot: Your AI Database Analyst
+# ✦ SQLBot: Your AI Database Analyste in ge 
 
 **"If you give an agent a tool, then nobody has to fish."**
 
@@ -321,6 +321,43 @@ The Sakila database comes pre-configured with a complete schema and sample data,
 
 <details>
 <summary>Testing, Development, and Troubleshooting</summary>
+
+### Releases & Versioning
+
+SQLBot uses [Semantic Release](https://semantic-release.gitbook.io/) for automated versioning and publishing. Releases are automatically triggered when commits are pushed to the `main` branch.
+
+#### Commit Message Format
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types that trigger releases:**
+- `feat:` - New feature (minor version bump)
+- `fix:` - Bug fix (patch version bump)  
+- `feat!:` or `fix!:` - Breaking change (major version bump)
+- `BREAKING CHANGE:` in footer - Major version bump
+
+**Other types (no release):**
+- `docs:` - Documentation changes
+- `style:` - Code style changes
+- `refactor:` - Code refactoring
+- `test:` - Test changes
+- `chore:` - Build/tooling changes
+
+**Examples:**
+```bash
+feat: add support for PostgreSQL databases
+fix: resolve connection timeout issues
+feat!: change CLI command from qbot to sqlbot
+docs: update installation instructions
+```
 
 ### Testing
 

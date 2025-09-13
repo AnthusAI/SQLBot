@@ -1,0 +1,52 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "sed -i 's/version = \".*\"/version = \"${nextRelease.version}\"/' pyproject.toml && sed -i 's/__version__ = \".*\"/__version__ = \"${nextRelease.version}\"/' qbot/__version__.py && sed -i 's/__version__ = \".*\"/__version__ = \"${nextRelease.version}\"/' qbot/__init__.py"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "publishCmd": "python -m build && python -m twine upload dist/*"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "dist/*.whl",
+            "label": "Python Wheel"
+          },
+          {
+            "path": "dist/*.tar.gz", 
+            "label": "Source Distribution"
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "pyproject.toml",
+          "qbot/__version__.py",
+          "qbot/__init__.py",
+          "CHANGELOG.md"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}

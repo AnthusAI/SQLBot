@@ -10,10 +10,10 @@ import sys
 # Load all scenarios from the feature file
 scenarios('../../features/core/no_repl_mode.feature')
 
-@given('QBot is available')
+@given('SQLBot is available')
 def qbot_is_available():
-    """Ensure QBot is available."""
-    # QBot is available when the module can be imported
+    """Ensure SQLBot is available."""
+    # SQLBot is available when the module can be imported
     pass
 
 @given('dbt is configured with profile "Sakila"') 
@@ -22,9 +22,9 @@ def dbt_configured():
     # dbt configuration is handled by environment setup
     pass
 
-@given('QBot is running in interactive mode')
+@given('SQLBot is running in interactive mode')
 def qbot_interactive():
-    """Ensure QBot is running in interactive mode.""" 
+    """Ensure SQLBot is running in interactive mode.""" 
     # This is handled by test setup
     pass
 
@@ -38,9 +38,9 @@ def captured_output():
     """Capture output for testing"""
     return StringIO()
 
-@when(parsers.parse('I run QBot with query "{query}" and flag "{flag}"'))
+@when(parsers.parse('I run SQLBot with query "{query}" and flag "{flag}"'))
 def run_qbot_with_query_and_flag(query, flag):
-    """Run QBot with a specific query and CLI flag."""
+    """Run SQLBot with a specific query and CLI flag."""
     # Set up environment
     env = os.environ.copy()
     env['DBT_PROFILE_NAME'] = 'Sakila'
@@ -48,7 +48,7 @@ def run_qbot_with_query_and_flag(query, flag):
     # Build command
     cmd = ['python', '-m', 'qbot.repl', flag, '--profile', 'Sakila', query]
     
-    # Run QBot command
+    # Run SQLBot command
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -60,9 +60,9 @@ def run_qbot_with_query_and_flag(query, flag):
     # Store result for later assertions
     pytest.qbot_result = result
 
-@when(parsers.parse('I run QBot with query "{query}" and flags "{flags}"'))
+@when(parsers.parse('I run SQLBot with query "{query}" and flags "{flags}"'))
 def run_qbot_with_query_and_flags(query, flags):
-    """Run QBot with a specific query and multiple CLI flags."""
+    """Run SQLBot with a specific query and multiple CLI flags."""
     # Set up environment
     env = os.environ.copy()
     env['DBT_PROFILE_NAME'] = 'Sakila'
@@ -71,7 +71,7 @@ def run_qbot_with_query_and_flags(query, flags):
     flag_list = flags.split()
     cmd = ['python', '-m', 'qbot.repl'] + flag_list + ['--profile', 'Sakila', query]
     
-    # Run QBot command
+    # Run SQLBot command
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -88,9 +88,9 @@ def should_see_ready_banner():
     """Verify the ready banner is displayed."""
     output = pytest.qbot_result.stdout
     # For --no-repl mode, we show abbreviated banner
-    assert "QBot: Database Query Interface" in output
+    assert "SQLBot: Database Query Interface" in output
     # Could show either full banner or abbreviated CLI banner
-    assert ("Ready for questions." in output or "QBot CLI" in output)
+    assert ("Ready for questions." in output or "SQLBot CLI" in output)
 
 @then(parsers.parse('I should see "{text}"'))
 def should_see_text(text):
@@ -112,9 +112,9 @@ def should_see_text(text):
         else:
             assert False, f"Cannot verify text '{text}' - no CLI test context found"
 
-@then('QBot should exit without starting interactive mode')
+@then('SQLBot should exit without starting interactive mode')
 def should_exit_without_interactive():
-    """Verify QBot exits without starting interactive console."""
+    """Verify SQLBot exits without starting interactive console."""
     output = pytest.qbot_result.stdout + pytest.qbot_result.stderr
     # Should NOT see the interactive console prompts
     assert "dbt> " not in output
@@ -122,7 +122,7 @@ def should_exit_without_interactive():
 
 @then('the exit code should be 0')
 def should_have_exit_code_zero():
-    """Verify QBot exits with success code."""
+    """Verify SQLBot exits with success code."""
     if hasattr(pytest, 'qbot_result'):
         # CLI scenario - check actual exit code
         assert pytest.qbot_result.returncode == 0
@@ -151,9 +151,9 @@ def should_see_exiting_message():
         # This is a CLI test - should not reach here for interactive test
         assert False, "Interactive /no-repl test should not use CLI output"
 
-@then('QBot should exit')
+@then('SQLBot should exit')
 def should_exit():
-    """Verify QBot exits (EXIT signal returned)."""
+    """Verify SQLBot exits (EXIT signal returned)."""
     assert pytest.slash_command_result == 'EXIT'
 
 @when('I enter "/help"')

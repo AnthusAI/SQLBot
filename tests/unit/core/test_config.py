@@ -1,20 +1,20 @@
 """
-Unit tests for QBot Core SDK Configuration
+Unit tests for SQLBot Core SDK Configuration
 """
 
 import os
 import pytest
 from unittest.mock import patch
-from qbot.core.config import QBotConfig
+from qbot.core.config import SQLBotConfig
 from qbot.core.types import LLMConfig
 
 
-class TestQBotConfig:
-    """Test QBot configuration functionality"""
+class TestSQLBotConfig:
+    """Test SQLBot configuration functionality"""
     
     def test_default_config(self):
         """Test default configuration values"""
-        config = QBotConfig()
+        config = SQLBotConfig()
         
         assert config.profile == "qbot"
         assert config.target is None
@@ -25,7 +25,7 @@ class TestQBotConfig:
         
         # Test LLM defaults
         assert config.llm.model == "gpt-5"
-        assert config.llm.max_tokens == 10000
+        assert config.llm.max_tokens == 50000
         assert config.llm.temperature == 0.1
         assert config.llm.provider == "openai"
     
@@ -49,7 +49,7 @@ class TestQBotConfig:
         }
         
         with patch.dict(os.environ, env_vars):
-            config = QBotConfig.from_env()
+            config = SQLBotConfig.from_env()
             
             assert config.profile == 'test_profile'
             assert config.target == 'test_target'
@@ -68,7 +68,7 @@ class TestQBotConfig:
     def test_profile_override(self):
         """Test profile override in from_env"""
         with patch.dict(os.environ, {'DBT_PROFILE_NAME': 'env_profile'}):
-            config = QBotConfig.from_env(profile='override_profile')
+            config = SQLBotConfig.from_env(profile='override_profile')
             assert config.profile == 'override_profile'
     
     def test_boolean_env_parsing(self):
@@ -88,12 +88,12 @@ class TestQBotConfig:
         
         for env_value, expected in test_cases:
             with patch.dict(os.environ, {'QBOT_READ_ONLY': env_value}):
-                config = QBotConfig.from_env()
+                config = SQLBotConfig.from_env()
                 assert config.read_only == expected, f"'{env_value}' should parse to {expected}"
     
     def test_to_env_dict(self):
         """Test converting configuration to environment dictionary"""
-        config = QBotConfig(
+        config = SQLBotConfig(
             profile='test_profile',
             target='test_target',
             read_only=True,
@@ -112,7 +112,7 @@ class TestQBotConfig:
     
     def test_apply_to_env(self):
         """Test applying configuration to current environment"""
-        config = QBotConfig(profile='test_profile', read_only=True)
+        config = SQLBotConfig(profile='test_profile', read_only=True)
         
         # Clear any existing values
         if 'DBT_PROFILE_NAME' in os.environ:
@@ -138,7 +138,7 @@ class TestLLMConfig:
         llm_config = LLMConfig()
         
         assert llm_config.model == "gpt-5"
-        assert llm_config.max_tokens == 10000
+        assert llm_config.max_tokens == 50000
         assert llm_config.temperature == 0.1
         assert llm_config.api_key is None
         assert llm_config.provider == "openai"

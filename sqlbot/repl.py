@@ -257,7 +257,7 @@ def execute_clean_sql(sql_query):
                 import llm_integration
                 profile_name = llm_integration.get_current_profile()
             except ImportError:
-                profile_name = os.getenv('QBOT_PROFILE', 'sqlbot')
+                profile_name = os.getenv('SQLBOT_PROFILE', 'sqlbot')
         
         config = SQLBotConfig.from_env(profile=profile_name)
         dbt_service = get_dbt_service(config)
@@ -693,8 +693,8 @@ def start_console():
     # Create memory manager and execution function
     memory_manager = ConversationMemoryManager()
     def execute_llm_func(q: str) -> str:
-        timeout_seconds = int(os.getenv('QBOT_LLM_TIMEOUT', '120'))
-        max_retries = int(os.getenv('QBOT_LLM_RETRIES', '3'))
+        timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
+        max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
         return handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds)
     
     # Start unified REPL
@@ -1048,7 +1048,7 @@ def main():
     # Show banner first for CLI mode with query before any initialization that might fail
     if args.query:
         # Get LLM model info for banner
-        llm_model = os.getenv('QBOT_LLM_MODEL', 'gpt-5') if LLM_AVAILABLE else None
+        llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5') if LLM_AVAILABLE else None
         show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
     
     # Initialize everything after banner display
@@ -1067,7 +1067,7 @@ def main():
     # Get LLM model info for banner
     llm_model = None
     if LLM_AVAILABLE:
-        llm_model = os.getenv('QBOT_LLM_MODEL', 'gpt-5')
+        llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
     
     # Banner will be shown by unified display system - no duplicate needed
     
@@ -1217,8 +1217,8 @@ def _execute_query_cli_mode(query: str, console):
             
             # Create execute_llm_func with conversation sync and unified display
             def execute_llm_func(q: str) -> str:
-                timeout_seconds = int(os.getenv('QBOT_LLM_TIMEOUT', '120'))
-                max_retries = int(os.getenv('QBOT_LLM_RETRIES', '3'))
+                timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
+                max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
                 
                 # Call handle_llm_query with unified_display for tool call display
                 result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY)
@@ -1316,8 +1316,8 @@ def start_unified_repl(memory_manager, console):
     
     # Create execute_llm_func with access to unified_display and conversation sync
     def execute_llm_func(q: str) -> str:
-        timeout_seconds = int(os.getenv('QBOT_LLM_TIMEOUT', '120'))
-        max_retries = int(os.getenv('QBOT_LLM_RETRIES', '3'))
+        timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
+        max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
         
         # Call handle_llm_query which maintains its own global conversation_history
         result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY)

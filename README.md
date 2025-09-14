@@ -194,18 +194,18 @@ Create a `.env` file in the root directory with your API key and database creden
 OPENAI_API_KEY=your_openai_api_key_here
 
 # SQLBot LLM Configuration
-QBOT_LLM_MODEL=gpt-5
-QBOT_LLM_MAX_TOKENS=10000
-QBOT_LLM_TEMPERATURE=0.1
-QBOT_LLM_VERBOSITY=low
-QBOT_LLM_EFFORT=minimal
-QBOT_LLM_PROVIDER=openai
+SQLBOT_LLM_MODEL=gpt-5
+SQLBOT_LLM_MAX_TOKENS=10000
+SQLBOT_LLM_TEMPERATURE=0.1
+SQLBOT_LLM_VERBOSITY=low
+SQLBOT_LLM_EFFORT=minimal
+SQLBOT_LLM_PROVIDER=openai
 
 # Optional: SQLBot Behavior Configuration
-# QBOT_READ_ONLY=true
-# QBOT_PREVIEW_MODE=false
-# QBOT_QUERY_TIMEOUT=60
-# QBOT_MAX_ROWS=1000
+# SQLBOT_READ_ONLY=true
+# SQLBOT_PREVIEW_MODE=false
+# SQLBOT_QUERY_TIMEOUT=60
+# SQLBOT_MAX_ROWS=1000
 ```
 
 ### 3. Database Connection (dbt profiles)

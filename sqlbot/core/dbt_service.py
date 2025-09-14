@@ -863,41 +863,41 @@ class DbtService:
             ]
             
             for compiled_path in possible_paths:
-                if os.environ.get('QBOT_DEBUG'):
+                if os.environ.get('SQLBOT_DEBUG'):
                     print(f"🔍 DEBUG: Checking for compiled SQL at: {compiled_path}")
                 if compiled_path.exists():
-                    if os.environ.get('QBOT_DEBUG'):
+                    if os.environ.get('SQLBOT_DEBUG'):
                         print(f"🔍 DEBUG: Found compiled SQL at: {compiled_path}")
                     try:
                         with open(compiled_path, 'r', encoding='utf-8') as f:
                             content = f.read().strip()
-                            if os.environ.get('QBOT_DEBUG'):
+                            if os.environ.get('SQLBOT_DEBUG'):
                                 print(f"🔍 DEBUG: File content length: {len(content)}")
                                 print(f"🔍 DEBUG: File content preview: {content[:100]}...")
                             return content
                     except Exception as e:
-                        if os.environ.get('QBOT_DEBUG'):
+                        if os.environ.get('SQLBOT_DEBUG'):
                             print(f"🔍 DEBUG: Error reading file: {e}")
                         continue
             
             # If not found, search more broadly
-            if os.environ.get('QBOT_DEBUG'):
+            if os.environ.get('SQLBOT_DEBUG'):
                 print(f"🔍 DEBUG: Compiled SQL not found in expected locations, searching...")
             for target_dir in ['target', f'profiles/{self.config.profile}/target']:
                 if Path(target_dir).exists():
                     for item in Path(target_dir).rglob('*'):
                         if model_name in str(item) and item.suffix == '.sql':
-                            if os.environ.get('QBOT_DEBUG'):
+                            if os.environ.get('SQLBOT_DEBUG'):
                                 print(f"🔍 DEBUG: Found matching file: {item}")
                             try:
                                 with open(item, 'r', encoding='utf-8') as f:
                                     content = f.read().strip()
-                                    if os.environ.get('QBOT_DEBUG'):
+                                    if os.environ.get('SQLBOT_DEBUG'):
                                         print(f"🔍 DEBUG: File content length: {len(content)}")
                                         print(f"🔍 DEBUG: File content preview: {content[:100]}...")
                                     return content
                             except Exception as e:
-                                if os.environ.get('QBOT_DEBUG'):
+                                if os.environ.get('SQLBOT_DEBUG'):
                                     print(f"🔍 DEBUG: Error reading file: {e}")
                                 return None
             

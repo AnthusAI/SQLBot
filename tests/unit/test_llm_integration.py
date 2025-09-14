@@ -26,8 +26,8 @@ class TestLLMIntegration:
         from sqlbot.llm_integration import get_llm
         
         with patch.dict(os.environ, {
-            'QBOT_LLM_MODEL': 'gpt-5',
-            'QBOT_LLM_MAX_TOKENS': '2000'
+            'SQLBOT_LLM_MODEL': 'gpt-5',
+            'SQLBOT_LLM_MAX_TOKENS': '2000'
         }):
             with patch('sqlbot.llm_integration.ChatOpenAI') as mock_chat:
                 llm = get_llm()

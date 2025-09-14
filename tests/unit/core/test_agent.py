@@ -191,7 +191,7 @@ class TestSQLBotAgentFactory:
     
     @patch.dict('os.environ', {
         'DBT_PROFILE_NAME': 'test_profile',
-        'QBOT_READ_ONLY': 'true'
+        'SQLBOT_READ_ONLY': 'true'
     })
     @patch('sqlbot.core.agent.SchemaLoader')
     @patch('sqlbot.core.agent.DbtExecutor')

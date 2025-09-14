@@ -8,6 +8,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from .types import LLMConfig
 
+try:
+    from dotconfig import load_config
+    DOTCONFIG_AVAILABLE = True
+except ImportError:
+    DOTCONFIG_AVAILABLE = False
+
 
 @dataclass
 class SQLBotConfig:
@@ -49,29 +55,53 @@ class SQLBotConfig:
         home_dbt_dir = Path.home() / '.dbt'
         return str(home_dbt_dir), False
 
+    @staticmethod
+    def load_yaml_config() -> bool:
+        """
+        Load configuration from .sqlbot/config.yml file using dotconfig.
+
+        Returns:
+            bool: True if YAML config was loaded successfully, False otherwise
+        """
+        if not DOTCONFIG_AVAILABLE:
+            return False
+
+        config_file = Path('.sqlbot/config.yml')
+        if not config_file.exists():
+            return False
+
+        try:
+            load_config(str(config_file), prefix='SQLBOT')
+            return True
+        except Exception:
+            return False
+
     @classmethod
     def from_env(cls, profile: Optional[str] = None) -> 'SQLBotConfig':
-        """Create configuration from environment variables"""
-        
-        # LLM configuration from environment
+        """Create configuration from environment variables and YAML config"""
+
+        # Try to load YAML configuration first (this sets environment variables)
+        cls.load_yaml_config()
+
+        # LLM configuration from environment (may be set by YAML config)
         llm_config = LLMConfig(
-            model=os.getenv('QBOT_LLM_MODEL', 'gpt-5'),
-            max_tokens=int(os.getenv('QBOT_LLM_MAX_TOKENS', '50000')),
-            temperature=float(os.getenv('QBOT_LLM_TEMPERATURE', '0.1')),
-            verbosity=os.getenv('QBOT_LLM_VERBOSITY', 'low'),
-            effort=os.getenv('QBOT_LLM_EFFORT', 'minimal'),
+            model=os.getenv('SQLBOT_LLM_MODEL', 'gpt-5'),
+            max_tokens=int(os.getenv('SQLBOT_LLM_MAX_TOKENS', '50000')),
+            temperature=float(os.getenv('SQLBOT_LLM_TEMPERATURE', '0.1')),
+            verbosity=os.getenv('SQLBOT_LLM_VERBOSITY', 'low'),
+            effort=os.getenv('SQLBOT_LLM_EFFORT', 'minimal'),
             api_key=os.getenv('OPENAI_API_KEY'),
-            provider=os.getenv('QBOT_LLM_PROVIDER', 'openai')
+            provider=os.getenv('SQLBOT_LLM_PROVIDER', 'openai')
         )
-        
+
         return cls(
-            profile=profile or os.getenv('DBT_PROFILE_NAME', 'sqlbot'),
-            target=os.getenv('DBT_TARGET'),
+            profile=profile or os.getenv('SQLBOT_PROFILE', os.getenv('DBT_PROFILE_NAME', 'sqlbot')),
+            target=os.getenv('SQLBOT_TARGET', os.getenv('DBT_TARGET')),
             llm=llm_config,
-            read_only=os.getenv('QBOT_READ_ONLY', '').lower() in ('true', '1', 'yes'),
-            preview_mode=os.getenv('QBOT_PREVIEW_MODE', '').lower() in ('true', '1', 'yes'),
-            query_timeout=int(os.getenv('QBOT_QUERY_TIMEOUT', '60')),
-            max_rows=int(os.getenv('QBOT_MAX_ROWS', '1000'))
+            read_only=os.getenv('SQLBOT_READ_ONLY', '').lower() in ('true', '1', 'yes'),
+            preview_mode=os.getenv('SQLBOT_PREVIEW_MODE', '').lower() in ('true', '1', 'yes'),
+            query_timeout=int(os.getenv('SQLBOT_QUERY_TIMEOUT', '60')),
+            max_rows=int(os.getenv('SQLBOT_MAX_ROWS', '1000'))
         )
     
     def to_env_dict(self) -> dict:
@@ -85,20 +115,20 @@ class SQLBotConfig:
         # Database credentials come from dbt profiles, not environment variables
             
         # LLM configuration
-        env_vars['QBOT_LLM_MODEL'] = self.llm.model
-        env_vars['QBOT_LLM_MAX_TOKENS'] = str(self.llm.max_tokens)
-        env_vars['QBOT_LLM_TEMPERATURE'] = str(self.llm.temperature)
-        env_vars['QBOT_LLM_VERBOSITY'] = self.llm.verbosity
-        env_vars['QBOT_LLM_EFFORT'] = self.llm.effort
-        env_vars['QBOT_LLM_PROVIDER'] = self.llm.provider
+        env_vars['SQLBOT_LLM_MODEL'] = self.llm.model
+        env_vars['SQLBOT_LLM_MAX_TOKENS'] = str(self.llm.max_tokens)
+        env_vars['SQLBOT_LLM_TEMPERATURE'] = str(self.llm.temperature)
+        env_vars['SQLBOT_LLM_VERBOSITY'] = self.llm.verbosity
+        env_vars['SQLBOT_LLM_EFFORT'] = self.llm.effort
+        env_vars['SQLBOT_LLM_PROVIDER'] = self.llm.provider
         if self.llm.api_key:
             env_vars['OPENAI_API_KEY'] = self.llm.api_key
-            
+
         # Other configuration
-        env_vars['QBOT_READ_ONLY'] = str(self.read_only).lower()
-        env_vars['QBOT_PREVIEW_MODE'] = str(self.preview_mode).lower()
-        env_vars['QBOT_QUERY_TIMEOUT'] = str(self.query_timeout)
-        env_vars['QBOT_MAX_ROWS'] = str(self.max_rows)
+        env_vars['SQLBOT_READ_ONLY'] = str(self.read_only).lower()
+        env_vars['SQLBOT_PREVIEW_MODE'] = str(self.preview_mode).lower()
+        env_vars['SQLBOT_QUERY_TIMEOUT'] = str(self.query_timeout)
+        env_vars['SQLBOT_MAX_ROWS'] = str(self.max_rows)
         
         return env_vars
     

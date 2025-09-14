@@ -38,14 +38,14 @@ class TestSQLBotConfig:
             'DB_NAME': 'testdb',
             'DB_USER': 'testuser',
             'DB_PASS': 'testpass',
-            'QBOT_LLM_MODEL': 'gpt-4',
-            'QBOT_LLM_MAX_TOKENS': '2000',
-            'QBOT_LLM_TEMPERATURE': '0.2',
+            'SQLBOT_LLM_MODEL': 'gpt-4',
+            'SQLBOT_LLM_MAX_TOKENS': '2000',
+            'SQLBOT_LLM_TEMPERATURE': '0.2',
             'OPENAI_API_KEY': 'test-api-key',
-            'QBOT_READ_ONLY': 'true',
-            'QBOT_PREVIEW_MODE': 'yes',
-            'QBOT_QUERY_TIMEOUT': '120',
-            'QBOT_MAX_ROWS': '500'
+            'SQLBOT_READ_ONLY': 'true',
+            'SQLBOT_PREVIEW_MODE': 'yes',
+            'SQLBOT_QUERY_TIMEOUT': '120',
+            'SQLBOT_MAX_ROWS': '500'
         }
         
         with patch.dict(os.environ, env_vars):
@@ -87,7 +87,7 @@ class TestSQLBotConfig:
         ]
         
         for env_value, expected in test_cases:
-            with patch.dict(os.environ, {'QBOT_READ_ONLY': env_value}):
+            with patch.dict(os.environ, {'SQLBOT_READ_ONLY': env_value}):
                 config = SQLBotConfig.from_env()
                 assert config.read_only == expected, f"'{env_value}' should parse to {expected}"
     
@@ -106,8 +106,8 @@ class TestSQLBotConfig:
         assert env_dict['DBT_PROFILE_NAME'] == 'test_profile'
         assert env_dict['DBT_TARGET'] == 'test_target'
         # Database credentials come from dbt profiles, not environment variables
-        assert env_dict['QBOT_READ_ONLY'] == 'true'
-        assert env_dict['QBOT_PREVIEW_MODE'] == 'false'
+        assert env_dict['SQLBOT_READ_ONLY'] == 'true'
+        assert env_dict['SQLBOT_PREVIEW_MODE'] == 'false'
         assert env_dict['OPENAI_API_KEY'] == 'test-key'
     
     def test_apply_to_env(self):
@@ -117,17 +117,17 @@ class TestSQLBotConfig:
         # Clear any existing values
         if 'DBT_PROFILE_NAME' in os.environ:
             del os.environ['DBT_PROFILE_NAME']
-        if 'QBOT_READ_ONLY' in os.environ:
-            del os.environ['QBOT_READ_ONLY']
+        if 'SQLBOT_READ_ONLY' in os.environ:
+            del os.environ['SQLBOT_READ_ONLY']
         
         config.apply_to_env()
         
         assert os.environ['DBT_PROFILE_NAME'] == 'test_profile'
-        assert os.environ['QBOT_READ_ONLY'] == 'true'
+        assert os.environ['SQLBOT_READ_ONLY'] == 'true'
         
         # Clean up
         del os.environ['DBT_PROFILE_NAME']
-        del os.environ['QBOT_READ_ONLY']
+        del os.environ['SQLBOT_READ_ONLY']
 
 
 class TestLLMConfig:

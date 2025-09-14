@@ -162,8 +162,8 @@ console.print("AI Response", style="ai_response")  # Uses MAGENTA1
 ## Environment Variables
 
 ### SQLBot Configuration
-- `QBOT_LLM_MODEL` - OpenAI model (default: gpt-5)  
-- `QBOT_LLM_MAX_TOKENS` - Max tokens per response (default: 1000)
+- `SQLBOT_LLM_MODEL` - OpenAI model (default: gpt-5)  
+- `SQLBOT_LLM_MAX_TOKENS` - Max tokens per response (default: 1000)
 - `OPENAI_API_KEY` - Required for LLM functionality
 
 ### Database Configuration
@@ -382,7 +382,7 @@ Key integration test files:
 - All DynamoDB queries must use Global Secondary Indexes instead of full table scans due to large number of items in the table
 - Module designed as `qbot.repl` for clarity (functions as a REPL)
 - CLI command is `sqlbot` after `pip install sqlbot`
-- Environment variables use `QBOT_*` prefix for configuration
+- Environment variables use `SQLBOT_*` prefix for configuration
 - Generic table/source names used for open source compatibility
 
 ## Common Debugging Patterns

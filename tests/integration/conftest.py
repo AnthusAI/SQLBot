@@ -20,8 +20,8 @@ def integration_test_env():
     
     # Set test-specific environment variables
     test_env = {
-        'QBOT_LLM_MODEL': 'gpt-3.5-turbo',  # Use cheaper model for testing
-        'QBOT_LLM_MAX_TOKENS': '500',       # Limit tokens for faster tests
+        'SQLBOT_LLM_MODEL': 'gpt-3.5-turbo',  # Use cheaper model for testing
+        'SQLBOT_LLM_MAX_TOKENS': '500',       # Limit tokens for faster tests
     }
     
     for key, value in test_env.items():

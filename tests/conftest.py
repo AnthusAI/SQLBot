@@ -36,8 +36,8 @@ def mock_env():
     """Mock environment variables for testing."""
     with patch.dict(os.environ, {
         'OPENAI_API_KEY': 'test-api-key',
-        'QBOT_LLM_MODEL': 'gpt-5',
-        'QBOT_LLM_MAX_TOKENS': '1000'
+        'SQLBOT_LLM_MODEL': 'gpt-5',
+        'SQLBOT_LLM_MAX_TOKENS': '1000'
     }):
         yield
 

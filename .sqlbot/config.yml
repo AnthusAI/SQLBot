@@ -1,0 +1,31 @@
+# SQLBot Configuration File
+# This file provides configuration settings for SQLBot
+# Values set here can be overridden by environment variables
+
+# dbt configuration - all database connection info comes from dbt profiles
+profile: sqlbot
+target: null  # Use default target from dbt profile
+
+# LLM configuration
+llm:
+  model: gpt-5
+  max_tokens: 50000
+  # Note: temperature is not used with GPT-5 (it uses temperature=1 by default)
+  # temperature: 0.1  # Only used with non-GPT-5 models
+  verbosity: low
+  effort: minimal
+  provider: openai
+  # api_key: null  # Set via OPENAI_API_KEY environment variable
+
+# UI configuration
+preview_mode: false
+
+# Safety configuration
+# Note: read_only=true enables safeguards and blocks dangerous operations
+# Note: read_only=false allows dangerous operations (default)
+# This can also be controlled at runtime via /dangerous command or --dangerous flag
+read_only: false
+
+# Execution configuration
+query_timeout: 60
+max_rows: 1000

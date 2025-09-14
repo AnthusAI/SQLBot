@@ -228,10 +228,10 @@ def get_llm():
     """
     try:
         # Use SQLBot-specific variables 
-        model = os.getenv('QBOT_LLM_MODEL', 'gpt-5')
-        max_tokens = int(os.getenv('QBOT_LLM_MAX_TOKENS', '50000'))
-        verbosity = os.getenv('QBOT_LLM_VERBOSITY', 'low')
-        effort = os.getenv('QBOT_LLM_EFFORT', 'minimal')
+        model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
+        max_tokens = int(os.getenv('SQLBOT_LLM_MAX_TOKENS', '50000'))
+        verbosity = os.getenv('SQLBOT_LLM_VERBOSITY', 'low')
+        effort = os.getenv('SQLBOT_LLM_EFFORT', 'minimal')
         
         from rich.console import Console
         console = Console()
@@ -245,7 +245,7 @@ def get_llm():
             "api_key": os.getenv('OPENAI_API_KEY'),
             "streaming": False,
             "disable_streaming": True,
-            "request_timeout": int(os.getenv('QBOT_LLM_REQUEST_TIMEOUT', '90')),
+            "request_timeout": int(os.getenv('SQLBOT_LLM_REQUEST_TIMEOUT', '90')),
             "max_retries": 1
         }
         
@@ -857,13 +857,13 @@ def log_llm_request():
     # print(f"DEBUG: LLM request #{llm_request_count}, tool_execution_happened={tool_execution_happened}")
     
     if llm_request_count == 1:
-        model_name = os.getenv('QBOT_LLM_MODEL', 'gpt-5').upper()
+        model_name = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5').upper()
     elif tool_execution_happened:
-        model_name = os.getenv('QBOT_LLM_MODEL', 'gpt-5').upper()
+        model_name = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5').upper()
         # Removed print statement to avoid interfering with thinking indicator
         # The thinking indicator already shows that LLM is working
     else:
-        model_name = os.getenv('QBOT_LLM_MODEL', 'gpt-5').upper()
+        model_name = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5').upper()
 
 class LoggingChatOpenAI(ChatOpenAI):
     """Custom ChatOpenAI that logs each request with context and shows LLM reasoning to user"""
@@ -1059,10 +1059,10 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
     """
     try:
         # Create custom logging LLM
-        model = os.getenv('QBOT_LLM_MODEL', 'gpt-5')
-        max_tokens = int(os.getenv('QBOT_LLM_MAX_TOKENS', '50000'))
-        verbosity = os.getenv('QBOT_LLM_VERBOSITY', 'low')
-        effort = os.getenv('QBOT_LLM_EFFORT', 'minimal')
+        model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
+        max_tokens = int(os.getenv('SQLBOT_LLM_MAX_TOKENS', '50000'))
+        verbosity = os.getenv('SQLBOT_LLM_VERBOSITY', 'low')
+        effort = os.getenv('SQLBOT_LLM_EFFORT', 'minimal')
         
         from rich.console import Console
         console = Console()
@@ -1076,7 +1076,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
             "api_key": os.getenv('OPENAI_API_KEY'),
             "streaming": False,
             "disable_streaming": True,
-            "request_timeout": int(os.getenv('QBOT_LLM_REQUEST_TIMEOUT', '90')),
+            "request_timeout": int(os.getenv('SQLBOT_LLM_REQUEST_TIMEOUT', '90')),
             "max_retries": 1
         }
         
@@ -1242,7 +1242,7 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
     
     try:
         
-        model = os.getenv('QBOT_LLM_MODEL', 'gpt-5')
+        model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
         import sys
         sys.stdout.flush()  # Force immediate display
         

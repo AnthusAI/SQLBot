@@ -734,7 +734,7 @@ class SQLBotTextualApp(App):
         
         # Get configuration info - SAME as --text mode
         profile = getattr(self.session.config, 'profile', 'sqlbot') if self.session and self.session.config else 'sqlbot'
-        llm_model = os.getenv('QBOT_LLM_MODEL', 'gpt-5')
+        llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
         llm_available = True
         
         banner_text = get_banner_content(
@@ -1135,8 +1135,8 @@ Slash Commands:
             import os
             
             # Same parameters as --no-repl mode (now always runs in main thread)
-            timeout_seconds = int(os.getenv('QBOT_LLM_TIMEOUT', '120'))
-            max_retries = int(os.getenv('QBOT_LLM_RETRIES', '3'))
+            timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
+            max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
             
             return handle_llm_query(query, max_retries=max_retries, timeout_seconds=timeout_seconds)
             

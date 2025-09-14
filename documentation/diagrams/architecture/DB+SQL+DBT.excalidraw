@@ -498,6 +498,51 @@
       "originalText": "Business User",
       "autoResize": true,
       "lineHeight": 1.35
+    },
+    {
+      "id": "Mf80-wQlTmNu5QmuIAX79",
+      "type": "line",
+      "x": -1727.2238784540098,
+      "y": 559.4786078623289,
+      "width": 843.91015625,
+      "height": 0,
+      "angle": 0,
+      "strokeColor": "transparent",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "index": "aG",
+      "roundness": {
+        "type": 2
+      },
+      "seed": 2002650981,
+      "version": 430,
+      "versionNonce": 1226037291,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1757880835834,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          843.91015625,
+          0
+        ]
+      ],
+      "lastCommittedPoint": null,
+      "startBinding": null,
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": null
     }
   ],
   "appState": {

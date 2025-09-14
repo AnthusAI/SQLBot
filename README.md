@@ -12,6 +12,12 @@ To understand SQLBot, it helps to see the evolution of the tools it's built upon
 
 #### **Layer 1: SQL — The Powerful Foundation**
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/images/architecture/DB+SQL-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/images/architecture/DB+SQL.png">
+  <img alt="SQL Layer: The foundation layer showing raw SQL complexity" src="documentation/diagrams/images/architecture/DB+SQL.png">
+</picture>
+
 SQL is the universal language of data. It's powerful, but can quickly become complex and difficult to read, especially with multiple joins. For example, getting a customer's rental history in the Sakila database (a sample DVD rental store database with customers, films, and rental transactions) requires this:
 
 ```sql
@@ -36,6 +42,12 @@ ORDER BY
 This is hard to reuse and requires every user to understand the database's join logic.
 
 #### **Layer 2: dbt — The Standardization Layer**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT.png">
+  <img alt="dbt Layer: Standardization layer adding structure and reusability to SQL" src="documentation/diagrams/images/architecture/DB+SQL+DBT.png">
+</picture>
 
 dbt sits on top of SQL, adding a layer of templating (Jinja) and structure. It allows you to create reusable macros that hide complexity. The ugly query above can be turned into a clean, readable macro:
 
@@ -69,6 +81,12 @@ Now, anyone (or anything) can perform that complex task with a simple, self-docu
 dbt also standardizes database connections and provides a `schema.yml` file, a "data dictionary" that describes your tables and columns in plain English.
 
 #### **Layer 3: SQLBot — The Intelligence & Safety Layer**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT+agent-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT+agent.png">
+  <img alt="SQLBot Layer: Intelligence and safety layer with AI agent on top of the stack" src="documentation/diagrams/images/architecture/DB+SQL+DBT+agent.png">
+</picture>
 
 SQLBot adds the final layer: an AI agent that uses the structure dbt provides while keeping your data protected. The agent is armed with two crucial pieces of information from your dbt profile:
 

@@ -59,13 +59,13 @@ def create_textual_repl_from_args(args) -> SQLBotTextualREPL:
     try:
         # Try to create agent using factory
         agent = SQLBotAgentFactory.create_from_env(
-            profile=args.profile if hasattr(args, 'profile') else 'sqlbot',
+            profile=args.profile if hasattr(args, 'profile') and args.profile else None,
             read_only=args.read_only if hasattr(args, 'read_only') else False,
             preview_mode=args.preview if hasattr(args, 'preview') else False
         )
     except Exception:
         # Fallback to basic config if factory fails
-        config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') else 'sqlbot')
+        config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') and args.profile else None)
         if hasattr(args, 'read_only') and args.read_only:
             config.read_only = True
         if hasattr(args, 'preview') and args.preview:
@@ -97,7 +97,7 @@ def main_textual():
     # Parse arguments exactly like the original qbot command
     parser = argparse.ArgumentParser(description='SQLBot: Database Query Bot', add_help=False)
     parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
-    parser.add_argument('--profile', default='sqlbot', help='dbt profile name to use (default: sqlbot)')
+    parser.add_argument('--profile', help='dbt profile name to use (can be set in .sqlbot/config.yml)')
     parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')
     parser.add_argument('--dangerous', action='store_true', help='Disable safeguards and allow dangerous SQL operations')
     parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')

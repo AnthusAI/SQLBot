@@ -24,11 +24,20 @@ load_dotenv()
 
 # Global dbt profile configuration (can be set from CLI or environment)
 # Note: This will be dynamically checked, not cached at import time
-DBT_PROFILE_NAME = 'sqlbot'  # Default fallback
+DBT_PROFILE_NAME = None  # No fallback - load from config
 
 def get_current_profile():
-    """Get the current dbt profile name from the global variable"""
-    return DBT_PROFILE_NAME
+    """Get the current dbt profile name from config or global variable"""
+    if DBT_PROFILE_NAME:
+        return DBT_PROFILE_NAME
+
+    # Fall back to loading from config system
+    try:
+        from .core.config import SQLBotConfig
+        config = SQLBotConfig.from_env()
+        return config.profile
+    except:
+        return None
 
 def check_dbt_setup():
     """
@@ -43,7 +52,7 @@ def check_dbt_setup():
         from .core.config import SQLBotConfig
         from .core.dbt_service import get_dbt_service
 
-        config = SQLBotConfig(profile=get_current_profile())
+        config = SQLBotConfig.from_env(profile=get_current_profile())
         dbt_service = get_dbt_service(config)
 
         # Use our fixed debug method that handles virtual dbt_project.yml
@@ -376,11 +385,9 @@ class DbtQueryTool(BaseTool):
                     except ImportError:
                         safeguard_enabled = True  # Default to safeguards enabled
                 
-                config = SQLBotConfig(
-                    profile=DBT_PROFILE_NAME,
-                    read_only=safeguard_enabled,  # Use global safeguard setting
-                    max_rows=1000
-                )
+                config = SQLBotConfig.from_env(profile=get_current_profile())
+                config.read_only = safeguard_enabled  # Apply global safeguard setting
+                config.max_rows = 1000
                 
                 # Get dbt service and formatter
                 dbt_service = get_dbt_service(config)
@@ -548,10 +555,13 @@ class DbtQueryTool(BaseTool):
 def get_profile_paths(profile_name):
     """
     Get potential paths for profile configuration in priority order.
-    
+
     Returns:
         tuple: (schema_paths, macro_paths) - lists of paths to try in order
     """
+    if not profile_name:
+        return [], []
+
     project_root = os.path.dirname(os.path.dirname(__file__))
     
     schema_paths = [

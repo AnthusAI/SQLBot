@@ -66,7 +66,7 @@ def create_cli_parser():
     
     # Global arguments
     parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
-    parser.add_argument('--profile', default='sqlbot', help='dbt profile name to use (default: sqlbot)')
+    parser.add_argument('--profile', help='dbt profile name to use (can be set in .sqlbot/config.yml)')
     parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')
     parser.add_argument('--dangerous', action='store_true', help='Disable safeguards and allow dangerous SQL operations')
     parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
@@ -124,7 +124,7 @@ def parse_args_with_subcommands(args=None):
         
         # Add all the same global arguments
         parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
-        parser.add_argument('--profile', default='sqlbot', help='dbt profile name to use (default: sqlbot)')
+        parser.add_argument('--profile', help='dbt profile name to use (can be set in .sqlbot/config.yml)')
         parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')
         parser.add_argument('--dangerous', action='store_true', help='Disable safeguards and allow dangerous SQL operations')
         parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')

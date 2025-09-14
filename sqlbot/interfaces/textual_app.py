@@ -734,7 +734,7 @@ class SQLBotTextualApp(App):
         import os
         
         # Get configuration info - SAME as --text mode
-        profile = getattr(self.session.config, 'profile', 'sqlbot') if self.session and self.session.config else 'sqlbot'
+        profile = getattr(self.session.config, 'profile', None) if self.session and self.session.config else None
         llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
         llm_available = True
         
@@ -1207,7 +1207,7 @@ def create_textual_app_from_args(args) -> SQLBotTextualApp:
         Configured SQLBotTextualApp instance
     """
     # Create configuration
-    config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') else 'sqlbot')
+    config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') and args.profile else None)
     
     # Apply command line overrides
     if hasattr(args, 'read_only') and args.read_only:

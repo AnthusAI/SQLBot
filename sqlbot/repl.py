@@ -257,7 +257,7 @@ def execute_clean_sql(sql_query):
                 import llm_integration
                 profile_name = llm_integration.get_current_profile()
             except ImportError:
-                profile_name = os.getenv('SQLBOT_PROFILE', 'sqlbot')
+                profile_name = os.getenv('SQLBOT_PROFILE')
         
         config = SQLBotConfig.from_env(profile=profile_name)
         dbt_service = get_dbt_service(config)
@@ -681,7 +681,7 @@ def start_console():
     from sqlbot.conversation_memory import ConversationMemoryManager
     
     # Show banner for interactive mode (even in test environment)
-    profile = os.getenv('DBT_PROFILE_NAME', 'sqlbot')
+    profile = os.getenv('DBT_PROFILE_NAME')
     show_banner(is_no_repl=False, profile=profile, llm_model=None, llm_available=LLM_AVAILABLE)
     
     # Create memory manager and execution function

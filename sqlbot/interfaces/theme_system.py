@@ -648,15 +648,18 @@ class SQLBotThemeManager:
         for unified_name in UNIFIED_THEME_MAP.keys():
             available[unified_name] = "unified"
 
-        # Add specific built-in themes (for backward compatibility)
+        # Add all built-in themes (including those mapped by unified themes)
         for theme in BUILTIN_THEMES:
-            if theme not in UNIFIED_THEME_MAP.values():  # Don't duplicate
-                available[theme] = "built-in"
+            available[theme] = "built-in"
 
-        # Add legacy aliases (but not unified ones to avoid duplication)
+        # Add legacy aliases that aren't unified themes or built-in themes
         for alias, target in THEME_ALIASES.items():
-            if alias not in UNIFIED_THEME_MAP:  # Don't duplicate unified themes
-                available[alias] = "alias"
+            if alias not in UNIFIED_THEME_MAP and alias not in BUILTIN_THEMES:
+                # Mark important SQLBot aliases as built-in
+                if alias in ["qbot"]:
+                    available[alias] = "built-in"
+                else:
+                    available[alias] = "alias"
 
         # Add user themes
         for name in self.user_themes:

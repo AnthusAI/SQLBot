@@ -33,29 +33,27 @@ def get_current_profile():
 def check_dbt_setup():
     """
     Check if dbt is properly configured and provide helpful guidance if not.
-    
+    Uses DbtService with virtual dbt_project.yml spoofing.
+
     Returns:
         tuple: (is_configured: bool, message: str)
     """
     try:
-        # Set up environment with the profile name
-        env = os.environ.copy()
-        env['DBT_PROFILE_NAME'] = get_current_profile()
-        
-        # Run dbt debug to check configuration
-        result = subprocess.run(
-            ['dbt', 'debug'], 
-            capture_output=True, 
-            text=True, 
-            timeout=30,
-            env=env
-        )
-        
-        if result.returncode == 0:
+        # Use DbtService which handles virtual dbt_project.yml spoofing
+        from .core.config import SQLBotConfig
+        from .core.dbt_service import get_dbt_service
+
+        config = SQLBotConfig(profile=get_current_profile())
+        dbt_service = get_dbt_service(config)
+
+        # Use our fixed debug method that handles virtual dbt_project.yml
+        debug_result = dbt_service.debug()
+
+        if debug_result['success'] and debug_result['connection_ok']:
             return True, "dbt is properly configured"
         
         # Parse common error messages and provide helpful guidance
-        error_output = result.stderr + result.stdout
+        error_output = debug_result.get('error', 'Unknown connection error')
         
         if "Could not find profile" in error_output or f"profile named '{get_current_profile()}'" in error_output:
             return False, f"""

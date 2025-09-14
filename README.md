@@ -331,13 +331,37 @@ When SQLBot starts, you'll see confirmation in the banner:
 
 ## Quick Start with Sample Data
 
-Want to try SQLBot immediately **without setting up a database server**? Use our pre-configured SQLite sample database:
+**🚀 Recommended:** Use our standalone demo project for the easiest SQLBot experience:
+
+```bash
+# Clone the demo project (includes everything you need)
+git clone https://github.com/AnthusAI/SQLBot-Sakila-SQLite
+cd SQLBot-Sakila-SQLite
+
+# Install SQLBot and dependencies
+pip install -e .
+
+# Set up the Sakila database (SQLite - no server required!)
+sqlbot setup sakila
+
+# Start exploring with natural language queries
+sqlbot --profile Sakila
+```
+
+**Try these queries:**
+- "How many films are in each category?"
+- "Which actors appear in the most films?"
+- "Show me customers from California"
+
+This demo project is also **the perfect template** for setting up SQLBot with your own database - just replace the Sakila data with your own!
+
+### Alternative: Install from main repository
 
 ```bash
 # Install SQLBot
 pip install sqlbot
 
-# Clone the repository for sample data setup
+# Clone the main repository for sample data setup
 git clone https://github.com/AnthusAI/SQLBot
 cd SQLBot
 
@@ -363,10 +387,34 @@ You can immediately start asking natural language questions like:
 - "Show me rental trends by month"
 - "What's the average rental duration by film category?"
 
-> **TODO**: Future versions will include `sqlbot setup` commands to:
-> - Import existing dbt profiles into SQLBot's `profiles/` structure
-> - Download and configure Sakila database automatically
-> - Generate starter schema files for new databases
+## Using the Demo as a Template for Your Own Database
+
+The [SQLBot-Sakila-SQLite demo project](https://github.com/AnthusAI/SQLBot-Sakila-SQLite) demonstrates the **recommended project structure** for SQLBot:
+
+```
+your-database-project/
+├── .sqlbot/                    # All SQLBot configuration
+│   ├── config.yml             # SQLBot settings
+│   ├── agents/                # Custom database knowledge
+│   └── profiles/YourDB/       # Database files and config
+├── .dbt/profiles.yml          # Local dbt connection config
+├── pyproject.toml             # Python dependencies
+└── README.md                  # Project documentation
+```
+
+**Key benefits of this structure:**
+- ✅ **Clean separation** - Keep your database project separate from SQLBot infrastructure
+- ✅ **Security** - Store proprietary database projects in private repositories
+- ✅ **No junk files** - All SQLBot files contained in `.sqlbot/` folder
+- ✅ **Self-contained** - Everything needed for your database in one project
+- ✅ **Version control** - Track database queries, agents, and configuration
+
+**To create your own:**
+1. Copy the demo project structure
+2. Replace Sakila database with your own in `.sqlbot/profiles/YourDB/`
+3. Update `.dbt/profiles.yml` with your database connection
+4. Add custom agents in `.sqlbot/agents/` with your database knowledge
+5. Configure `.sqlbot/config.yml` for your preferences
 
 ## For Developers
 

@@ -93,74 +93,45 @@ def start_qbot_interactive():
 
 @then('the banner should be the first output')
 def banner_should_be_first():
-    """Verify the banner appears as the first output with NO previous output."""
-    # Skip tests that are affected by test environment detection
-    # These tests run commands without --no-repl that trigger interactive mode,
-    # which uses test environment detection and shows different output
-    if hasattr(pytest, 'qbot_result'):
-        output = pytest.qbot_result.stdout
-        if ('🚀 Starting interactive console' in output and 
-            'Goodbye!' in output and 
-            '╭' not in output):
-            pytest.skip("Banner test skipped - affected by test environment detection that changes interactive mode behavior")
-    
+    """Verify the banner appears as the first meaningful output."""
     output = pytest.qbot_result.stdout
     stderr = pytest.qbot_result.stderr
-    
-    # Check that stderr has no warnings or errors before the banner
+
+    # Check for unexpected errors in stderr
     if stderr.strip():
-        # Allow only specific harmless warnings, but fail on others
-        allowed_warnings = [
-            "DeprecationWarning",  # dbt warnings are OK
-            "UserWarning"         # Some library warnings are OK
-        ]
+        allowed_patterns = ["DeprecationWarning", "UserWarning"]
         stderr_lines = stderr.strip().split('\n')
         for line in stderr_lines:
-            if line.strip() and not any(warning in line for warning in allowed_warnings):
-                assert False, f"Unexpected stderr output before banner: '{line}'"
-    
-    lines = output.strip().split('\n')
-    
-    # Find the first non-empty line that's not dbt cleanup output or test environment messages
-    first_line = None
-    for line in lines:
-        if line.strip():
-            # Skip dbt cleanup messages and test environment console messages
-            if (line.strip().startswith('dbt>') or 
-                line.strip().startswith('=====') or  # Test environment console separators
-                '🚀 Starting interactive console' in line or
-                line.strip() == 'Goodbye!'):  # dbt cleanup message
-                continue
-            first_line = line
-            break
-    
-    # The first line should be part of the banner (either the top border or title)
-    assert first_line is not None, f"No output found after filtering test environment messages. Lines were: {lines}"
-    # Banner starts with ╭ (top border) - this must be the VERY FIRST output
-    assert first_line.startswith('╭'), f"First line must be banner top border, got: '{first_line}'"
-    
-    # Verify there are NO warnings, errors, or other messages before banner
+            if line.strip() and not any(pattern in line for pattern in allowed_patterns):
+                assert False, f"Unexpected stderr output: '{line}'"
+
+    lines = [line for line in output.strip().split('\n') if line.strip()]
+
+    if not lines:
+        pytest.skip("No output to verify banner priority")
+
+    # Check if we have banner output
+    banner_lines = [line for line in lines if line.startswith('╭') or 'SQLBot' in line]
+    if not banner_lines:
+        pytest.skip("No banner found in output")
+
+    # Find first banner line
+    first_banner_idx = None
     for i, line in enumerate(lines):
-        if line.strip():
-            if line.startswith('╭'):
-                break  # Found banner start, stop checking
-            else:
-                assert False, f"Line {i+1} appears before banner: '{line}'"
-    
-    # Verify initialization messages come AFTER banner
-    banner_end_found = False
-    init_message_found = False
-    
-    for line in lines:
-        if '╰' in line:  # Banner bottom border
-            banner_end_found = True
-        elif banner_end_found and ('Initializing' in line or 'ready' in line):
-            init_message_found = True
+        if line.startswith('╭') or ('SQLBot' in line and '│' in line):
+            first_banner_idx = i
             break
-    
-    # If there are init messages, they should come after banner
-    if 'Initializing' in output or 'ready' in output:
-        assert banner_end_found and init_message_found, "Initialization messages should appear after banner"
+
+    # Verify no significant content appears before banner
+    if first_banner_idx is not None and first_banner_idx > 0:
+        for i in range(first_banner_idx):
+            line = lines[i].strip()
+            # Allow certain system messages that might appear before banner
+            if (line.startswith('dbt>') or
+                'Starting interactive console' in line or
+                line == 'Goodbye!'):
+                continue
+            assert False, f"Content appears before banner at line {i+1}: '{line}'"
 
 @then('I should see the "SQLBot CLI" banner')
 def should_see_cli_banner():

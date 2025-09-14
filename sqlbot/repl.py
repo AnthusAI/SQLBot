@@ -369,28 +369,20 @@ def execute_safe_sql(sql_query, force_execute=False):
         
         rich_console.print("─" * 60)
         
-        # Ask for execution approval (skip in non-interactive environments)
-        # Check if we're in a subprocess with no real stdin (like tests)
+        # Ask for execution approval
         try:
-            # Try to get terminal size - this will fail in non-interactive environments
-            os.get_terminal_size()
-            is_interactive = sys.stdin.isatty()
-        except OSError:
-            # No terminal available - definitely non-interactive
-            is_interactive = False
-            
-        if not is_interactive:
-            # Non-interactive environment - auto-approve
-            rich_console.print("\n[dim]Auto-approving in non-interactive environment[/dim]")
-        else:
-            try:
+            # Check if stdin is available for input
+            if not sys.stdin.isatty():
+                # No interactive terminal - auto-approve
+                rich_console.print("\n[dim]Auto-approving (no interactive terminal)[/dim]")
+            else:
                 execute = input("\n🤔 Execute this SQL query? (y/n): ").strip().lower()
                 if execute not in ['y', 'yes']:
                     rich_console.print(f"[{get_warning_style()}]SQL execution cancelled.[/{get_warning_style()}]")
                     return "SQL execution cancelled by user in preview mode"
-            except (KeyboardInterrupt, EOFError):
-                rich_console.print(f"\n[{get_warning_style()}]SQL execution cancelled.[/{get_warning_style()}]")
-                return "SQL execution cancelled by user in preview mode"
+        except (KeyboardInterrupt, EOFError, OSError):
+            rich_console.print(f"\n[{get_warning_style()}]SQL execution cancelled.[/{get_warning_style()}]")
+            return "SQL execution cancelled by user in preview mode"
         
         rich_console.print("Executing SQL...")
     
@@ -570,23 +562,13 @@ def handle_double_slash_command(line):
 def handle_preview_command(args):
     """Handle the //preview command - shows compiled SQL and prompts for execution"""
     rich_console.print(f"🔍 [bold {get_theme_manager().get_color('ai_response')}]Preview Mode[/bold {get_theme_manager().get_color('ai_response')}] - Enter SQL to preview compilation:")
-    
-    # Skip interactive prompts in non-interactive environments
-    # Check if we're in a subprocess with no real stdin (like tests)
-    try:
-        # Try to get terminal size - this will fail in non-interactive environments
-        os.get_terminal_size()
-        is_interactive = sys.stdin.isatty()
-    except OSError:
-        # No terminal available - definitely non-interactive
-        is_interactive = False
-        
-    if not is_interactive:
-        
-        rich_console.print("[dim]Preview command not available in non-interactive environment[/dim]")
+
+    # Check if stdin is available for interactive input
+    if not sys.stdin.isatty():
+        rich_console.print("[dim]Preview command requires interactive terminal[/dim]")
         return
-        
-    try: 
+
+    try:
         # Get SQL query from user
         sql_query = input("SQL> ").strip()
         
@@ -1155,18 +1137,8 @@ def main():
                 return
         else:
             # Default: Use Textual interface or CLI mode based on availability and environment
-            # In non-interactive environments (like tests), always use CLI mode and exit
-            # Check if we're in a subprocess with no real stdin (like tests)
-            try:
-                # Try to get terminal size - this will fail in non-interactive environments
-                os.get_terminal_size()
-                is_interactive = sys.stdin.isatty()
-            except OSError:
-                # No terminal available - definitely non-interactive
-                is_interactive = False
-                
-            if not is_interactive or args.no_repl:
-                # Non-interactive environment or explicit --no-repl: use CLI mode and exit
+            if args.no_repl or not sys.stdin.isatty():
+                # --no-repl or non-interactive terminal: use CLI mode and exit
                 if not LLM_AVAILABLE:
                     rich_console.print("[yellow]LLM integration not available. Using CLI mode.[/yellow]")
                 

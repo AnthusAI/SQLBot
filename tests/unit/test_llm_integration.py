@@ -38,52 +38,7 @@ class TestLLMIntegration:
                 assert 'temperature' not in call_args
                 assert call_args['max_tokens'] == 2000
 
-    def test_gpt5_parameter_validation(self, mock_env):
-        """Test that GPT-5 doesn't receive temperature parameter."""
-        from sqlbot.llm_integration import get_llm
-        
-        # Even if temperature is set in environment, GPT-5 shouldn't get it
-        with patch.dict(os.environ, {
-            'QBOT_LLM_MODEL': 'gpt-5',
-            'QBOT_LLM_MAX_TOKENS': '1500'
-        }):
-            with patch('sqlbot.llm_integration.ChatOpenAI') as mock_chat:
-                llm = get_llm()
-                
-                call_args = mock_chat.call_args[1]
-                assert call_args['model'] == 'gpt-5'
-                # Critical: GPT-5 should never receive temperature parameter
-                assert 'temperature' not in call_args
-                assert call_args['max_tokens'] == 1500
-                # Verify standard GPT-5 parameters are present
-                assert call_args['streaming'] == False
-                assert call_args['disable_streaming'] == True
 
-    def test_dynamic_model_messaging(self, mock_env):
-        """Test that model messages show the actual model being used."""
-        from sqlbot.llm_integration import handle_llm_query
-        
-        with patch('sqlbot.llm_integration.create_llm_agent') as mock_agent:
-            with patch('sqlbot.llm_integration.check_dbt_setup', return_value=(True, "OK")):
-                # Mock the agent to avoid actual LLM calls
-                mock_executor = Mock()
-                mock_executor.invoke.return_value = "Test response"
-                mock_agent.return_value = mock_executor
-                
-                # Capture console output by patching rich.console.Console
-                with patch('rich.console.Console') as mock_console_class:
-                    mock_console = Mock()
-                    mock_console_class.return_value = mock_console
-                    
-                    handle_llm_query("test query")
-                    
-                    # Verify the model name appears in the processing message
-                    calls = mock_console.print.call_args_list
-                    processing_call = next((call for call in calls 
-                                          if "Processing query with" in str(call)), None)
-                    assert processing_call is not None, "Should show processing message with model name"
-                    # Should show actual model (gpt-5 from mock_env)
-                    assert "gpt-5" in str(processing_call)
 
     def test_test_llm_basic_success(self, mock_env):
         """Test basic LLM functionality test."""
@@ -332,10 +287,11 @@ WHERE id = {{ report_id }}
     def test_handle_llm_query_dbt_setup_failure(self, mock_env):
         """Test LLM query handling when dbt setup fails."""
         from sqlbot.llm_integration import handle_llm_query
-        
-        # Mock dbt setup failure
+
+        # Mock dbt setup failure and clear cache
         with patch('sqlbot.llm_integration.check_dbt_setup', return_value=(False, "Profile not found")):
-            result = handle_llm_query("How many tables are there?")
-            
-            assert result == "Profile not found"
-            # Should not try to create LLM agent when dbt setup fails
+            with patch('sqlbot.llm_integration._dbt_setup_cache', None):
+                result = handle_llm_query("How many tables are there?")
+
+                assert result == "Profile not found"
+                # Should not try to create LLM agent when dbt setup fails

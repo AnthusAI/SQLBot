@@ -9,10 +9,10 @@ from pathlib import Path
 from .types import LLMConfig
 
 try:
-    from dotconfig import load_config
-    DOTCONFIG_AVAILABLE = True
+    from dotyaml import load_config
+    DOTYAML_AVAILABLE = True
 except ImportError:
-    DOTCONFIG_AVAILABLE = False
+    DOTYAML_AVAILABLE = False
 
 
 @dataclass
@@ -58,12 +58,12 @@ class SQLBotConfig:
     @staticmethod
     def load_yaml_config() -> bool:
         """
-        Load configuration from .sqlbot/config.yml file using dotconfig.
+        Load configuration from .sqlbot/config.yml file using dotyaml.
 
         Returns:
             bool: True if YAML config was loaded successfully, False otherwise
         """
-        if not DOTCONFIG_AVAILABLE:
+        if not DOTYAML_AVAILABLE:
             return False
 
         config_file = Path('.sqlbot/config.yml')

@@ -278,44 +278,44 @@ class SQLBotCommandProvider(Provider):
                 )
             )
         
-        if "theme" in query.lower() or "color" in query.lower() or any(t in query.lower() for t in ["dark", "light", "tokyo", "catppuccin", "dracula", "gruvbox", "nord", "monokai"]):
-            # Add popular built-in themes to command palette
+        if "theme" in query.lower() or "color" in query.lower() or any(t in query.lower() for t in ["dark", "light", "cool", "warm"]):
+            # Add unified theme names to command palette
             commands.extend([
                 Command(
-                    "theme-qbot",
-                    "SQLBot Theme (Tokyo Night)",
-                    "Switch to default SQLBot theme (Tokyo Night)",
-                    lambda: self.change_theme(ThemeMode.QBOT)
+                    "theme-dark",
+                    "Dark Theme",
+                    "Switch to dark theme (Tokyo Night base)",
+                    lambda: self.change_theme(ThemeMode.DARK)
                 ),
                 Command(
-                    "theme-tokyo-night",
-                    "Tokyo Night Theme",
-                    "Switch to Tokyo Night theme",
-                    lambda: self.change_theme(ThemeMode.TOKYO_NIGHT)
+                    "theme-light",
+                    "Light Theme",
+                    "Switch to light theme (clean, minimal)",
+                    lambda: self.change_theme(ThemeMode.LIGHT)
                 ),
                 Command(
-                    "theme-catppuccin-mocha",
-                    "Catppuccin Mocha Theme",
-                    "Switch to Catppuccin Mocha theme",
-                    lambda: self.change_theme(ThemeMode.CATPPUCCIN_MOCHA)
+                    "theme-cool-dark",
+                    "Cool Dark Theme",
+                    "Switch to cool dark theme (purple/blue tones)",
+                    lambda: self.change_theme(ThemeMode.COOL_DARK)
                 ),
                 Command(
-                    "theme-dracula",
-                    "Dracula Theme",
-                    "Switch to Dracula theme",
-                    lambda: self.change_theme(ThemeMode.DRACULA)
+                    "theme-cool-light",
+                    "Cool Light Theme",
+                    "Switch to cool light theme (purple/blue tones)",
+                    lambda: self.change_theme(ThemeMode.COOL_LIGHT)
                 ),
                 Command(
-                    "theme-gruvbox",
-                    "Gruvbox Theme",
-                    "Switch to Gruvbox theme",
-                    lambda: self.change_theme(ThemeMode.GRUVBOX)
+                    "theme-warm-dark",
+                    "Warm Dark Theme",
+                    "Switch to warm dark theme (Solarized earth tones)",
+                    lambda: self.change_theme(ThemeMode.WARM_DARK)
                 ),
                 Command(
-                    "theme-nord",
-                    "Nord Theme",
-                    "Switch to Nord theme",
-                    lambda: self.change_theme(ThemeMode.NORD)
+                    "theme-warm-light",
+                    "Warm Light Theme",
+                    "Switch to warm light theme (Solarized earth tones)",
+                    lambda: self.change_theme(ThemeMode.WARM_LIGHT)
                 )
             ])
         
@@ -358,46 +358,47 @@ class SQLBotTextualApp(App):
     }
     
     Header {
-        background: #5c0077;
-        color: #cccccc;
+        background: $primary;
+        color: $text;
         text-style: bold;
     }
-    
+
+
     #main-container {
         layout: horizontal;
         height: 1fr;
     }
-    
+
     #conversation-panel {
         width: 1fr;
         height: 1fr;
         border: round $qbot-panel-border;
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     #detail-panel {
         width: 2fr;
         height: 1fr;
         border: round $qbot-panel-border;
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     #query-input {
         height: 3;
         dock: bottom;
         border: heavy $qbot-input-border;
-        background: #1A1525;
+        background: $surface;
         color: $qbot-user-message;
     }
-    
+
     ConversationHistoryWidget {
         scrollbar-gutter: stable;
         height: 1fr;
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     RichLog {
-        background: #1A1525;
+        background: $surface;
         color: $text;
         text-wrap: wrap;
         min-width: 13;
@@ -407,32 +408,32 @@ class SQLBotTextualApp(App):
     #detail-panel > * {
         height: 1fr;
         overflow-y: auto;
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     /* Consistent background for all ListView and related widgets */
     ListView {
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     QueryResultViewer {
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     QueryResultSidebar {
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     QueryResultContentView {
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     ConversationDebugViewer {
-        background: #1A1525;
+        background: $surface;
     }
-    
+
     EnhancedDetailViewWidget {
-        background: #1A1525;
+        background: $surface;
     }
     
     .thinking-indicator {
@@ -455,7 +456,7 @@ class SQLBotTextualApp(App):
     
     /* Nuclear approach: remove ALL Collapsible padding/margin */
     Collapsible {
-        background: #1A1525;  /* Match main background color */
+        background: $surface;  /* Match main background color */
         padding: 0;           /* Remove all padding */
         margin: 0;            /* Remove all margins */
     }
@@ -500,8 +501,8 @@ class SQLBotTextualApp(App):
     # Command palette disabled - using text input widget instead
     # COMMANDS = {SQLBotCommandProvider}
     
-    def __init__(self, agent: SQLBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.QBOT, **kwargs):
-        # Initialize theme manager BEFORE calling super().__init__() 
+    def __init__(self, agent: SQLBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.DARK, **kwargs):
+        # Initialize theme manager BEFORE calling super().__init__()
         # because get_css_variables() is called during parent initialization
         self.theme_manager = get_theme_manager()
         self.theme_manager.set_theme(theme_mode)
@@ -818,15 +819,15 @@ class SQLBotTextualApp(App):
                     current_theme = self.theme_manager.current_mode.value
                     self.conversation_widget.add_system_message(f"Current theme: {current_theme}", "cyan")
                     
-                    # Show all available themes (built-in and user)
+                    # Show the 6 unified themes
                     available_themes = self.theme_manager.get_available_themes()
-                    builtin_themes = [name for name, type_ in available_themes.items() if type_ == "built-in"]
+                    unified_themes = [name for name, type_ in available_themes.items() if type_ == "unified"]
                     user_themes = [name for name, type_ in available_themes.items() if type_ == "user"]
-                    
-                    if builtin_themes:
-                        self.conversation_widget.add_system_message(f"Built-in themes: {', '.join(builtin_themes)}", "cyan")
+
+                    if unified_themes:
+                        self.conversation_widget.add_system_message(f"Available themes: {', '.join(unified_themes)}", "green")
                     if user_themes:
-                        self.conversation_widget.add_system_message(f"User themes: {', '.join(user_themes)}", "green")
+                        self.conversation_widget.add_system_message(f"User themes: {', '.join(user_themes)}", "magenta")
                     self.conversation_widget.add_system_message("Usage: /theme <theme_name>", "cyan")
                 elif len(parts) == 2:
                     theme_name = parts[1].lower()
@@ -920,7 +921,7 @@ class SQLBotTextualApp(App):
 
 Slash Commands:
 • /help - Show all commands
-• /theme [qbot|tokyo-night|catppuccin-mocha|dracula|gruvbox|nord|monokai|solarized-light|flexoki|etc] - Change theme
+• /theme [dark|light|cool-dark|cool-light|warm-dark|warm-light] - Change theme (unified names)
 • /screenshot - Save SVG screenshot
 • /panel [results|debug] - Switch right panel view
 • /clear - Clear conversation history

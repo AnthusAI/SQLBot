@@ -12,8 +12,8 @@ from rich.text import Text
 from rich.panel import Panel
 from rich.console import Group
 from sqlbot.interfaces.message_formatter import MessageSymbols, format_llm_response
-from sqlbot.interfaces.theme_system import get_theme_manager
-from sqlbot.interfaces.rich_themes import QBOT_RICH_THEMES
+from sqlbot.interfaces.theme_system import get_theme_manager, QBOT_MESSAGE_COLORS
+from sqlbot.interfaces.rich_theme_generator import get_rich_theme_generator
 from sqlbot.interfaces.message_widgets import (
     UserMessageWidget, AIMessageWidget, SystemMessageWidget, 
     ErrorMessageWidget, SuccessMessageWidget, ToolCallWidget, ToolResultWidget, ThinkingIndicatorWidget,
@@ -171,16 +171,22 @@ class CLIMessageDisplay:
     def _apply_rich_theme(self):
         """Apply Rich theme to console based on current theme manager"""
         theme_manager = get_theme_manager()
-        theme_name_map = {
-            "DARK": "dark",
-            "LIGHT": "light", 
-            "MONOKAI": "monokai"
-        }
-        
-        current_theme_name = theme_manager.current_mode.name
-        rich_theme_name = theme_name_map.get(current_theme_name, "dark")
-        rich_theme = QBOT_RICH_THEMES[rich_theme_name]
-        
+        theme_generator = get_rich_theme_generator()
+
+        # Get current theme name and resolve it to Textual theme name
+        current_theme_name = theme_manager.current_mode.value
+        textual_theme_name = theme_manager._resolve_theme_name(current_theme_name)
+
+        # Get message colors for this theme
+        message_colors = QBOT_MESSAGE_COLORS.get(textual_theme_name, QBOT_MESSAGE_COLORS["default"])
+
+        # Generate Rich theme dynamically
+        if theme_manager.is_builtin_theme:
+            rich_theme = theme_generator.generate_rich_theme(textual_theme_name, message_colors)
+        else:
+            # User custom theme
+            rich_theme = theme_generator.generate_rich_theme_from_user_theme(theme_manager.current_theme)
+
         # Create new console with theme
         from rich.console import Console
         self.console = Console(theme=rich_theme)

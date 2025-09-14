@@ -38,7 +38,7 @@ class TestSQLBotConfig:
             'DB_NAME': 'testdb',
             'DB_USER': 'testuser',
             'DB_PASS': 'testpass',
-            'SQLBOT_LLM_MODEL': 'gpt-4',
+            'SQLBOT_LLM_MODEL': 'gpt-5',
             'SQLBOT_LLM_MAX_TOKENS': '2000',
             'SQLBOT_LLM_TEMPERATURE': '0.2',
             'OPENAI_API_KEY': 'test-api-key',
@@ -60,7 +60,7 @@ class TestSQLBotConfig:
             assert config.max_rows == 500
             
             # Test LLM config
-            assert config.llm.model == 'gpt-4'
+            assert config.llm.model == 'gpt-5'
             assert config.llm.max_tokens == 2000
             assert config.llm.temperature == 0.2
             assert config.llm.api_key == 'test-api-key'
@@ -146,14 +146,14 @@ class TestLLMConfig:
     def test_llm_config_custom(self):
         """Test custom LLM configuration"""
         llm_config = LLMConfig(
-            model="gpt-4",
+            model="gpt-5",
             max_tokens=2000,
             temperature=0.5,
             api_key="test-key",
             provider="anthropic"
         )
         
-        assert llm_config.model == "gpt-4"
+        assert llm_config.model == "gpt-5"
         assert llm_config.max_tokens == 2000
         assert llm_config.temperature == 0.5
         assert llm_config.api_key == "test-key"

@@ -30,9 +30,9 @@ Feature: Configuration Options
     Then the target should be "staging"
 
   Scenario: Configure LLM model using SQLBOT_LLM_MODEL
-    Given I set environment variable "SQLBOT_LLM_MODEL" to "gpt-4"
+    Given I set environment variable "SQLBOT_LLM_MODEL" to "gpt-5"
     When I load SQLBot configuration
-    Then the LLM model should be "gpt-4"
+    Then the LLM model should be "gpt-5"
 
   Scenario: Configure LLM max tokens using SQLBOT_LLM_MAX_TOKENS
     Given I set environment variable "SQLBOT_LLM_MAX_TOKENS" to "25000"

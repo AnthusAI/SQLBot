@@ -876,6 +876,10 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
         from sqlbot.core.dbt_service import get_dbt_service
         from sqlbot.core.config import SQLBotConfig
         config = SQLBotConfig.from_env(profile=profile)
+        # Initialize READONLY_MODE based on config (unless overridden by CLI)
+        global READONLY_MODE
+        if not READONLY_CLI_MODE:  # Only if not explicitly set by --dangerous flag
+            READONLY_MODE = not config.dangerous  # dangerous=false means safeguards enabled
         dbt_service = get_dbt_service(config)
         dbt_config_info = dbt_service.get_dbt_config_info()
     except Exception:

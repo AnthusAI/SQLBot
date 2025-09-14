@@ -192,7 +192,7 @@ def create_repl_from_args(args) -> SQLBotREPL:
     
     # Apply command line overrides
     if hasattr(args, 'read_only') and args.read_only:
-        config.read_only = True
+        config.dangerous = False
     if hasattr(args, 'preview') and args.preview:
         config.preview_mode = True
     

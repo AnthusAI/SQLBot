@@ -123,7 +123,7 @@ def clear_environment_variables(config_context):
         'SQLBOT_LLM_MODEL', 'SQLBOT_LLM_MAX_TOKENS', 'SQLBOT_LLM_TEMPERATURE',
         'SQLBOT_LLM_VERBOSITY', 'SQLBOT_LLM_EFFORT', 'SQLBOT_LLM_PROVIDER',
         'OPENAI_API_KEY', 'SQLBOT_QUERY_TIMEOUT', 'SQLBOT_MAX_ROWS',
-        'SQLBOT_PREVIEW_MODE', 'SQLBOT_READ_ONLY'
+        'SQLBOT_PREVIEW_MODE', 'SQLBOT_DANGEROUS'
     ]
     config_context.env_vars = {}
     for var in config_vars:

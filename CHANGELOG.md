@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/AnthusAI/SQLBot/compare/v1.1.0...v1.2.0) (2025-09-14)
+
+
+### Features
+
+* enhance Sakila database setup and CLI functionality ([b947606](https://github.com/AnthusAI/SQLBot/commit/b9476063dc7b19913c9a93796921baaa7dd97a87))
+
 # [1.1.0](https://github.com/AnthusAI/SQLBot/compare/v1.0.3...v1.1.0) (2025-09-14)
 
 

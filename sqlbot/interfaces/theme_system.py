@@ -26,36 +26,56 @@ except ImportError:
         pass
 
 
-# Textual's built-in themes (as of Textual 6.1.0)
+# Textual's built-in themes (as of Textual 6.1.0) + SQLBot custom themes
 BUILTIN_THEMES = [
     "catppuccin-latte",
-    "catppuccin-mocha", 
+    "catppuccin-mocha",
     "dracula",
     "flexoki",
     "gruvbox",
     "monokai",
     "nord",
+    "solarized-dark",    # SQLBot custom theme using official Solarized palette
     "solarized-light",
     "textual-ansi",
     "textual-dark",
     "textual-light",
-    "tokyo-night"
+    "tokyo-night",
+    "sqlbot-warm-light"         # SQLBot custom warm light theme
 ]
+
+# Unified theme names mapping to Textual built-in themes
+UNIFIED_THEME_MAP = {
+    "dark": "tokyo-night",        # Default theme (warm dark with magentas/oranges)
+    "light": "textual-light",     # Clean light theme
+    "cool-dark": "catppuccin-mocha", # Cool dark (purple/blue tones)
+    "cool-light": "catppuccin-latte", # Cool light (purple/blue tones)
+    "warm-dark": "textual-dark",      # Warm dark (textual-dark with solarized overrides)
+    "warm-light": "solarized-light",  # Warm light (solarized with overrides)
+}
 
 # Theme aliases - map friendly names to built-in themes
 THEME_ALIASES = {
     "qbot": "tokyo-night",  # Default SQLBot theme
-    "dark": "textual-dark",
-    "light": "textual-light",
     # Legacy aliases for backward compatibility
     "tokyo": "tokyo-night",
     "catppuccin": "catppuccin-mocha",
+    # Add unified theme aliases
+    **UNIFIED_THEME_MAP,
 }
 
 class ThemeMode(Enum):
-    """Available theme modes - now includes all built-in themes"""
-    # Built-in themes
-    QBOT = "qbot"  # Default (tokyo-night)  
+    """Available theme modes - includes unified themes and built-in themes"""
+    # Unified theme names (primary interface)
+    DARK = "dark"              # Default theme (tokyo-night)
+    LIGHT = "light"            # Light theme (textual-light)
+    COOL_DARK = "cool-dark"    # Cool dark (catppuccin-mocha)
+    COOL_LIGHT = "cool-light"  # Cool light (catppuccin-latte)
+    WARM_DARK = "warm-dark"    # Warm dark (solarized-dark)
+    WARM_LIGHT = "warm-light"  # Warm light (solarized-light)
+
+    # Legacy/specific theme names (for backward compatibility)
+    QBOT = "qbot"  # Alias for tokyo-night
     CATPPUCCIN_LATTE = "catppuccin-latte"
     CATPPUCCIN_MOCHA = "catppuccin-mocha"
     DRACULA = "dracula"
@@ -63,6 +83,7 @@ class ThemeMode(Enum):
     GRUVBOX = "gruvbox"
     MONOKAI = "monokai"
     NORD = "nord"
+    SOLARIZED_DARK = "solarized-dark"
     SOLARIZED_LIGHT = "solarized-light"
     TEXTUAL_ANSI = "textual-ansi"
     TEXTUAL_DARK = "textual-dark"
@@ -226,6 +247,24 @@ QBOT_MESSAGE_COLORS = {
         "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
         "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
     },
+    "solarized-dark": {
+        "user_message": DODGER_BLUE_DARK,    # Consistent dodger blue for dark themes
+        "ai_response": MAGENTA1,             # magenta1 for AI responses
+        "system_message": None,              # No special styling - use default text color
+        "panel_border": "#268bd2",           # Solarized blue for panel borders
+        "input_border": "#2aa198",           # Solarized cyan for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
+        "thinking": None,                    # No special styling - use default text color
+        "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash (dark theme)
+        "block_cursor_foreground": "#E0D0F0",  # Muted light purple text during selection
+        "block_cursor_background": "#4A3A5C",  # Muted purple-gray background during selection
+        "block_cursor_blurred_foreground": "#D0C0E0",  # More muted when not focused
+        "block_cursor_blurred_background": "#3A2A4C",  # Darker when not focused
+    },
     "solarized-light": {
         "user_message": DODGER_BLUE_LIGHT,   # Consistent dodger blue for light themes
         "ai_response": DEEP_PINK_LIGHT,      # Consistent deep pink for light themes
@@ -238,6 +277,24 @@ QBOT_MESSAGE_COLORS = {
         "error": "red",                      # Red for error messages (safeguard failures, etc.)
         "thinking": None,                    # No special styling - use default text color
         "error": None,                       # No special styling - use default text color
+        "code_inline": None,                 # No special styling - use default text color
+        # Block cursor colors for ListView selection flash (light theme)
+        "block_cursor_foreground": "#5A4A6C",  # Darker text for light theme
+        "block_cursor_background": "#E0D0F0",  # Light purple background
+        "block_cursor_blurred_foreground": "#6A5A7C",  # Slightly darker when not focused
+        "block_cursor_blurred_background": "#F0E0FF",  # Even lighter when not focused
+    },
+    "sqlbot-warm-light": {
+        "user_message": DODGER_BLUE_LIGHT,   # Consistent dodger blue for light themes
+        "ai_response": DEEP_PINK_LIGHT,      # Consistent deep pink for light themes
+        "system_message": None,              # No special styling - use default text color
+        "panel_border": "#b58900",           # Solarized yellow for panel borders
+        "input_border": "#cb4b16",           # Solarized orange for input border
+        "tool_call": None,                   # Use default system color for tool calls
+        "tool_result": None,                 # Use default system color for tool results
+        "success": "green",                  # Green for success messages (safeguard passes, etc.)
+        "error": "red",                      # Red for error messages (safeguard failures, etc.)
+        "thinking": None,                    # No special styling - use default text color
         "code_inline": None,                 # No special styling - use default text color
         # Block cursor colors for ListView selection flash (light theme)
         "block_cursor_foreground": "#5A4A6C",  # Darker text for light theme
@@ -451,22 +508,80 @@ def load_user_themes() -> Dict[str, SQLBotTheme]:
     return user_themes
 
 
+def create_warm_light_theme() -> ColorSystem:
+    """
+    Create Warm Light theme using solarized light colors but with warm primary.
+    """
+    if not TEXTUAL_AVAILABLE:
+        return None
+
+    return ColorSystem(
+        primary="#b58900",      # Solarized yellow (warm primary)
+        secondary="#cb4b16",    # Solarized orange
+        background="#fdf6e3",   # Solarized base3 (lightest)
+        surface="#eee8d5",      # Solarized base2 (background highlights)
+        panel="#eee8d5",        # Same as surface
+        warning="#b58900",      # Solarized yellow
+        error="#dc322f",        # Solarized red
+        success="#859900",      # Solarized green
+        accent="#d33682",       # Solarized magenta
+        dark=False
+    )
+
+
+def create_solarized_dark_theme() -> ColorSystem:
+    """
+    Create Solarized Dark theme using official Solarized color palette.
+
+    Official Solarized colors:
+    - base03: #002b36 (darkest background)
+    - base02: #073642 (dark background highlights)
+    - base01: #586e75 (optional emphasized content)
+    - base00: #657b83 (body text / default code / primary content)
+    - base0: #839496 (comments / secondary content)
+    - base1: #93a1a1 (comments / secondary content)
+    - base2: #eee8d5 (background highlights)
+    - base3: #fdf6e3 (lightest background)
+
+    Accent colors:
+    - yellow: #b58900, orange: #cb4b16, red: #dc322f, magenta: #d33682
+    - violet: #6c71c4, blue: #268bd2, cyan: #2aa198, green: #859900
+    """
+    if not TEXTUAL_AVAILABLE:
+        return None
+
+    return ColorSystem(
+        primary="#b58900",      # Solarized yellow (warm primary)
+        secondary="#d33682",    # Solarized magenta
+        background="#002b36",   # Solarized base03 (darkest)
+        surface="#073642",      # Solarized base02 (background highlights)
+        panel="#073642",        # Same as surface
+        warning="#b58900",      # Solarized yellow
+        error="#dc322f",        # Solarized red
+        success="#859900",      # Solarized green
+        accent="#d33682",       # Solarized magenta
+        dark=True
+    )
+
+
 class SQLBotThemeManager:
     """Manages themes using Textual's built-in themes + SQLBot message colors"""
     
-    def __init__(self, theme_mode: ThemeMode = ThemeMode.QBOT):
+    def __init__(self, theme_mode: ThemeMode = ThemeMode.DARK):
         # Create a temporary Textual app to access built-in themes (only if textual is available)
         if TEXTUAL_AVAILABLE:
             self._temp_app = App()
+            # Register custom themes with Textual
+            self._register_custom_themes()
         else:
             self._temp_app = None
-        
+
         self.current_mode = theme_mode
         self.current_textual_theme_name = self._resolve_theme_name(theme_mode.value)
-        
+
         # Load user themes
         self.user_themes = load_user_themes()
-        
+
         # Check if requested theme is a user theme
         if theme_mode.value in self.user_themes:
             self.current_theme = self.user_themes[theme_mode.value]
@@ -475,6 +590,14 @@ class SQLBotThemeManager:
             self.current_theme = None  # Will use built-in theme + message colors
             self.is_builtin_theme = True
     
+    def _register_custom_themes(self) -> None:
+        """Register custom themes with Textual"""
+        if not TEXTUAL_AVAILABLE:
+            return
+
+        # No custom theme registration needed - using overrides instead
+        pass
+
     def _resolve_theme_name(self, theme_name: str) -> str:
         """Resolve theme aliases to actual Textual theme names"""
         return THEME_ALIASES.get(theme_name, theme_name)
@@ -513,26 +636,32 @@ class SQLBotThemeManager:
             self.current_textual_theme_name = None
             self.is_builtin_theme = False
             # Set mode to a generic one since it's not in the enum
-            self.current_mode = ThemeMode.QBOT
+            self.current_mode = ThemeMode.DARK
         else:
             raise ValueError(f"Theme '{theme_name}' not found")
     
     def get_available_themes(self) -> Dict[str, str]:
-        """Get all available themes with their type"""
+        """Get all available themes with their type - prioritize unified themes"""
         available = {}
-        
-        # Add built-in themes
+
+        # Add unified themes first (primary interface)
+        for unified_name in UNIFIED_THEME_MAP.keys():
+            available[unified_name] = "unified"
+
+        # Add specific built-in themes (for backward compatibility)
         for theme in BUILTIN_THEMES:
-            available[theme] = "built-in"
-        
-        # Add aliases
-        for alias in THEME_ALIASES:
-            available[alias] = "built-in"
-        
+            if theme not in UNIFIED_THEME_MAP.values():  # Don't duplicate
+                available[theme] = "built-in"
+
+        # Add legacy aliases (but not unified ones to avoid duplication)
+        for alias, target in THEME_ALIASES.items():
+            if alias not in UNIFIED_THEME_MAP:  # Don't duplicate unified themes
+                available[alias] = "alias"
+
         # Add user themes
         for name in self.user_themes:
             available[name] = "user"
-        
+
         return available
     
     def get_textual_theme_name(self) -> str:
@@ -583,6 +712,25 @@ class SQLBotThemeManager:
                     else:
                         # Regular SQLBot variables with qbot- prefix
                         variables[f"qbot-{key.replace('_', '-')}"] = value
+
+            # Special overrides for warm themes to use solarized colors
+            if self.current_textual_theme_name == "solarized-light":
+                variables["primary"] = "#b58900"  # Solarized yellow instead of blue
+                variables["secondary"] = "#cb4b16"  # Solarized orange
+            elif self.current_textual_theme_name == "textual-dark" and self.current_mode.value == "warm-dark":
+                # Override textual-dark with official solarized-dark colors
+                variables["primary"] = "#b58900"      # Solarized yellow
+                variables["secondary"] = "#cb4b16"    # Solarized orange
+                variables["background"] = "#002b36"   # Solarized base03 (darkest)
+                variables["surface"] = "#073642"      # Solarized base02 (background highlights)
+                variables["accent"] = "#d33682"       # Solarized magenta
+                variables["warning"] = "#b58900"      # Solarized yellow
+                variables["error"] = "#dc322f"        # Solarized red
+                variables["success"] = "#859900"      # Solarized green
+                # Override borders to use warm colors
+                variables["qbot-panel-border"] = "#b58900"  # Solarized yellow
+                variables["qbot-input-border"] = "#cb4b16"  # Solarized orange
+
             return variables
         else:
             # For user themes, provide both base colors and message colors
@@ -629,3 +777,5 @@ def set_theme_manager(manager: SQLBotThemeManager) -> None:
     """Set the global theme manager instance"""
     global _theme_manager
     _theme_manager = manager
+
+

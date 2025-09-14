@@ -17,7 +17,7 @@ from .theme_system import ThemeMode
 class SQLBotTextualREPL:
     """Textual REPL interface for SQLBot"""
     
-    def __init__(self, agent: SQLBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.QBOT):
+    def __init__(self, agent: SQLBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.DARK):
         """
         Initialize Textual REPL
         
@@ -78,7 +78,7 @@ def create_textual_repl_from_args(args) -> SQLBotTextualREPL:
         initial_query = ' '.join(args.query)
     
     # Get theme from args if provided
-    theme_mode = ThemeMode.QBOT  # default
+    theme_mode = ThemeMode.DARK  # default
     if hasattr(args, 'theme'):
         # Try to find the theme mode by value
         for mode in ThemeMode:

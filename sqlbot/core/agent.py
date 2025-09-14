@@ -90,7 +90,7 @@ class SQLBotAgent:
             safety_analysis = self.safety_analyzer.analyze(sql_query)
             
             # Check if execution should be blocked
-            if self.config.read_only and not safety_analysis.is_read_only:
+            if not self.config.dangerous and not safety_analysis.is_read_only:
                 return QueryResult(
                     success=False,
                     query_type=QueryType.SQL,

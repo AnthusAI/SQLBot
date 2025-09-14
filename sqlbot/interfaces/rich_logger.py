@@ -161,7 +161,7 @@ class RichLoggingUI:
         info_table.add_row("Database:", profile_info.database if hasattr(profile_info, 'database') else "Connected")
         info_table.add_row("LLM:", "✅ Available" if session.agent.is_llm_available() else "❌ Not available")
         
-        if session.config.read_only:
+        if not session.config.dangerous:
             info_table.add_row("Mode:", "[yellow]Read-Only[/yellow]")
         if session.config.preview_mode:
             info_table.add_row("Mode:", "[blue]Preview (compile only)[/blue]")

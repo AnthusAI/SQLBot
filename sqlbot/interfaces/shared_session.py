@@ -89,7 +89,7 @@ class SQLBotSession:
         # Emit session started event
         self._emit_event(SessionEventType.SESSION_STARTED, 
                         profile=config.profile,
-                        read_only=config.read_only,
+                        dangerous_mode=config.dangerous,
                         preview_mode=config.preview_mode,
                         llm_available=self.agent.is_llm_available())
     
@@ -587,8 +587,8 @@ class SQLBotSessionFactory:
         config = SQLBotConfig.from_env(profile=getattr(args, 'profile', 'Sakila'))
         
         # Apply command line overrides
-        if hasattr(args, 'read_only') and args.read_only:
-            config.read_only = True
+        if hasattr(args, 'dangerous') and args.dangerous:
+            config.dangerous = True
         if hasattr(args, 'preview') and args.preview:
             config.preview_mode = True
         

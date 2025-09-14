@@ -1210,8 +1210,8 @@ def create_textual_app_from_args(args) -> SQLBotTextualApp:
     config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') and args.profile else None)
     
     # Apply command line overrides
-    if hasattr(args, 'read_only') and args.read_only:
-        config.read_only = True
+    if hasattr(args, 'dangerous') and args.dangerous:
+        config.dangerous = True
     if hasattr(args, 'preview') and args.preview:
         config.preview_mode = True
     

@@ -23,7 +23,7 @@ class SQLBotConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     
     # Safety configuration
-    read_only: bool = False
+    dangerous: bool = False
     preview_mode: bool = False
     
     # Execution configuration
@@ -91,7 +91,7 @@ class SQLBotConfig:
         config_profile = profile or os.getenv('SQLBOT_DATABASE_PROFILE') or os.getenv('SQLBOT_PROFILE') or os.getenv('DBT_PROFILE_NAME')
 
         # Handle safety settings from config file
-        safety_read_only = os.getenv('SQLBOT_SAFETY_READ_ONLY', os.getenv('SQLBOT_READ_ONLY', '')).lower() in ('true', '1', 'yes')
+        safety_dangerous = os.getenv('SQLBOT_SAFETY_DANGEROUS', os.getenv('SQLBOT_DANGEROUS', '')).lower() in ('true', '1', 'yes')
         safety_preview_mode = os.getenv('SQLBOT_SAFETY_PREVIEW_MODE', os.getenv('SQLBOT_PREVIEW_MODE', '')).lower() in ('true', '1', 'yes')
 
         # Handle query settings from config file
@@ -102,7 +102,7 @@ class SQLBotConfig:
             profile=config_profile,
             target=os.getenv('SQLBOT_TARGET', os.getenv('DBT_TARGET')),
             llm=llm_config,
-            read_only=safety_read_only,
+            dangerous=safety_dangerous,
             preview_mode=safety_preview_mode,
             query_timeout=query_timeout,
             max_rows=max_rows
@@ -129,7 +129,7 @@ class SQLBotConfig:
             env_vars['OPENAI_API_KEY'] = self.llm.api_key
 
         # Other configuration
-        env_vars['SQLBOT_READ_ONLY'] = str(self.read_only).lower()
+        env_vars['SQLBOT_DANGEROUS'] = str(self.dangerous).lower()
         env_vars['SQLBOT_PREVIEW_MODE'] = str(self.preview_mode).lower()
         env_vars['SQLBOT_QUERY_TIMEOUT'] = str(self.query_timeout)
         env_vars['SQLBOT_MAX_ROWS'] = str(self.max_rows)

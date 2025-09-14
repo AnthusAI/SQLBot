@@ -161,7 +161,7 @@ class TestConfigProfileHandling:
                 'effort': 'balanced'
             },
             'safety': {
-                'read_only': True,
+                'dangerous': False,
                 'preview_mode': False
             },
             'query': {

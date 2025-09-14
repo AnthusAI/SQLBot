@@ -16,9 +16,9 @@ class TestSQLBotConfig:
         """Test default configuration values"""
         config = SQLBotConfig()
         
-        assert config.profile == "qbot"
+        assert config.profile == None
         assert config.target is None
-        assert config.read_only == False
+        assert config.dangerous == False
         assert config.preview_mode == False
         assert config.query_timeout == 60
         assert config.max_rows == 1000
@@ -42,7 +42,7 @@ class TestSQLBotConfig:
             'SQLBOT_LLM_MAX_TOKENS': '2000',
             'SQLBOT_LLM_TEMPERATURE': '0.2',
             'OPENAI_API_KEY': 'test-api-key',
-            'SQLBOT_READ_ONLY': 'true',
+            'SQLBOT_DANGEROUS': 'true',
             'SQLBOT_PREVIEW_MODE': 'yes',
             'SQLBOT_QUERY_TIMEOUT': '120',
             'SQLBOT_MAX_ROWS': '500'
@@ -54,7 +54,7 @@ class TestSQLBotConfig:
             assert config.profile == 'test_profile'
             assert config.target == 'test_target'
             # Database credentials now come from dbt profiles, not environment variables
-            assert config.read_only == True
+            assert config.dangerous == True
             assert config.preview_mode == True
             assert config.query_timeout == 120
             assert config.max_rows == 500
@@ -87,16 +87,16 @@ class TestSQLBotConfig:
         ]
         
         for env_value, expected in test_cases:
-            with patch.dict(os.environ, {'SQLBOT_READ_ONLY': env_value}):
+            with patch.dict(os.environ, {'SQLBOT_DANGEROUS': env_value}):
                 config = SQLBotConfig.from_env()
-                assert config.read_only == expected, f"'{env_value}' should parse to {expected}"
+                assert config.dangerous == expected, f"'{env_value}' should parse to {expected}"
     
     def test_to_env_dict(self):
         """Test converting configuration to environment dictionary"""
         config = SQLBotConfig(
             profile='test_profile',
             target='test_target',
-            read_only=True,
+            dangerous=True,
             preview_mode=False
         )
         config.llm.api_key = 'test-key'
@@ -106,28 +106,28 @@ class TestSQLBotConfig:
         assert env_dict['DBT_PROFILE_NAME'] == 'test_profile'
         assert env_dict['DBT_TARGET'] == 'test_target'
         # Database credentials come from dbt profiles, not environment variables
-        assert env_dict['SQLBOT_READ_ONLY'] == 'true'
+        assert env_dict['SQLBOT_DANGEROUS'] == 'true'
         assert env_dict['SQLBOT_PREVIEW_MODE'] == 'false'
         assert env_dict['OPENAI_API_KEY'] == 'test-key'
     
     def test_apply_to_env(self):
         """Test applying configuration to current environment"""
-        config = SQLBotConfig(profile='test_profile', read_only=True)
+        config = SQLBotConfig(profile='test_profile', dangerous=True)
         
         # Clear any existing values
         if 'DBT_PROFILE_NAME' in os.environ:
             del os.environ['DBT_PROFILE_NAME']
-        if 'SQLBOT_READ_ONLY' in os.environ:
-            del os.environ['SQLBOT_READ_ONLY']
+        if 'SQLBOT_DANGEROUS' in os.environ:
+            del os.environ['SQLBOT_DANGEROUS']
         
         config.apply_to_env()
         
         assert os.environ['DBT_PROFILE_NAME'] == 'test_profile'
-        assert os.environ['SQLBOT_READ_ONLY'] == 'true'
+        assert os.environ['SQLBOT_DANGEROUS'] == 'true'
         
         # Clean up
         del os.environ['DBT_PROFILE_NAME']
-        del os.environ['SQLBOT_READ_ONLY']
+        del os.environ['SQLBOT_DANGEROUS']
 
 
 class TestLLMConfig:

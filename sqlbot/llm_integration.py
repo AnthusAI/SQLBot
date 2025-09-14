@@ -386,7 +386,7 @@ class DbtQueryTool(BaseTool):
                         safeguard_enabled = True  # Default to safeguards enabled
                 
                 config = SQLBotConfig.from_env(profile=get_current_profile())
-                config.read_only = safeguard_enabled  # Apply global safeguard setting
+                config.dangerous = not safeguard_enabled  # Apply global safeguard setting
                 config.max_rows = 1000
                 
                 # Get dbt service and formatter
@@ -397,7 +397,7 @@ class DbtQueryTool(BaseTool):
                 safeguard_message = None
                 if safeguard_enabled:
                     from .core.safety import analyze_sql_safety
-                    safety_analysis = analyze_sql_safety(query, read_only_mode=True)
+                    safety_analysis = analyze_sql_safety(query, dangerous_mode=False)
                     
                     if safety_analysis.is_read_only and safety_analysis.level.value == "safe":
                         # Query is safe

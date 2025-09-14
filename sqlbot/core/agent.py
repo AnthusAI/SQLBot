@@ -32,7 +32,7 @@ class SQLBotAgent:
         self.config = config
         
         # Initialize components
-        self.safety_analyzer = SQLSafetyAnalyzer(read_only_mode=config.read_only)
+        self.safety_analyzer = SQLSafetyAnalyzer(dangerous_mode=config.dangerous)
         self.schema_loader = SchemaLoader(config.profile)
         self.dbt_executor = DbtExecutor(config)
         self.llm_agent = LLMAgent(config) if self._llm_available() else None
@@ -272,7 +272,7 @@ class SQLBotAgentFactory:
         Returns:
             Read-only SQLBotAgent instance
         """
-        return SQLBotAgentFactory.create_from_env(profile, read_only=True)
+        return SQLBotAgentFactory.create_from_env(profile, dangerous=False)
     
     @staticmethod
     def create_preview_mode(profile: Optional[str] = None) -> SQLBotAgent:

@@ -89,27 +89,27 @@ Feature: Configuration Options
     When I load SQLBot configuration
     Then preview mode should be enabled
 
-  Scenario: Configure read only mode using SQLBOT_READ_ONLY with 'true'
-    Given I set environment variable "SQLBOT_READ_ONLY" to "true"
+  Scenario: Configure dangerous mode using SQLBOT_DANGEROUS with 'true'
+    Given I set environment variable "SQLBOT_DANGEROUS" to "true"
     When I load SQLBot configuration
-    Then read only mode should be enabled
+    Then read only mode should be disabled
 
-  Scenario: Configure read only mode using SQLBOT_READ_ONLY with '1'
-    Given I set environment variable "SQLBOT_READ_ONLY" to "1"
+  Scenario: Configure dangerous mode using SQLBOT_DANGEROUS with '1'
+    Given I set environment variable "SQLBOT_DANGEROUS" to "1"
     When I load SQLBot configuration
-    Then read only mode should be enabled
+    Then read only mode should be disabled
 
-  Scenario: Configure read only mode using SQLBOT_READ_ONLY with 'yes'
-    Given I set environment variable "SQLBOT_READ_ONLY" to "yes"
+  Scenario: Configure dangerous mode using SQLBOT_DANGEROUS with 'yes'
+    Given I set environment variable "SQLBOT_DANGEROUS" to "yes"
     When I load SQLBot configuration
-    Then read only mode should be enabled
+    Then read only mode should be disabled
 
   # Note: YAML configuration tests are disabled for now due to pytest-bdd multi-line string handling
   # The YAML configuration functionality is working but needs different test approach
 
   Scenario: Default values are used when no configuration is provided
     When I load SQLBot configuration
-    Then the profile should be "sqlbot"
+    Then the profile should be None
     And the target should be None
     And the LLM model should be "gpt-5"
     And the LLM max tokens should be 50000
@@ -118,6 +118,6 @@ Feature: Configuration Options
     And the LLM effort should be "minimal"
     And the LLM provider should be "openai"
     And preview mode should be disabled
-    And read only mode should be disabled
+    And read only mode should be enabled
     And the query timeout should be 60
     And the max rows should be 1000

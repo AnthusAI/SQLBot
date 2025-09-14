@@ -60,14 +60,14 @@ def create_textual_repl_from_args(args) -> SQLBotTextualREPL:
         # Try to create agent using factory
         agent = SQLBotAgentFactory.create_from_env(
             profile=args.profile if hasattr(args, 'profile') and args.profile else None,
-            read_only=args.read_only if hasattr(args, 'read_only') else False,
+            dangerous=args.dangerous if hasattr(args, 'dangerous') else False,
             preview_mode=args.preview if hasattr(args, 'preview') else False
         )
     except Exception:
         # Fallback to basic config if factory fails
         config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') and args.profile else None)
-        if hasattr(args, 'read_only') and args.read_only:
-            config.read_only = True
+        if hasattr(args, 'dangerous') and args.dangerous:
+            config.dangerous = True
         if hasattr(args, 'preview') and args.preview:
             config.preview_mode = True
         agent = SQLBotAgent(config)
@@ -163,7 +163,7 @@ def start_textual_interactive(profile: str = "Sakila"):
         sys.argv = ['sqlbot', '--profile', profile]
         args = type('Args', (), {
             'profile': profile,
-            'read_only': False,
+            'dangerous': False,
             'preview': False,
             'query': None
         })()
@@ -182,7 +182,7 @@ def start_textual_with_query(initial_query: str, profile: str = "Sakila"):
         sys.argv = ['sqlbot', '--profile', profile, initial_query]
         args = type('Args', (), {
             'profile': profile,
-            'read_only': False,
+            'dangerous': False,
             'preview': False,
             'query': [initial_query]
         })()

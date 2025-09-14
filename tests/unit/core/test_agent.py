@@ -16,7 +16,7 @@ class TestSQLBotAgent:
         """Setup test configuration"""
         self.config = SQLBotConfig(
             profile="test_profile",
-            read_only=False,
+            dangerous=False,
             preview_mode=False
         )
     
@@ -140,8 +140,8 @@ class TestSQLBotAgent:
     @patch('sqlbot.core.agent.DbtExecutor')
     @patch('sqlbot.core.agent.LLMAgent')
     def test_read_only_mode_blocks_writes(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
-        """Test that read-only mode blocks write operations"""
-        config = SQLBotConfig(read_only=True)
+        """Test that dangerous mode disabled blocks write operations"""
+        config = SQLBotConfig(dangerous=False)
         agent = SQLBotAgent(config)
         
         # Mock safety analysis for write operation
@@ -201,7 +201,7 @@ class TestSQLBotAgentFactory:
         agent = SQLBotAgentFactory.create_from_env()
         
         assert agent.config.profile == 'test_profile'
-        assert agent.config.read_only == True
+        assert agent.config.dangerous == False
     
     @patch('sqlbot.core.agent.SchemaLoader')
     @patch('sqlbot.core.agent.DbtExecutor')
@@ -220,11 +220,11 @@ class TestSQLBotAgentFactory:
     @patch('sqlbot.core.agent.DbtExecutor')
     @patch('sqlbot.core.agent.LLMAgent')
     def test_create_read_only(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
-        """Test creating read-only agent"""
+        """Test creating safe agent (dangerous mode disabled)"""
         agent = SQLBotAgentFactory.create_read_only('test_profile')
         
         assert agent.config.profile == 'test_profile'
-        assert agent.config.read_only == True
+        assert agent.config.dangerous == False
     
     @patch('sqlbot.core.agent.SchemaLoader')
     @patch('sqlbot.core.agent.DbtExecutor')

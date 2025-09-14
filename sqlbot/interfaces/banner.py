@@ -131,7 +131,7 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
         "## Commands\n"
         "- `/help` - Show all available commands\n"
         "- `/preview` - Preview SQL compilation before execution\n"
-        "- `/readonly` - Toggle read-only safeguard mode\n"
+        "- `/dangerous` - Toggle dangerous operation mode\n"
         "- `exit`, `quit`, or `q` - Exit SQLBot"
     )
     
@@ -209,7 +209,7 @@ def get_interactive_banner_content(profile: Optional[str] = None, llm_model: Opt
         "## Commands\n"
         "- `/help` - Show all commands\n"
         "- `/preview` - Preview SQL compilation before execution\n"
-        "- `/readonly` - Toggle read-only safeguard mode\n"
+        "- `/dangerous` - Toggle dangerous operation mode\n"
         "- `exit` - Quit\n\n"
         
         "### Tips\n"

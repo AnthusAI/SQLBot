@@ -21,10 +21,10 @@ llm:
 preview_mode: false
 
 # Safety configuration
-# Note: read_only=true enables safeguards and blocks dangerous operations
-# Note: read_only=false allows dangerous operations (default)
+# Note: dangerous=false enables safeguards and blocks dangerous operations (default)
+# Note: dangerous=true allows dangerous operations
 # This can also be controlled at runtime via /dangerous command or --dangerous flag
-read_only: false
+dangerous: false
 
 # Execution configuration
 query_timeout: 60

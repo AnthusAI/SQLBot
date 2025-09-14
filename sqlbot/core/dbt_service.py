@@ -8,6 +8,7 @@ throughout SQLBot, eliminating subprocess calls and providing structured results
 import os
 import tempfile
 import uuid
+import yaml
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 from .types import QueryResult, QueryType, CompilationResult
@@ -43,27 +44,70 @@ class DbtService:
         self._is_using_local_dbt = is_local
         self._dbt_profiles_dir = profiles_dir
 
-        # Set profile-specific log and target paths
+        # Set profile-specific log and target paths using virtual/temp directories
         profile_name = self.config.profile
-        
-        # Priority 1: .sqlbot/profiles/{profile}/
+
+        # Priority 1: .sqlbot/profiles/{profile}/ (if it exists)
         user_profile_dir = Path(f'.sqlbot/profiles/{profile_name}')
         if user_profile_dir.exists():
             os.environ['DBT_LOG_PATH'] = str(user_profile_dir / 'logs')
             os.environ['DBT_TARGET_PATH'] = str(user_profile_dir / 'target')
         else:
-            # Priority 2: profiles/{profile}/
-            profile_dir = Path(f'profiles/{profile_name}')
-            profile_dir.mkdir(parents=True, exist_ok=True)
-            os.environ['DBT_LOG_PATH'] = str(profile_dir / 'logs')
-            os.environ['DBT_TARGET_PATH'] = str(profile_dir / 'target')
+            # Priority 2: Use temp directories for logs/target to avoid file system pollution
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir()) / f'sqlbot_session_{os.getpid()}'
+            temp_dir.mkdir(exist_ok=True)
+
+            os.environ['DBT_LOG_PATH'] = str(temp_dir / 'logs')
+            os.environ['DBT_TARGET_PATH'] = str(temp_dir / 'target')
     
     def _get_temp_directory(self) -> str:
-        """Get temporary directory for model files - must be in main models/ directory for dbt to find them"""
-        # dbt looks for models in the models/ directory, so we must put temp files there
-        models_dir = Path('models')
-        models_dir.mkdir(parents=True, exist_ok=True)
-        return str(models_dir)
+        """Get temporary directory for model files - use temp location instead of polluting user directory"""
+        # Use temp directory instead of creating models/ in user's directory
+        import tempfile
+        temp_dir = Path(tempfile.gettempdir()) / f'sqlbot_session_{os.getpid()}' / 'models'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        return str(temp_dir)
+
+    def _create_virtual_dbt_environment(self) -> tuple[dict, str]:
+        """
+        Create environment and temp directory with virtual dbt_project.yml.
+
+        This creates a minimal dbt_project.yml in a temp directory and returns
+        both the environment and the temp directory path for --project-dir.
+
+        Returns:
+            Tuple of (environment_dict, temp_project_dir_path)
+        """
+        import tempfile
+
+        # Create temp directory for virtual dbt project
+        temp_dir = Path(tempfile.gettempdir()) / f'sqlbot_virtual_{os.getpid()}'
+        temp_dir.mkdir(exist_ok=True)
+
+        # Create minimal dbt project configuration
+        virtual_dbt_config = {
+            'name': f'sqlbot_virtual_{os.getpid()}',
+            'version': '1.0.0',
+            'config-version': 2,
+            'profile': self.config.profile
+        }
+
+        # Write virtual dbt_project.yml to temp directory
+        dbt_project_path = temp_dir / 'dbt_project.yml'
+        with open(dbt_project_path, 'w') as f:
+            yaml.dump(virtual_dbt_config, f, default_flow_style=False)
+
+        # Start with current environment
+        env = os.environ.copy()
+        env['DBT_PROFILE_NAME'] = self.config.profile
+
+        # Debug output if enabled
+        if os.environ.get('SQLBOT_DEBUG'):
+            print(f"🔍 DEBUG: Created virtual dbt_project.yml in temp dir: {temp_dir}")
+            print(f"🔍 DEBUG: Content:\n{yaml.dump(virtual_dbt_config, default_flow_style=False)}")
+
+        return env, str(temp_dir)
 
     def get_dbt_config_info(self) -> dict:
         """
@@ -77,6 +121,7 @@ class DbtService:
             'profiles_dir': getattr(self, '_dbt_profiles_dir', str(Path.home() / '.dbt')),
             'profile_name': self.config.profile
         }
+
     
     def _get_dbt_runner(self):
         """Get or create dbt runner instance"""
@@ -90,222 +135,131 @@ class DbtService:
     
     def execute_query(self, sql_query: str, limit: Optional[int] = None) -> QueryResult:
         """
-        Execute SQL query using dbt SDK and return structured results
-        
+        Execute SQL query using dbt show --inline (much simpler approach).
+
         Args:
             sql_query: The SQL query to execute
             limit: Optional limit on number of rows to return
-            
+
         Returns:
             QueryResult with structured data
         """
         import time
-        import os  # Move os import to top level
+        import subprocess
+        import json
+
         start_time = time.time()
-        
+
         try:
-            # Clean query for execution
+            # Clean query
             clean_query = sql_query.strip().rstrip(';')
-            
-            # Fix common Jinja syntax issues - convert single braces to double braces for dbt functions
-            import re
-            # Only replace single braces that are NOT already double braces
-            # Pattern: single { followed by function(...) followed by single } but NOT preceded/followed by another brace
-            clean_query = re.sub(r'(?<!\{)\{\s*([a-zA-Z_][a-zA-Z0-9_]*\s*\([^}]*\))\s*\}(?!\})', r'{{ \1 }}', clean_query)
-            # Specifically handle source() function calls
-            clean_query = re.sub(r'(?<!\{)\{\s*(source\s*\([^}]*\))\s*\}(?!\})', r'{{ \1 }}', clean_query)
-            
-            # Debug output can be enabled by setting QBOT_DEBUG=1
-            if os.environ.get('QBOT_DEBUG'):
-                print(f"🔍 DEBUG: Original query: {sql_query}")
-                print(f"🔍 DEBUG: Cleaned query: {clean_query}")
-            
-            # NEVER modify user queries - execute exactly as written
-            # The limit parameter should not be used to modify queries
-            
-            # Detect macro calls and handle them differently
-            from dbt.cli.main import dbtRunner
-            import os
-            
-            # All queries use the same execution path - no special cases
-            
-            # Execute other queries using run-operation to avoid ANY automatic modifications
-            
-            # Suppress dbt performance info and unnecessary logging
-            old_env_vars = {}
-            env_suppressions = {
-                'DBT_WRITE_PERF_INFO': 'false',
-                'DBT_SEND_ANONYMOUS_USAGE_STATS': 'false'
-            }
-            
-            for key, value in env_suppressions.items():
-                old_env_vars[key] = os.environ.get(key)
-                os.environ[key] = value
-            
-            try:
-                # Import subprocess and other modules at the top
-                import subprocess
-                import json
-                import sys
-                
-                # First, try to compile the query to see what SQL dbt actually generates
-                temp_model_name = f"qbot_debug_{int(time.time() * 1000)}"
-                # Create temp model in profile-specific directory so dbt can find it
-                profile_models_dir = Path(f"profiles/{self.config.profile}/models")
-                profile_models_dir.mkdir(parents=True, exist_ok=True)
-                temp_model_path = profile_models_dir / f"{temp_model_name}.sql"
-                
-                if os.environ.get('QBOT_DEBUG'):
-                    print(f"🔍 DEBUG: Starting compilation for query: {clean_query[:100]}...")
-                    print(f"🔍 DEBUG: Profile: {self.config.profile}")
-                
-                compiled_sql = None
-                try:
-                    # Write query to temporary model file for compilation
-                    with open(temp_model_path, 'w') as f:
-                        f.write(clean_query)
-                    
-                    # Try to compile to get the actual SQL
-                    compile_cmd = [
-                        "dbt", "compile", "--select", temp_model_name,
-                        "--profile", self.config.profile
-                    ]
-                    
-                    compile_result = subprocess.run(compile_cmd, capture_output=True, text=True, cwd=os.getcwd())
-                    
-                    if compile_result.returncode == 0:
-                        # Small delay to ensure file is fully written
-                        import time
-                        time.sleep(0.1)
-                        # Try to read the compiled SQL
-                        compiled_sql = self._read_compiled_sql(temp_model_name)
-                        if os.environ.get('QBOT_DEBUG'):
-                            print(f"🔍 DEBUG: Compilation succeeded")
-                            print(f"🔍 DEBUG: Compiled SQL: {compiled_sql[:100] if compiled_sql else 'None'}...")
-                            if not compiled_sql:
-                                print(f"🔍 DEBUG: Could not read compiled SQL for {temp_model_name}")
-                                # Show compilation output for debugging
-                                print(f"🔍 DEBUG: Compile stdout: {compile_result.stdout[:200]}...")
-                                print(f"🔍 DEBUG: Compile stderr: {compile_result.stderr[:200]}...")
-                    else:
-                        # Compilation failed - capture the error for the LLM
-                        compilation_error = compile_result.stderr.strip() or compile_result.stdout.strip()
-                        if os.environ.get('QBOT_DEBUG'):
-                            print(f"🔍 DEBUG: dbt compilation failed for profile {self.config.profile}: {compilation_error}")
-                        
-                        # Return compilation error immediately so LLM can see it
-                        execution_time = time.time() - start_time
-                        error_msg = f"dbt compilation failed: {compilation_error}"
-                        if clean_query != sql_query:
-                            error_msg = f"Original Query: {sql_query} | Cleaned Query: {clean_query} | {error_msg}"
-                        
-                        return QueryResult(
-                            success=False,
-                            query_type=QueryType.SQL,
-                            execution_time=execution_time,
-                            error=error_msg
-                        )
-                except Exception as e:
-                    if os.environ.get('QBOT_DEBUG'):
-                        print(f"🔍 DEBUG: Exception during compilation: {e}")
-                    pass  # Compilation failed, continue with execution
-                finally:
-                    # Clean up temp file
-                    try:
-                        if temp_model_path.exists():
-                            temp_model_path.unlink()
-                    except Exception:
-                        pass
-                
-                # Use dbt run-operation with our custom macro to execute queries without modification
-                # We need to capture stdout since that's where the log messages go
-                
-                # If we have compiled SQL, use that; otherwise use the original query
-                query_to_execute = compiled_sql if compiled_sql else clean_query
-                
-                if os.environ.get('QBOT_DEBUG'):
-                    print(f"🔍 DEBUG: Query to execute: {query_to_execute[:100] if query_to_execute else 'None'}...")
-                    print(f"🔍 DEBUG: Using compiled SQL: {bool(compiled_sql)}")
-                
-                # Execute dbt run-operation directly
-                query_json = json.dumps({"query": query_to_execute})
-                
-                cmd = [
-                    "dbt", "run-operation", "execute_raw_query",
-                    "--args", query_json,
-                    "--profile", self.config.profile
-                ]
-                
-                cmd_result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
-                
-                # Create a mock result object
-                # Combine stdout and stderr for error messages since dbt can put errors in either
-                combined_error = ""
-                if cmd_result.returncode != 0:
-                    error_parts = []
-                    if cmd_result.stderr and cmd_result.stderr.strip():
-                        error_parts.append(f"STDERR: {cmd_result.stderr.strip()}")
-                    if cmd_result.stdout and cmd_result.stdout.strip():
-                        error_parts.append(f"STDOUT: {cmd_result.stdout.strip()}")
-                    combined_error = " | ".join(error_parts) if error_parts else "Unknown dbt error"
-                
-                result = type('Result', (), {
-                    'success': cmd_result.returncode == 0,
-                    'stdout': cmd_result.stdout,
-                    'stderr': cmd_result.stderr,
-                    'exception': None if cmd_result.returncode == 0 else Exception(combined_error),
-                    'compiled_sql': compiled_sql  # Add the compiled SQL to the result
-                })()
-            finally:
-                # Restore environment variables
-                for key, old_value in old_env_vars.items():
-                    if old_value is None:
-                        os.environ.pop(key, None)
-                    else:
-                        os.environ[key] = old_value
-            
+
+            # Build dbt show command
+            cmd = [
+                "dbt", "show",
+                "--inline", clean_query,
+                "--profile", self.config.profile,
+                "--log-level", "warn"  # Reduce noise
+            ]
+
+            # Add limit if specified
+            if limit:
+                cmd.extend(["--limit", str(limit)])
+
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: Running simple dbt show: {clean_query}")
+
+            # Execute dbt show with virtual dbt_project.yml in temp directory
+            env, temp_project_dir = self._create_virtual_dbt_environment()
+
+            # Add --project-dir flag to point to temp directory
+            cmd.extend(['--project-dir', temp_project_dir])
+
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: Running dbt command: {' '.join(cmd)}")
+                print(f"🔍 DEBUG: Using temp project dir: {temp_project_dir}")
+                print(f"🔍 DEBUG: Current working directory: {os.getcwd()}")
+
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd(), env=env)
             execution_time = time.time() - start_time
-            
-            if result.success:
-                # Extract data from run-operation macro output
-                parsed_data = self._extract_macro_output(result)
-                
-                return QueryResult(
-                    success=True,
-                    query_type=QueryType.SQL,
-                    execution_time=execution_time,
-                    data=parsed_data['data'],
-                    columns=parsed_data['columns'],
-                    row_count=len(parsed_data['data'])
-                )
+
+            if result.returncode == 0:
+                # Parse dbt show table output
+                try:
+                    output = result.stdout.strip()
+                    data, columns = self._parse_dbt_table_output(output)
+
+                    return QueryResult(
+                        success=True,
+                        query_type=QueryType.SQL,
+                        execution_time=execution_time,
+                        data=data,
+                        columns=columns,
+                        row_count=len(data)
+                    )
+                except Exception as parse_error:
+                    # Fallback to raw output if parsing fails
+                    return QueryResult(
+                        success=True,
+                        query_type=QueryType.SQL,
+                        execution_time=execution_time,
+                        data=[{"raw_output": result.stdout.strip()}],
+                        columns=["raw_output"],
+                        row_count=1
+                    )
             else:
-                # Extract detailed error message from dbt output and include compiled SQL
-                compiled_sql_from_result = getattr(result, 'compiled_sql', None)
-                # Use the compiled SQL we generated earlier if available
-                final_compiled_sql = compiled_sql if compiled_sql else compiled_sql_from_result
-                
-                error_msg = self._extract_detailed_error_message(result, clean_query, final_compiled_sql)
-                
-                # Include original vs cleaned query info if they differ
-                if clean_query != sql_query:
-                    error_msg = f"Original Query: {sql_query} | Cleaned Query: {clean_query} | {error_msg}"
-                
+                # Command failed
+                error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
                 return QueryResult(
                     success=False,
                     query_type=QueryType.SQL,
                     execution_time=execution_time,
-                    error=error_msg
+                    error=f"Query execution failed: {error_msg}"
                 )
-        
+
         except Exception as e:
             execution_time = time.time() - start_time
             return QueryResult(
                 success=False,
                 query_type=QueryType.SQL,
                 execution_time=execution_time,
-                error=f"Execution error: {str(e)}"
+                error=f"Query execution failed: {str(e)}"
             )
     
+
+    def _parse_dbt_table_output(self, output: str):
+        """Parse dbt show table output into structured data."""
+        lines = [line.strip() for line in output.split('\n') if line.strip()]
+
+        # Find table header and separator
+        header_idx = -1
+        separator_idx = -1
+
+        for i, line in enumerate(lines):
+            if '|' in line and not '---' in line and header_idx == -1:
+                header_idx = i
+            elif '---' in line and '|' in line and header_idx != -1:
+                separator_idx = i
+                break
+
+        if header_idx == -1 or separator_idx == -1:
+            return [], []
+
+        # Extract columns from header
+        header_line = lines[header_idx]
+        columns = [col.strip() for col in header_line.split('|') if col.strip()]
+
+        # Extract data rows (after separator)
+        data = []
+        for i in range(separator_idx + 1, len(lines)):
+            line = lines[i]
+            if '|' in line:
+                values = [val.strip() for val in line.split('|') if val.strip()]
+                if len(values) == len(columns):
+                    data.append(dict(zip(columns, values)))
+
+        return data, columns
+
     def compile_query_preview(self, sql_query: str) -> CompilationResult:
         """
         Compile SQL query for preview using dbt SDK (without execution)

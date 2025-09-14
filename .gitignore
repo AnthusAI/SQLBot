@@ -58,6 +58,7 @@ logs/
 *.log
 
 # dbt
+.dbt/
 target/
 dbt_packages/
 profiles.yml

@@ -1,3 +1,17 @@
+# [1.2.0](https://github.com/AnthusAI/SQLBot/compare/v1.1.0...v1.2.0) (2025-09-14)
+
+
+### Features
+
+* enhance Sakila database setup and CLI functionality ([b947606](https://github.com/AnthusAI/SQLBot/commit/b9476063dc7b19913c9a93796921baaa7dd97a87))
+
+# [1.1.0](https://github.com/AnthusAI/SQLBot/compare/v1.0.3...v1.1.0) (2025-09-14)
+
+
+### Features
+
+* YAML config file with dotconfig. ([b10042a](https://github.com/AnthusAI/SQLBot/commit/b10042a3d7973766eb55e9578db0fb05da03d3cb))
+
 ## [1.0.3](https://github.com/AnthusAI/SQLBot/compare/v1.0.2...v1.0.3) (2025-09-13)
 
 

@@ -23,8 +23,8 @@ class SQLSafetyAnalyzer:
         'BACKUP', 'RESTORE', 'BULK', 'OPENROWSET', 'OPENDATASOURCE'
     }
     
-    def __init__(self, read_only_mode: bool = False):
-        self.read_only_mode = read_only_mode
+    def __init__(self, dangerous_mode: bool = False):
+        self.dangerous_mode = dangerous_mode
     
     def analyze(self, sql_query: str) -> SafetyAnalysis:
         """
@@ -91,7 +91,7 @@ class SQLSafetyAnalyzer:
         """
         analysis = self.analyze(sql_query)
         
-        if self.read_only_mode:
+        if not self.dangerous_mode:
             return analysis.level == SafetyLevel.SAFE and analysis.is_read_only
         else:
             return analysis.level != SafetyLevel.DANGEROUS
@@ -135,16 +135,16 @@ class SQLSafetyAnalyzer:
 _default_analyzer = SQLSafetyAnalyzer()
 
 
-def analyze_sql_safety(sql_query: str, read_only_mode: bool = False) -> SafetyAnalysis:
+def analyze_sql_safety(sql_query: str, dangerous_mode: bool = False) -> SafetyAnalysis:
     """
     Analyze SQL safety (backward compatible function)
     
     Args:
         sql_query: The SQL query to analyze
-        read_only_mode: Whether to enforce read-only restrictions
+        dangerous_mode: Whether to allow dangerous operations
         
     Returns:
         SafetyAnalysis result
     """
-    analyzer = SQLSafetyAnalyzer(read_only_mode=read_only_mode)
+    analyzer = SQLSafetyAnalyzer(dangerous_mode=dangerous_mode)
     return analyzer.analyze(sql_query)

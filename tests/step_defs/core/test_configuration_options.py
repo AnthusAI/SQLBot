@@ -78,16 +78,16 @@ def test_sqlbot_preview_mode_1():
 def test_sqlbot_preview_mode_yes():
     pass
 
-@scenario('../../features/core/configuration_options.feature', "Configure read only mode using SQLBOT_READ_ONLY with 'true'")
-def test_sqlbot_read_only_true():
+@scenario('../../features/core/configuration_options.feature', "Configure dangerous mode using SQLBOT_DANGEROUS with 'true'")
+def test_sqlbot_dangerous_true():
     pass
 
-@scenario('../../features/core/configuration_options.feature', "Configure read only mode using SQLBOT_READ_ONLY with '1'")
-def test_sqlbot_read_only_1():
+@scenario('../../features/core/configuration_options.feature', "Configure dangerous mode using SQLBOT_DANGEROUS with '1'")
+def test_sqlbot_dangerous_1():
     pass
 
-@scenario('../../features/core/configuration_options.feature', "Configure read only mode using SQLBOT_READ_ONLY with 'yes'")
-def test_sqlbot_read_only_yes():
+@scenario('../../features/core/configuration_options.feature', "Configure dangerous mode using SQLBOT_DANGEROUS with 'yes'")
+def test_sqlbot_dangerous_yes():
     pass
 
 @scenario('../../features/core/configuration_options.feature', 'Default values are used when no configuration is provided')
@@ -123,7 +123,7 @@ def clear_environment_variables(config_context):
         'SQLBOT_LLM_MODEL', 'SQLBOT_LLM_MAX_TOKENS', 'SQLBOT_LLM_TEMPERATURE',
         'SQLBOT_LLM_VERBOSITY', 'SQLBOT_LLM_EFFORT', 'SQLBOT_LLM_PROVIDER',
         'OPENAI_API_KEY', 'SQLBOT_QUERY_TIMEOUT', 'SQLBOT_MAX_ROWS',
-        'SQLBOT_PREVIEW_MODE', 'SQLBOT_READ_ONLY'
+        'SQLBOT_PREVIEW_MODE', 'SQLBOT_DANGEROUS'
     ]
     config_context.env_vars = {}
     for var in config_vars:
@@ -143,6 +143,11 @@ def load_sqlbot_configuration(config_context):
 def check_profile(config_context, expected_value):
     """Check the profile configuration"""
     assert config_context.config.profile == expected_value
+
+@then('the profile should be None')
+def check_profile_none(config_context):
+    """Check the profile configuration is None"""
+    assert config_context.config.profile is None
 
 @then(parsers.parse('the target should be "{expected_value}"'))
 def check_target_string(config_context, expected_value):
@@ -211,13 +216,13 @@ def check_preview_mode_disabled(config_context):
 
 @then('read only mode should be enabled')
 def check_read_only_mode_enabled(config_context):
-    """Check that read only mode is enabled"""
-    assert config_context.config.read_only is True
+    """Check that dangerous mode is disabled (safeguards enabled)"""
+    assert config_context.config.dangerous is False
 
 @then('read only mode should be disabled')
 def check_read_only_mode_disabled(config_context):
-    """Check that read only mode is disabled"""
-    assert config_context.config.read_only is False
+    """Check that dangerous mode is enabled (safeguards disabled)"""
+    assert config_context.config.dangerous is True
 
 
 # Cleanup fixture

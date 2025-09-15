@@ -24,38 +24,45 @@ load_dotenv()
 
 # Global dbt profile configuration (can be set from CLI or environment)
 # Note: This will be dynamically checked, not cached at import time
-DBT_PROFILE_NAME = 'sqlbot'  # Default fallback
+DBT_PROFILE_NAME = None  # No fallback - load from config
 
 def get_current_profile():
-    """Get the current dbt profile name from the global variable"""
-    return DBT_PROFILE_NAME
+    """Get the current dbt profile name from config or global variable"""
+    if DBT_PROFILE_NAME:
+        return DBT_PROFILE_NAME
+
+    # Fall back to loading from config system
+    try:
+        from .core.config import SQLBotConfig
+        config = SQLBotConfig.from_env()
+        return config.profile
+    except:
+        return None
 
 def check_dbt_setup():
     """
     Check if dbt is properly configured and provide helpful guidance if not.
-    
+    Uses DbtService with virtual dbt_project.yml spoofing.
+
     Returns:
         tuple: (is_configured: bool, message: str)
     """
     try:
-        # Set up environment with the profile name
-        env = os.environ.copy()
-        env['DBT_PROFILE_NAME'] = get_current_profile()
-        
-        # Run dbt debug to check configuration
-        result = subprocess.run(
-            ['dbt', 'debug'], 
-            capture_output=True, 
-            text=True, 
-            timeout=30,
-            env=env
-        )
-        
-        if result.returncode == 0:
+        # Use DbtService which handles virtual dbt_project.yml spoofing
+        from .core.config import SQLBotConfig
+        from .core.dbt_service import get_dbt_service
+
+        config = SQLBotConfig.from_env(profile=get_current_profile())
+        dbt_service = get_dbt_service(config)
+
+        # Use our fixed debug method that handles virtual dbt_project.yml
+        debug_result = dbt_service.debug()
+
+        if debug_result['success'] and debug_result['connection_ok']:
             return True, "dbt is properly configured"
         
         # Parse common error messages and provide helpful guidance
-        error_output = result.stderr + result.stdout
+        error_output = debug_result.get('error', 'Unknown connection error')
         
         if "Could not find profile" in error_output or f"profile named '{get_current_profile()}'" in error_output:
             return False, f"""
@@ -378,11 +385,9 @@ class DbtQueryTool(BaseTool):
                     except ImportError:
                         safeguard_enabled = True  # Default to safeguards enabled
                 
-                config = SQLBotConfig(
-                    profile=DBT_PROFILE_NAME,
-                    read_only=safeguard_enabled,  # Use global safeguard setting
-                    max_rows=1000
-                )
+                config = SQLBotConfig.from_env(profile=get_current_profile())
+                config.dangerous = not safeguard_enabled  # Apply global safeguard setting
+                config.max_rows = 1000
                 
                 # Get dbt service and formatter
                 dbt_service = get_dbt_service(config)
@@ -392,7 +397,7 @@ class DbtQueryTool(BaseTool):
                 safeguard_message = None
                 if safeguard_enabled:
                     from .core.safety import analyze_sql_safety
-                    safety_analysis = analyze_sql_safety(query, read_only_mode=True)
+                    safety_analysis = analyze_sql_safety(query, dangerous_mode=False)
                     
                     if safety_analysis.is_read_only and safety_analysis.level.value == "safe":
                         # Query is safe
@@ -550,10 +555,13 @@ class DbtQueryTool(BaseTool):
 def get_profile_paths(profile_name):
     """
     Get potential paths for profile configuration in priority order.
-    
+
     Returns:
         tuple: (schema_paths, macro_paths) - lists of paths to try in order
     """
+    if not profile_name:
+        return [], []
+
     project_root = os.path.dirname(os.path.dirname(__file__))
     
     schema_paths = [

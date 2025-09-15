@@ -8,26 +8,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from .types import LLMConfig
 
-try:
-    from dotyaml import load_config
-    DOTYAML_AVAILABLE = True
-except ImportError:
-    DOTYAML_AVAILABLE = False
-
+from dotyaml import load_config
 
 @dataclass
 class SQLBotConfig:
     """Configuration for SQLBot agent"""
     
     # dbt configuration - all database connection info comes from dbt profiles
-    profile: str = "qbot"
+    profile: str = None
     target: Optional[str] = None
     
     # LLM configuration
     llm: LLMConfig = field(default_factory=LLMConfig)
     
     # Safety configuration
-    read_only: bool = False
+    dangerous: bool = False
     preview_mode: bool = False
     
     # Execution configuration
@@ -63,9 +58,6 @@ class SQLBotConfig:
         Returns:
             bool: True if YAML config was loaded successfully, False otherwise
         """
-        if not DOTYAML_AVAILABLE:
-            return False
-
         config_file = Path('.sqlbot/config.yml')
         if not config_file.exists():
             return False
@@ -94,14 +86,25 @@ class SQLBotConfig:
             provider=os.getenv('SQLBOT_LLM_PROVIDER', 'openai')
         )
 
+        # Handle profile priority: command line > config file > environment
+        config_profile = profile or os.getenv('SQLBOT_DATABASE_PROFILE') or os.getenv('SQLBOT_PROFILE') or os.getenv('DBT_PROFILE_NAME')
+
+        # Handle safety settings from config file
+        safety_dangerous = os.getenv('SQLBOT_SAFETY_DANGEROUS', os.getenv('SQLBOT_DANGEROUS', '')).lower() in ('true', '1', 'yes')
+        safety_preview_mode = os.getenv('SQLBOT_SAFETY_PREVIEW_MODE', os.getenv('SQLBOT_PREVIEW_MODE', '')).lower() in ('true', '1', 'yes')
+
+        # Handle query settings from config file
+        query_timeout = int(os.getenv('SQLBOT_QUERY_TIMEOUT', '60'))
+        max_rows = int(os.getenv('SQLBOT_QUERY_MAX_ROWS', os.getenv('SQLBOT_MAX_ROWS', '1000')))
+
         return cls(
-            profile=profile or os.getenv('SQLBOT_PROFILE', os.getenv('DBT_PROFILE_NAME', 'sqlbot')),
+            profile=config_profile,
             target=os.getenv('SQLBOT_TARGET', os.getenv('DBT_TARGET')),
             llm=llm_config,
-            read_only=os.getenv('SQLBOT_READ_ONLY', '').lower() in ('true', '1', 'yes'),
-            preview_mode=os.getenv('SQLBOT_PREVIEW_MODE', '').lower() in ('true', '1', 'yes'),
-            query_timeout=int(os.getenv('SQLBOT_QUERY_TIMEOUT', '60')),
-            max_rows=int(os.getenv('SQLBOT_MAX_ROWS', '1000'))
+            dangerous=safety_dangerous,
+            preview_mode=safety_preview_mode,
+            query_timeout=query_timeout,
+            max_rows=max_rows
         )
     
     def to_env_dict(self) -> dict:
@@ -125,7 +128,7 @@ class SQLBotConfig:
             env_vars['OPENAI_API_KEY'] = self.llm.api_key
 
         # Other configuration
-        env_vars['SQLBOT_READ_ONLY'] = str(self.read_only).lower()
+        env_vars['SQLBOT_DANGEROUS'] = str(self.dangerous).lower()
         env_vars['SQLBOT_PREVIEW_MODE'] = str(self.preview_mode).lower()
         env_vars['SQLBOT_QUERY_TIMEOUT'] = str(self.query_timeout)
         env_vars['SQLBOT_MAX_ROWS'] = str(self.max_rows)

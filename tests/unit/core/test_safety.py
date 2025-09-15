@@ -61,15 +61,15 @@ class TestSQLSafetyAnalyzer:
             assert analysis.level == SafetyLevel.WARNING, f"Query should be warning: {query}"
             assert set(analysis.warnings) == set(expected_ops), f"Wrong warnings detected for: {query}"
     
-    def test_read_only_mode(self):
-        """Test read-only mode enforcement"""
-        analyzer = SQLSafetyAnalyzer(read_only_mode=True)
+    def test_dangerous_mode(self):
+        """Test dangerous mode enforcement"""
+        analyzer = SQLSafetyAnalyzer(dangerous_mode=False)
         
         # Safe query should still be safe
         safe_analysis = analyzer.analyze("SELECT * FROM users")
         assert analyzer.is_safe_for_execution("SELECT * FROM users") == True
         
-        # Dangerous query should not be safe for execution in read-only mode
+        # Dangerous query should not be safe for execution when dangerous mode is disabled
         dangerous_analysis = analyzer.analyze("DELETE FROM users")
         assert analyzer.is_safe_for_execution("DELETE FROM users") == False
     
@@ -110,7 +110,7 @@ class TestSQLSafetyAnalyzer:
         assert analysis.level == SafetyLevel.DANGEROUS
         
         # Test read-only mode
-        analysis = analyze_sql_safety("DELETE FROM users", read_only_mode=True)
+        analysis = analyze_sql_safety("DELETE FROM users", dangerous_mode=False)
         assert analysis.level == SafetyLevel.DANGEROUS
 
 

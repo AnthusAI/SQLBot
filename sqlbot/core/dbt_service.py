@@ -371,21 +371,54 @@ class DbtService:
     
     def debug(self) -> Dict[str, Any]:
         """
-        Run dbt debug and return connection status
-        
+        Run dbt debug and return connection status using virtual dbt_project.yml
+
         Returns:
             Dictionary with debug information
         """
+        import subprocess
+
         try:
-            dbt = self._get_dbt_runner()
-            result = dbt.invoke(['debug'])
-            
+            # Use subprocess with virtual dbt_project.yml environment (like execute_query does)
+            env, temp_project_dir = self._create_virtual_dbt_environment()
+
+            cmd = [
+                "dbt", "debug",
+                "--profile", self.config.profile,
+                "--project-dir", temp_project_dir,
+                "--profiles-dir", os.environ.get('DBT_PROFILES_DIR', str(Path.home() / '.dbt'))
+            ]
+
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: Running dbt debug with virtual project: {temp_project_dir}")
+
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd(), env=env)
+
+            # Parse the output to determine success
+            # dbt debug is successful if connection test passes, even if dbt_project.yml is missing
+            stdout = result.stdout
+            stderr = result.stderr
+
+            # Look for connection success indicators (with or without ANSI codes)
+            connection_ok = any([
+                "Connection test: OK connection ok" in stdout,
+                "Connection test: [32mOK connection ok[0m" in stdout,
+                "OK connection ok" in stdout
+            ])
+
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: dbt debug return code: {result.returncode}")
+                print(f"🔍 DEBUG: connection_ok: {connection_ok}")
+                print(f"🔍 DEBUG: stdout: {stdout}")
+                print(f"🔍 DEBUG: stderr: {stderr}")
+
             return {
-                'success': result.success,
-                'connection_ok': result.success,
+                'success': connection_ok,  # Success if connection works, regardless of missing dbt_project.yml
+                'connection_ok': connection_ok,
                 'profile': self.config.profile,
-                'error': None if result.success else "Debug failed"
+                'error': None if connection_ok else f"Connection failed: {stderr or stdout}"
             }
+
         except Exception as e:
             return {
                 'success': False,

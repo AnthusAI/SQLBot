@@ -17,7 +17,7 @@ from .theme_system import ThemeMode
 class SQLBotTextualREPL:
     """Textual REPL interface for SQLBot"""
     
-    def __init__(self, agent: SQLBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.QBOT):
+    def __init__(self, agent: SQLBotAgent, initial_query: Optional[str] = None, theme_mode: ThemeMode = ThemeMode.DARK):
         """
         Initialize Textual REPL
         
@@ -59,15 +59,15 @@ def create_textual_repl_from_args(args) -> SQLBotTextualREPL:
     try:
         # Try to create agent using factory
         agent = SQLBotAgentFactory.create_from_env(
-            profile=args.profile if hasattr(args, 'profile') else 'sqlbot',
-            read_only=args.read_only if hasattr(args, 'read_only') else False,
+            profile=args.profile if hasattr(args, 'profile') and args.profile else None,
+            dangerous=args.dangerous if hasattr(args, 'dangerous') else False,
             preview_mode=args.preview if hasattr(args, 'preview') else False
         )
     except Exception:
         # Fallback to basic config if factory fails
-        config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') else 'sqlbot')
-        if hasattr(args, 'read_only') and args.read_only:
-            config.read_only = True
+        config = SQLBotConfig.from_env(args.profile if hasattr(args, 'profile') and args.profile else None)
+        if hasattr(args, 'dangerous') and args.dangerous:
+            config.dangerous = True
         if hasattr(args, 'preview') and args.preview:
             config.preview_mode = True
         agent = SQLBotAgent(config)
@@ -78,7 +78,7 @@ def create_textual_repl_from_args(args) -> SQLBotTextualREPL:
         initial_query = ' '.join(args.query)
     
     # Get theme from args if provided
-    theme_mode = ThemeMode.QBOT  # default
+    theme_mode = ThemeMode.DARK  # default
     if hasattr(args, 'theme'):
         # Try to find the theme mode by value
         for mode in ThemeMode:
@@ -97,7 +97,7 @@ def main_textual():
     # Parse arguments exactly like the original qbot command
     parser = argparse.ArgumentParser(description='SQLBot: Database Query Bot', add_help=False)
     parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
-    parser.add_argument('--profile', default='sqlbot', help='dbt profile name to use (default: sqlbot)')
+    parser.add_argument('--profile', help='dbt profile name to use (can be set in .sqlbot/config.yml)')
     parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')
     parser.add_argument('--dangerous', action='store_true', help='Disable safeguards and allow dangerous SQL operations')
     parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
@@ -163,7 +163,7 @@ def start_textual_interactive(profile: str = "Sakila"):
         sys.argv = ['sqlbot', '--profile', profile]
         args = type('Args', (), {
             'profile': profile,
-            'read_only': False,
+            'dangerous': False,
             'preview': False,
             'query': None
         })()
@@ -182,7 +182,7 @@ def start_textual_with_query(initial_query: str, profile: str = "Sakila"):
         sys.argv = ['sqlbot', '--profile', profile, initial_query]
         args = type('Args', (), {
             'profile': profile,
-            'read_only': False,
+            'dangerous': False,
             'preview': False,
             'query': [initial_query]
         })()

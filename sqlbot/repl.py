@@ -257,7 +257,7 @@ def execute_clean_sql(sql_query):
                 import llm_integration
                 profile_name = llm_integration.get_current_profile()
             except ImportError:
-                profile_name = os.getenv('SQLBOT_PROFILE', 'sqlbot')
+                profile_name = os.getenv('SQLBOT_PROFILE')
         
         config = SQLBotConfig.from_env(profile=profile_name)
         dbt_service = get_dbt_service(config)
@@ -459,11 +459,6 @@ def handle_slash_command(line):
             print("Usage: /dbt command [args...]")
             return
         return run_dbt(args)
-    elif command == 'tables':
-        # Rich formatted full-width table list
-        query = "select table_name, table_type from information_schema.tables where table_schema not in ('information_schema', 'sys', 'INFORMATION_SCHEMA', 'SYS') order by table_name"
-        rich_console.print(f"🔍 [bold {get_theme_manager().get_color('ai_response')}]Listing all database tables[/bold {get_theme_manager().get_color('ai_response')}]")
-        return execute_dbt_rich_tables(query)
     elif command == 'history':
         # Show command history
         try:
@@ -507,7 +502,6 @@ def handle_slash_command(line):
         help_table.add_row("/show model [limit]", "Show model data")
         help_table.add_row("/docs [serve]", "Generate docs or serve docs")
         help_table.add_row("/dbt command args...", "Run any dbt command")
-        help_table.add_row("/tables", "[bold purple]List all database tables (Rich formatted, full width)[/bold purple]")
         help_table.add_row("[bold green]Natural language[/bold green]", "[bold green]Ask questions in plain English (default)[/bold green]")
         help_table.add_row("[bold blue]SQL with ;[/bold blue]", "[bold blue]End with semicolon to run as dbt SQL[/bold blue]")
         help_table.add_row("/preview", "Preview compiled SQL before execution")
@@ -687,7 +681,7 @@ def start_console():
     from sqlbot.conversation_memory import ConversationMemoryManager
     
     # Show banner for interactive mode (even in test environment)
-    profile = os.getenv('DBT_PROFILE_NAME', 'sqlbot')
+    profile = os.getenv('DBT_PROFILE_NAME')
     show_banner(is_no_repl=False, profile=profile, llm_model=None, llm_available=LLM_AVAILABLE)
     
     # Create memory manager and execution function
@@ -865,95 +859,6 @@ def execute_dbt_sql_rich_fallback(sql_query):
         except Exception:
             pass
 
-def execute_dbt_rich_tables(sql_query):
-    """Execute SQL and format results with Rich tables (full width, no truncation)"""
-    import sqlalchemy as sa
-    import yaml
-    from sqlalchemy import text
-    
-    try:
-        # Read dbt profile to get connection details
-        profiles_path = Path.home() / '.dbt' / 'profiles.yml'
-        
-        with open(profiles_path, 'r') as f:
-            profiles = yaml.safe_load(f)
-        
-        # Use the configured profile name
-        if DBT_PROFILE_NAME not in profiles:
-            return f"❌ Profile '{DBT_PROFILE_NAME}' not found in ~/.dbt/profiles.yml"
-        
-        profile_config = profiles[DBT_PROFILE_NAME]['outputs']['dev']
-        
-        # Create SQLAlchemy connection string using the profile details
-        host = profile_config['host']
-        database = profile_config['database'] 
-        user = profile_config['user']
-        password = profile_config['password']
-        port = profile_config.get('port', 1433)
-        driver = profile_config.get('driver', 'ODBC Driver 18 for SQL Server')
-        
-        # SQL Server connection string with authentication
-        connection_string = f"mssql+pyodbc://{user}:{password}@{host}:{port}/{database}?driver={driver.replace(' ', '+')}&TrustServerCertificate=yes"
-        
-        # Create engine and execute query directly
-        engine = sa.create_engine(connection_string)
-        
-        with engine.connect() as conn:
-            result = conn.execute(text(sql_query))
-            rows = result.fetchall()
-            
-            # Create Rich table with full width and NO truncation
-            rich_table = Table(
-                title="📋 Database Tables", 
-                border_style="magenta2",
-                expand=True,
-                show_lines=True,
-                width=None,  # No width constraint
-                min_width=None  # No minimum width
-            )
-            
-            # Add columns with NO width limits and NO truncation
-            rich_table.add_column(
-                "Table Name", 
-                style="bold purple", 
-                no_wrap=False, 
-                overflow="fold",
-                width=None,
-                min_width=None,
-                max_width=None
-            )
-            rich_table.add_column(
-                "Type", 
-                style="dim magenta2", 
-                no_wrap=False, 
-                overflow="fold",
-                width=None,
-                min_width=None,
-                max_width=None
-            )
-            
-            # Add all rows with FULL table names (no truncation)
-            for row in rows:
-                rich_table.add_row(str(row[0]), str(row[1]))
-            
-            # Display the Rich formatted table
-            rich_console.print(rich_table)
-            
-            # Add summary in a panel
-            summary_panel = Panel(
-                f"[bold green]✓ Found {len(rows)} database objects[/bold green]\n"
-                f"[dim]Direct database query with Rich formatting[/dim]",
-                border_style="green",
-                title="Summary"
-            )
-            rich_console.print(summary_panel)
-            
-            return True
-            
-    except Exception as e:
-        rich_console.print(f"[red]Direct database connection failed: {e}[/red]")
-        rich_console.print(f"[yellow]This will show full table names without truncation when connection works[/yellow]")
-        return False
 
 def is_sql_query(query):
     """Detect if query should be treated as SQL/dbt (ends with semicolon)"""
@@ -971,6 +876,10 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
         from sqlbot.core.dbt_service import get_dbt_service
         from sqlbot.core.config import SQLBotConfig
         config = SQLBotConfig.from_env(profile=profile)
+        # Initialize READONLY_MODE based on config (unless overridden by CLI)
+        global READONLY_MODE
+        if not READONLY_CLI_MODE:  # Only if not explicitly set by --dangerous flag
+            READONLY_MODE = not config.dangerous  # dangerous=false means safeguards enabled
         dbt_service = get_dbt_service(config)
         dbt_config_info = dbt_service.get_dbt_config_info()
     except Exception:
@@ -1015,25 +924,21 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
 def main():
     """Main entry point for SQLBot."""
     import sys
-    import argparse
     
     # Global variable declarations
     global PREVIEW_MODE, READONLY_MODE, READONLY_CLI_MODE, SHOW_HISTORY
     
-    # Parse arguments first
-    parser = argparse.ArgumentParser(description='SQLBot: Database Query Bot', add_help=False)
-    parser.add_argument('--context', action='store_true', help='Show LLM conversation context')
-    parser.add_argument('--profile', default='sqlbot', help='dbt profile name to use (default: sqlbot)')
-    parser.add_argument('--preview', action='store_true', help='Preview compiled SQL before executing query')
-    parser.add_argument('--dangerous', action='store_true', help='Disable safeguards and allow dangerous SQL operations')
-    parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
-    parser.add_argument('--text', action='store_true', help='Use text-based REPL with shared session (for debugging)')
-    parser.add_argument('--history', action='store_true', help='Show conversation history panel (for debugging)')
-    parser.add_argument('--theme', choices=[mode.value for mode in ThemeMode], default='qbot', help='Color theme (default: qbot)')
-    parser.add_argument('--help', '-h', action='store_true', help='Show help')
-    parser.add_argument('query', nargs='*', help='Query to execute')
+    # Parse arguments with subcommand support
+    from .cli import parse_args_with_subcommands, handle_cli_subcommands
     
-    args = parser.parse_args()
+    args = parse_args_with_subcommands()
+    if args is None:
+        return  # Help was shown
+    
+    # Handle subcommands first
+    if args.command:
+        exit_code = handle_cli_subcommands(args)
+        sys.exit(exit_code)
     
     # Apply theme early based on command line argument
     theme_map = {mode.value: mode for mode in ThemeMode}

@@ -61,7 +61,7 @@ class CommandHandler:
 [bold cyan]/tables[/bold cyan] - List available database tables
 [bold cyan]/schema[/bold cyan] - Show schema information
 [bold cyan]/profile[/bold cyan] - Show current profile information
-[bold cyan]/readonly[/bold cyan] - Toggle read-only mode
+[bold cyan]/dangerous[/bold cyan] - Toggle dangerous operation mode
 [bold cyan]/preview[/bold cyan] - Toggle preview mode (compile only)
 [bold cyan]/status[/bold cyan] - Show SQLBot status and configuration
 [bold cyan]/exit[/bold cyan] or [bold cyan]/quit[/bold cyan] - Exit SQLBot
@@ -150,13 +150,9 @@ class CommandHandler:
         return True
     
     def _cmd_readonly(self, args: str) -> bool:
-        """Toggle read-only mode"""
-        self.agent.config.read_only = not self.agent.config.read_only
-        self.agent.safety_analyzer.read_only_mode = self.agent.config.read_only
-        
-        status = "enabled" if self.agent.config.read_only else "disabled"
-        self.formatter.format_success(f"Read-only mode {status}")
-        return True
+        """Legacy read-only command - redirects to dangerous"""
+        self.formatter.format_warning("The /readonly command is deprecated. Use /dangerous instead.")
+        return self._cmd_dangerous("off" if args.strip().lower() in ['on', 'enable', 'true'] else "on")
     
     def _cmd_dangerous(self, args: str) -> bool:
         """Toggle dangerous mode (disables safeguards)"""
@@ -206,7 +202,7 @@ class CommandHandler:
 
 [bold]Configuration:[/bold]
 • Profile: {config.profile}
-• Read-only: {'Yes' if config.read_only else 'No'}
+• Dangerous mode: {'Yes' if config.dangerous else 'No'}
 • Preview mode: {'Yes' if config.preview_mode else 'No'}
 • Max rows: {config.max_rows}
 • Query timeout: {config.query_timeout}s

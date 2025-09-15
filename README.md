@@ -1,4 +1,4 @@
-# ✦ SQLBot: Your AI Database Analyst
+# ✦SQLBot: Your AI Database Analyst
 
 **"If you give an agent a tool, then nobody has to fish."**
 
@@ -6,13 +6,17 @@ SQLBot is a new kind of interface for your database. Instead of writing SQL quer
 
 It represents the next logical layer on the modern data stack, building directly on the power of SQL and dbt.
 
-### How It Works: A Smarter Tech Stack
+### The Problem with Raw SQL
 
-To understand SQLBot, it helps to see the evolution of the tools it's built upon.
+Most people use SQL through apps.  Maybe you're comfortable writing raw SQL queries if you're a wizard.  Most people aren't.
 
-#### **Layer 1: SQL — The Powerful Foundation**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/images/architecture/DB+SQL-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/images/architecture/DB+SQL.png">
+  <img alt="SQL Layer: The foundation layer showing raw SQL complexity" src="documentation/diagrams/images/architecture/DB+SQL.png">
+</picture>
 
-SQL is the universal language of data. It's powerful, but can quickly become complex and difficult to read, especially with multiple joins. For example, getting a customer's rental history in the Sakila database (a sample DVD rental store database with customers, films, and rental transactions) requires this:
+Sure, SQL powers most relational databases—it's incredibly powerful. But here's the thing: even simple questions can turn into sprawling queries with multiple joins and cryptic table relationships. Want to see what a "basic" customer lookup actually looks like? Here's what you'd need to write just to get someone's rental history from the Sakila database:
 
 ```sql
 -- Raw SQL: Get rental history for customer 526
@@ -35,9 +39,15 @@ ORDER BY
 
 This is hard to reuse and requires every user to understand the database's join logic.
 
-#### **Layer 2: dbt — The Standardization Layer**
+### Enter dbt: Sharing Database Knowledge
 
-dbt sits on top of SQL, adding a layer of templating (Jinja) and structure. It allows you to create reusable macros that hide complexity. The ugly query above can be turned into a clean, readable macro:
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT.png">
+  <img alt="dbt Layer: Knowledge sharing layer making database expertise accessible to business users" src="documentation/diagrams/images/architecture/DB+SQL+DBT.png">
+</picture>
+
+Here's where dbt changes the game. Those database wizards who understand all the table relationships? They can package their knowledge into macros and schemas that business users can actually work with. That ugly query above becomes a simple, self-documenting function:
 
 ```sql
 -- In a file like `macros/get_customer_rental_history.sql`
@@ -60,15 +70,22 @@ dbt sits on top of SQL, adding a layer of templating (Jinja) and structure. It a
 {% endmacro %}
 ```
 
-Now, anyone (or anything) can perform that complex task with a simple, self-documenting line:
+Suddenly, business users can access complex database operations without needing to understand the underlying join logic:
 
 ```sql
--- A human can now write this instead:
+-- A business user can now write this instead:
 {{ get_customer_rental_history(customer_id=526) }}
 ```
-dbt also standardizes database connections and provides a `schema.yml` file, a "data dictionary" that describes your tables and columns in plain English.
 
-#### **Layer 3: SQLBot — The Intelligence & Safety Layer**
+The real magic happens in dbt's `schema.yml` files—they're like institutional memory for your database. Wizards document what each table and column actually means in plain English, creating a shared vocabulary that makes databases accessible to entire teams.
+
+### SQLBot: Adding Intelligence & Safety
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT+agent-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="documentation/diagrams/images/architecture/DB+SQL+DBT+agent.png">
+  <img alt="SQLBot Layer: Intelligence and safety layer with AI agent on top of the stack" src="documentation/diagrams/images/architecture/DB+SQL+DBT+agent.png">
+</picture>
 
 SQLBot adds the final layer: an AI agent that uses the structure dbt provides while keeping your data protected. The agent is armed with two crucial pieces of information from your dbt profile:
 
@@ -331,13 +348,37 @@ When SQLBot starts, you'll see confirmation in the banner:
 
 ## Quick Start with Sample Data
 
-Want to try SQLBot immediately **without setting up a database server**? Use our pre-configured SQLite sample database:
+**🚀 Recommended:** Use our standalone demo project for the easiest SQLBot experience:
+
+```bash
+# Clone the demo project (includes everything you need)
+git clone https://github.com/AnthusAI/SQLBot-Sakila-SQLite
+cd SQLBot-Sakila-SQLite
+
+# Install SQLBot and dependencies
+pip install -e .
+
+# Set up the Sakila database (SQLite - no server required!)
+sqlbot setup sakila
+
+# Start exploring with natural language queries
+sqlbot --profile Sakila
+```
+
+**Try these queries:**
+- "How many films are in each category?"
+- "Which actors appear in the most films?"
+- "Show me customers from California"
+
+This demo project is also **the perfect template** for setting up SQLBot with your own database - just replace the Sakila data with your own!
+
+### Alternative: Install from main repository
 
 ```bash
 # Install SQLBot
 pip install sqlbot
 
-# Clone the repository for sample data setup
+# Clone the main repository for sample data setup
 git clone https://github.com/AnthusAI/SQLBot
 cd SQLBot
 
@@ -363,10 +404,34 @@ You can immediately start asking natural language questions like:
 - "Show me rental trends by month"
 - "What's the average rental duration by film category?"
 
-> **TODO**: Future versions will include `sqlbot setup` commands to:
-> - Import existing dbt profiles into SQLBot's `profiles/` structure
-> - Download and configure Sakila database automatically
-> - Generate starter schema files for new databases
+## Using the Demo as a Template for Your Own Database
+
+The [SQLBot-Sakila-SQLite demo project](https://github.com/AnthusAI/SQLBot-Sakila-SQLite) demonstrates the **recommended project structure** for SQLBot:
+
+```
+your-database-project/
+├── .sqlbot/                    # All SQLBot configuration
+│   ├── config.yml             # SQLBot settings
+│   ├── agents/                # Custom database knowledge
+│   └── profiles/YourDB/       # Database files and config
+├── .dbt/profiles.yml          # Local dbt connection config
+├── pyproject.toml             # Python dependencies
+└── README.md                  # Project documentation
+```
+
+**Key benefits of this structure:**
+- ✅ **Clean separation** - Keep your database project separate from SQLBot infrastructure
+- ✅ **Security** - Store proprietary database projects in private repositories
+- ✅ **No junk files** - All SQLBot files contained in `.sqlbot/` folder
+- ✅ **Self-contained** - Everything needed for your database in one project
+- ✅ **Version control** - Track database queries, agents, and configuration
+
+**To create your own:**
+1. Copy the demo project structure
+2. Replace Sakila database with your own in `.sqlbot/profiles/YourDB/`
+3. Update `.dbt/profiles.yml` with your database connection
+4. Add custom agents in `.sqlbot/agents/` with your database knowledge
+5. Configure `.sqlbot/config.yml` for your preferences
 
 ## For Developers
 

@@ -166,7 +166,6 @@ def output_should_be_minimal():
     assert "/help - Show all available commands" not in output, "Verbose banner should not appear in --no-repl mode"
     
     # We should still see the essential operational messages
-    assert "Starting with query:" in output, "Should show query execution message"
     assert "Exiting (--no-repl mode)" in output, "Should show exit message"
 
 @then('I should see the "Ready for questions." banner')

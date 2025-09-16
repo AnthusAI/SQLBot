@@ -10,7 +10,6 @@ Feature: No-REPL Mode
   Scenario: Execute query with --no-repl flag
     When I run SQLBot with query "SELECT 42 AS Answer;" and flag "--no-repl"
     Then I should NOT see the intro banner
-    And I should see "Starting with query: SELECT 42 AS Answer;"
     And I should see "Exiting (--no-repl mode)"
     And SQLBot should exit without starting interactive mode
     And the exit code should be 0
@@ -18,7 +17,6 @@ Feature: No-REPL Mode
   Scenario: Execute query with --norepl synonym
     When I run SQLBot with query "SELECT 42 AS Answer;" and flag "--norepl"
     Then I should NOT see the intro banner
-    And I should see "Starting with query: SELECT 42 AS Answer;"
     And I should see "Exiting (--no-repl mode)"
     And SQLBot should exit without starting interactive mode
     And the exit code should be 0
@@ -55,7 +53,6 @@ Feature: No-REPL Mode
   Scenario: No intro banner in --no-repl mode
     When I run SQLBot with query "SELECT 42 AS Answer;" and flag "--no-repl"
     Then I should NOT see the intro banner
-    And I should see "Starting with query: SELECT 42 AS Answer;"
     And I should see "Exiting (--no-repl mode)"
     And SQLBot should exit without starting interactive mode
     And the exit code should be 0

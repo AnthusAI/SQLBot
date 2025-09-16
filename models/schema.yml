@@ -1,0 +1,77 @@
+version: 2
+
+sources:
+  - name: sakila
+    description: "Sakila sample database - A nicely normalized database modelling a DVD rental store"
+    schema: main
+    database: database
+    tables:
+      - name: film
+        description: "Information about films in the rental store inventory"
+        columns:
+          - name: film_id
+            description: "Primary key for film table"
+          - name: title
+            description: "Title of the film"
+          - name: description
+            description: "Brief description of the film"
+          - name: release_year
+            description: "Year the film was released"
+          - name: language_id
+            description: "Foreign key to language table"
+          - name: rental_duration
+            description: "How long the film can be rented for"
+          - name: rental_rate
+            description: "Cost to rent the film"
+          - name: length
+            description: "Duration of the film in minutes"
+          - name: replacement_cost
+            description: "Cost to replace the film if lost"
+          - name: rating
+            description: "MPAA rating of the film"
+
+      - name: actor
+        description: "Information about actors"
+        columns:
+          - name: actor_id
+            description: "Primary key for actor table"
+          - name: first_name
+            description: "Actor's first name"
+          - name: last_name
+            description: "Actor's last name"
+
+      - name: customer
+        description: "Information about customers"
+        columns:
+          - name: customer_id
+            description: "Primary key for customer table"
+          - name: first_name
+            description: "Customer's first name"
+          - name: last_name
+            description: "Customer's last name"
+          - name: email
+            description: "Customer's email address"
+
+      - name: rental
+        description: "Information about film rentals"
+        columns:
+          - name: rental_id
+            description: "Primary key for rental table"
+          - name: rental_date
+            description: "Date the film was rented"
+          - name: inventory_id
+            description: "Foreign key to inventory table"
+          - name: customer_id
+            description: "Foreign key to customer table"
+          - name: return_date
+            description: "Date the film was returned"
+
+      - name: inventory
+        description: "Information about film inventory"
+        columns:
+          - name: inventory_id
+            description: "Primary key for inventory table"
+          - name: film_id
+            description: "Foreign key to film table"
+          - name: store_id
+            description: "Foreign key to store table"

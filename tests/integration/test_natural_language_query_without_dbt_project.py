@@ -114,29 +114,42 @@ class TestNaturalLanguageQueryWithoutDbtProject:
 
         This should initially FAIL, then PASS after we fix the spoofing.
         """
-        config = SQLBotConfig(profile="TestProfile")
+        # Set the profiles directory to our test location
+        import os
+        old_profiles_dir = os.environ.get('DBT_PROFILES_DIR')
+        os.environ['DBT_PROFILES_DIR'] = str(Path(self.test_dir) / ".dbt")
 
-        # Simulate what happens in natural language query processing
-        # This typically involves:
-        # 1. Connection validation (runs dbt debug - THIS FAILS)
-        # 2. Schema introspection
-        # 3. LLM generates SQL
-        # 4. SQL execution (this part works)
+        try:
+            config = SQLBotConfig(profile="TestProfile")
 
-        dbt_service = get_dbt_service(config)
+            # Simulate what happens in natural language query processing
+            # This typically involves:
+            # 1. Connection validation (runs dbt debug - THIS FAILS)
+            # 2. Schema introspection
+            # 3. LLM generates SQL
+            # 4. SQL execution (this part works)
 
-        # Step 1: Connection validation - this is where it currently fails
-        debug_result = dbt_service.debug()
-        assert debug_result['success'], f"dbt debug failed: {debug_result['error']}"
-        assert debug_result['connection_ok'], "Connection should be OK"
+            dbt_service = get_dbt_service(config)
 
-        # Step 2: If debug passes, the rest should work
-        # Test a query that would come from natural language processing
-        result = dbt_service.execute_query("SELECT COUNT(*) FROM test_table WHERE category = 'Fruit'")
+            # Step 1: Connection validation - this is where it currently fails
+            debug_result = dbt_service.debug()
+            assert debug_result['success'], f"dbt debug failed: {debug_result['error']}"
+            assert debug_result['connection_ok'], "Connection should be OK"
 
-        assert result.success, f"Natural language query execution failed: {result.error}"
-        assert len(result.data) == 1
-        assert result.data[0]['COUNT(*)'] == '3'  # Apple, Banana, Mango
+            # Step 2: If debug passes, the rest should work
+            # Test a query that would come from natural language processing
+            result = dbt_service.execute_query("SELECT COUNT(*) FROM test_table WHERE category = 'Fruit'")
+
+            assert result.success, f"Natural language query execution failed: {result.error}"
+            assert len(result.data) == 1
+            assert result.data[0]['COUNT(*)'] == '3'  # Apple, Banana, Mango
+
+        finally:
+            # Restore original environment
+            if old_profiles_dir is not None:
+                os.environ['DBT_PROFILES_DIR'] = old_profiles_dir
+            elif 'DBT_PROFILES_DIR' in os.environ:
+                del os.environ['DBT_PROFILES_DIR']
 
     def test_generalized_dbt_operations_work_without_physical_project_file(self):
         """
@@ -145,28 +158,41 @@ class TestNaturalLanguageQueryWithoutDbtProject:
         This tests the broader issue: ALL dbt operations should work with virtual spoofing,
         not just the direct SQL execution path.
         """
-        config = SQLBotConfig(profile="TestProfile")
-        dbt_service = get_dbt_service(config)
+        # Set the profiles directory to our test location
+        import os
+        old_profiles_dir = os.environ.get('DBT_PROFILES_DIR')
+        os.environ['DBT_PROFILES_DIR'] = str(Path(self.test_dir) / ".dbt")
 
-        # Test various dbt operations that natural language queries might use
-        operations_to_test = [
-            ("debug", lambda: dbt_service.debug()),
-            ("list_models", lambda: dbt_service.list_models()),
-            # Add more operations as needed
-        ]
+        try:
+            config = SQLBotConfig(profile="TestProfile")
+            dbt_service = get_dbt_service(config)
 
-        for operation_name, operation_func in operations_to_test:
-            try:
-                result = operation_func()
-                # Each operation should succeed or gracefully handle the virtual environment
-                if isinstance(result, dict):
-                    assert not (result.get('success') is False and 'dbt_project.yml' in str(result.get('error', ''))), \
-                        f"Operation {operation_name} failed due to missing dbt_project.yml: {result}"
-                # For operations that return other types, just ensure they don't crash
-            except Exception as e:
-                if 'dbt_project.yml' in str(e):
-                    pytest.fail(f"Operation {operation_name} failed due to missing dbt_project.yml: {e}")
-                # Other exceptions might be expected (e.g., no models to list)
+            # Test various dbt operations that natural language queries might use
+            operations_to_test = [
+                ("debug", lambda: dbt_service.debug()),
+                ("list_models", lambda: dbt_service.list_models()),
+                # Add more operations as needed
+            ]
+
+            for operation_name, operation_func in operations_to_test:
+                try:
+                    result = operation_func()
+                    # Each operation should succeed or gracefully handle the virtual environment
+                    if isinstance(result, dict):
+                        assert not (result.get('success') is False and 'dbt_project.yml' in str(result.get('error', ''))), \
+                            f"Operation {operation_name} failed due to missing dbt_project.yml: {result}"
+                    # For operations that return other types, just ensure they don't crash
+                except Exception as e:
+                    if 'dbt_project.yml' in str(e):
+                        pytest.fail(f"Operation {operation_name} failed due to missing dbt_project.yml: {e}")
+                    # Other exceptions might be expected (e.g., no models to list)
+
+        finally:
+            # Restore original environment
+            if old_profiles_dir is not None:
+                os.environ['DBT_PROFILES_DIR'] = old_profiles_dir
+            elif 'DBT_PROFILES_DIR' in os.environ:
+                del os.environ['DBT_PROFILES_DIR']
 
 
 if __name__ == "__main__":

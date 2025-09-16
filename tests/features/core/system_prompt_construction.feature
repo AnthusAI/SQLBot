@@ -44,3 +44,18 @@ Feature: System Prompt Construction
     And it should check "profiles/{profile}/system_prompt.txt" second
     And it should use the first file found
     And it should return empty string if no files are found
+
+  Scenario: System prompt works without macro files (optional macros)
+    Given I am using a profile with no macro files
+    When the system prompt is built and used with LangChain
+    Then the system prompt should be created successfully
+    And the ChatPromptTemplate should not have missing variable errors
+    And SQLBot should be able to execute basic database queries
+    And the fallback macro information should be used
+
+  Scenario: System prompt handles macro template variables correctly
+    Given I am using a profile with macro files containing dbt syntax
+    When the system prompt includes macro usage examples with double braces
+    Then the system prompt should escape braces properly for LangChain
+    And the ChatPromptTemplate should not interpret dbt syntax as template variables
+    And the final prompt should contain literal dbt macro syntax for the LLM

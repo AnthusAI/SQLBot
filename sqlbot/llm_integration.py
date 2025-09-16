@@ -754,7 +754,8 @@ Consider creating:
                         
                         macro_info.append(f"• {macro_name}({params})")
                         macro_info.append(f"  Description: {description}")
-                        macro_info.append(f"  Usage: {{ {macro_name}({params}) }}")
+                        # Use backticks instead of braces to avoid LangChain template conflicts
+                        macro_info.append(f"  Usage: `{macro_name}({params})`")
                         macro_info.append("")
                         
                 except Exception as e:
@@ -765,31 +766,113 @@ Consider creating:
     except Exception as e:
         return f"Could not load macros: {e}"
 
+def extract_macro_function_names():
+    """
+    Extract macro function names from macro files and return them as template variables.
+    This allows system prompt templates to reference individual macro functions.
+
+    The key insight is that the system prompt template contains literal dbt macro calls
+    that should be passed through to the LLM, but Jinja2 tries to interpret them as variables.
+    We need to provide these as template variables so they render correctly.
+
+    Returns:
+        dict: Dictionary mapping expected template variables to their literal dbt syntax
+    """
+    try:
+        _, macro_paths = get_profile_paths(get_current_profile())
+
+        # Provide empty/safe values for macro functions so template renders without errors
+        # These will be literally included in the final prompt for the LLM to use
+        macro_functions = {}
+
+        # Common function signatures that might appear in system prompt templates
+        common_functions = [
+            'find_report_by_id', 'find_report_by_session_id', 'find_report_by_form_id',
+            'find_report_by_transcript_id', 'find_form_id_by_session_id', 'find_form_id_by_report_id',
+            'find_session_id_by_report_id', 'find_session_id_by_form_id', 'get_transcript_by_report_id',
+            'get_transcript_text_by_report_id', 'get_transcript_by_form_id', 'get_transcript_by_session_id',
+            'get_all_ids_by_form_id', 'get_all_ids_by_session_id'
+        ]
+
+        # Look for actual macro definitions if macro files exist
+        for macro_path in macro_paths:
+            if os.path.exists(macro_path):
+                for filename in os.listdir(macro_path):
+                    if filename.endswith('.sql'):
+                        filepath = os.path.join(macro_path, filename)
+
+                        try:
+                            with open(filepath, 'r') as f:
+                                content = f.read()
+
+                            # Extract macro definitions using regex
+                            macro_pattern = r'{% *macro +(\w+) *\((.*?)\) *%}'
+                            macros = re.findall(macro_pattern, content)
+
+                            for macro_name, params in macros:
+                                # For template variables, provide the literal dbt syntax
+                                # This way {{ find_report_by_id(report_id) }} in template becomes literal text
+                                param_list = params.strip() if params.strip() else 'id'
+                                macro_functions[f'{macro_name}({param_list})'] = f'{{{{ {macro_name}({param_list}) }}}}'
+
+                        except Exception as e:
+                            print(f"Warning: Could not parse macro file {filename}: {e}")
+                            continue
+                break  # Use the first existing macro path
+
+        # If no macro files found, provide safe defaults for common functions
+        if not macro_functions:
+            for func_name in common_functions:
+                if 'by_' in func_name:
+                    param = func_name.split('by_')[-1].rstrip('_id') + '_id'
+                else:
+                    param = 'id'
+                macro_functions[f'{func_name}({param})'] = f'{{{{ {func_name}({param}) }}}}'
+
+        return macro_functions
+
+    except Exception as e:
+        print(f"Warning: Could not extract macro function names: {e}")
+        # Return safe defaults even on error
+        return {
+            'find_report_by_id(report_id)': '{{ find_report_by_id(report_id) }}',
+            'get_transcript_by_form_id(form_id)': '{{ get_transcript_by_form_id(form_id) }}',
+        }
+
 def build_system_prompt():
     """
     Build dynamic system prompt with current schema and macro info from profile-specific template
-    
+
     Returns:
         str: Complete system prompt for the LLM
     """
     schema_info = load_schema_info()
     macro_info = load_macro_info()
-    
+
     # Load profile-specific system prompt template
     profile_name = get_current_profile()
     template_content = load_profile_system_prompt_template(profile_name)
-    
+
+    # Extract macro function names from loaded macros to provide as template variables
+    macro_functions = extract_macro_function_names()
+
     # Use Jinja2 to render the template with schema and macro info
     try:
         from jinja2 import Template
         template = Template(template_content)
-        system_prompt = template.render(
-            schema_info=schema_info,
-            macro_info=macro_info
-        )
+
+        # Create template variables with only basic info, avoiding macro functions that contain dots
+        template_vars = {
+            'schema_info': schema_info,
+            'macro_info': macro_info
+            # Skip macro_functions to avoid Jinja2 parsing issues with dots in SQL
+        }
+
+        system_prompt = template.render(**template_vars)
         return system_prompt
     except Exception as e:
-        # Fallback to basic template if Jinja2 fails
+        # Enhanced fallback that handles missing template gracefully
+        print(f"Warning: Template rendering failed ({e}), using fallback template")
         return f"""You are a helpful database analyst assistant.
 
 DATABASE TABLES:
@@ -798,7 +881,7 @@ DATABASE TABLES:
 AVAILABLE MACROS:
 {macro_info}
 
-Use direct table names: SELECT * FROM film, SELECT * FROM customer, etc. Always execute queries using the tool.
+Use direct table names and available macros. Always execute queries using the tool.
 """
 
 def load_profile_system_prompt_template(profile_name: str) -> str:
@@ -1127,8 +1210,13 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
         
         # Create dynamic prompt with current schema/macro info
         system_prompt = build_system_prompt()
+
+        # Escape any remaining {{ }} in the system prompt so LangChain doesn't interpret them as template variables
+        # Double curly braces should be literal text for the LLM, not LangChain template variables
+        system_prompt_escaped = system_prompt.replace("{{", "{{{{").replace("}}", "}}}}")
+
         prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
+            ("system", system_prompt_escaped),
             ("placeholder", "{chat_history}"),
             ("human", "{input}"),
             ("placeholder", "{agent_scratchpad}"),

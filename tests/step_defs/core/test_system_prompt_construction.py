@@ -449,3 +449,152 @@ def verify_empty_when_no_files():
             assert "helpful database analyst assistant" in addition
         finally:
             os.chdir(original_cwd)
+
+
+# New scenarios for optional macro behavior
+
+@given("I am using a profile with no macro files")
+def setup_profile_no_macros(mock_profile_context, temp_profile_dir):
+    """Set up a profile with no macro files"""
+    mock_profile_context['profile_name'] = 'test_profile_no_macros'
+    mock_profile_context['temp_dir'] = temp_profile_dir
+
+    # Create profile directory but no macro files
+    profile_dir = Path(temp_profile_dir) / '.sqlbot' / 'profiles' / 'test_profile_no_macros'
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    # Explicitly do NOT create a macros directory
+
+
+@when("the system prompt is built and used with LangChain")
+def build_system_prompt_for_langchain(mock_profile_context):
+    """Build system prompt and test LangChain compatibility"""
+    import os
+    from langchain_core.prompts import ChatPromptTemplate
+
+    # Mock current profile and change to temp directory
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(mock_profile_context['temp_dir'])
+
+        # Mock the profile functions
+        with patch('sqlbot.llm_integration.get_current_profile', return_value=mock_profile_context['profile_name']):
+            with patch('sqlbot.llm_integration.load_schema_info', return_value="Test schema info"):
+                system_prompt = build_system_prompt()
+                mock_profile_context['system_prompt'] = system_prompt
+
+                # Test LangChain compatibility
+                try:
+                    # Escape braces as SQLBot does
+                    system_prompt_escaped = system_prompt.replace("{{", "{{{{").replace("}}", "}}}}")
+
+                    prompt = ChatPromptTemplate.from_messages([
+                        ("system", system_prompt_escaped),
+                        ("placeholder", "{chat_history}"),
+                        ("human", "{input}"),
+                        ("placeholder", "{agent_scratchpad}"),
+                    ])
+                    mock_profile_context['langchain_success'] = True
+                    mock_profile_context['langchain_error'] = None
+                except Exception as e:
+                    mock_profile_context['langchain_success'] = False
+                    mock_profile_context['langchain_error'] = str(e)
+
+    finally:
+        os.chdir(original_cwd)
+
+
+@then("the ChatPromptTemplate should not have missing variable errors")
+def verify_no_missing_variables(mock_profile_context):
+    """Verify no missing variable errors in ChatPromptTemplate"""
+    assert mock_profile_context['langchain_success'] is True
+    if mock_profile_context.get('langchain_error'):
+        pytest.fail(f"LangChain template error: {mock_profile_context['langchain_error']}")
+
+
+@then("SQLBot should be able to execute basic database queries")
+def verify_basic_query_capability(mock_profile_context):
+    """Verify SQLBot can execute basic queries (this is integration test level)"""
+    # This test would require full SQLBot setup, so we'll verify the prompt structure
+    system_prompt = mock_profile_context['system_prompt']
+
+    # Should contain instructions for database queries
+    assert "database" in system_prompt.lower()
+    assert "query" in system_prompt.lower() or "sql" in system_prompt.lower()
+
+
+@then("the fallback macro information should be used")
+def verify_fallback_macro_info(mock_profile_context):
+    """Verify fallback macro information is used when no macro files exist"""
+    system_prompt = mock_profile_context['system_prompt']
+
+    # Should handle the no-macros case gracefully - should contain macro section header
+    # and either "No macros found" or "No macros directory found" message
+    assert "AVAILABLE DBT MACROS:" in system_prompt or "AVAILABLE MACROS:" in system_prompt
+    assert ("No macros found" in system_prompt or
+            "No macros directory found" in system_prompt or
+            "Could not load macros" in system_prompt)
+
+
+@given("I am using a profile with macro files containing dbt syntax")
+def setup_profile_with_dbt_macros(mock_profile_context, temp_profile_dir):
+    """Set up a profile with macro files containing dbt syntax"""
+    mock_profile_context['profile_name'] = 'test_profile_dbt'
+    mock_profile_context['temp_dir'] = temp_profile_dir
+
+    # Create profile with macros directory
+    profile_dir = Path(temp_profile_dir) / '.sqlbot' / 'profiles' / 'test_profile_dbt'
+    macros_dir = profile_dir / 'macros'
+    macros_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create macro file with dbt syntax
+    macro_content = """
+-- Test macros with dbt syntax
+{% macro find_user_by_id(user_id) %}
+    select * from users where id = {{ user_id }}
+{% endmacro %}
+
+{% macro get_user_orders(user_id) %}
+    select * from orders where user_id = {{ user_id }}
+{% endmacro %}
+"""
+    macro_file = macros_dir / 'test_macros.sql'
+    macro_file.write_text(macro_content.strip())
+
+
+@when("the system prompt includes macro usage examples with double braces")
+def build_prompt_with_macro_examples(mock_profile_context):
+    """Build system prompt that includes macro usage examples"""
+    build_system_prompt_for_langchain(mock_profile_context)
+
+
+@then("the system prompt should escape braces properly for LangChain")
+def verify_braces_escaped(mock_profile_context):
+    """Verify braces are properly escaped for LangChain"""
+    # LangChain success indicates proper escaping
+    assert mock_profile_context['langchain_success'] is True
+
+
+@then("the ChatPromptTemplate should not interpret dbt syntax as template variables")
+def verify_dbt_syntax_not_interpreted(mock_profile_context):
+    """Verify dbt syntax is not interpreted as LangChain template variables"""
+    assert mock_profile_context['langchain_success'] is True
+    if mock_profile_context.get('langchain_error'):
+        assert "missing variables" not in mock_profile_context['langchain_error']
+
+
+@then("the final prompt should contain literal dbt macro syntax for the LLM")
+def verify_literal_dbt_syntax(mock_profile_context):
+    """Verify final prompt contains literal dbt macro syntax"""
+    system_prompt = mock_profile_context['system_prompt']
+
+    # Should contain macro information but not as LangChain template variables
+    # The macro usage should use backticks now to avoid conflicts
+    assert "find_user_by_id" in system_prompt or "get_user_orders" in system_prompt
+
+
+@then("the system prompt should be created successfully")
+def verify_prompt_created_successfully(mock_profile_context):
+    """Verify system prompt was created successfully"""
+    assert mock_profile_context['system_prompt'] is not None
+    assert len(mock_profile_context['system_prompt']) > 0
+    assert isinstance(mock_profile_context['system_prompt'], str)

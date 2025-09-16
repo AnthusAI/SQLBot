@@ -486,6 +486,97 @@ class SQLBotTextualApp(App):
         margin-top: 1;  /* Add top margin like user messages */
     }
     
+    /* Markdown widget styling for rich-text formatting */
+    .ai-message Markdown,
+    .ai-message-content {
+        text-wrap: wrap;
+        width: 100%;
+        background: transparent;
+        color: $text;
+    }
+    
+    /* Markdown headings with theme-appropriate colors */
+    .ai-message Markdown .h1,
+    .ai-message-content .h1 {
+        text-style: bold;
+        color: $primary;
+        margin: 1 0;
+    }
+    
+    .ai-message Markdown .h2,
+    .ai-message-content .h2 {
+        text-style: bold;
+        color: $secondary;
+        margin: 1 0;
+    }
+    
+    .ai-message Markdown .h3,
+    .ai-message-content .h3 {
+        text-style: bold;
+        color: $accent;
+        margin: 1 0;
+    }
+    
+    /* Code blocks and inline code */
+    .ai-message Markdown .code_block,
+    .ai-message-content .code_block {
+        background: $surface-lighten-1;
+        color: $text;
+        border: round $border;
+        padding: 1;
+        margin: 1 0;
+        text-wrap: wrap;
+    }
+    
+    .ai-message Markdown .code_inline,
+    .ai-message-content .code_inline {
+        background: $surface-lighten-1;
+        color: $accent;
+        text-style: bold;
+    }
+    
+    /* Lists */
+    .ai-message Markdown .list_item,
+    .ai-message-content .list_item {
+        margin-left: 2;
+        color: $text;
+    }
+    
+    /* Blockquotes */
+    .ai-message Markdown .block_quote,
+    .ai-message-content .block_quote {
+        border-left: thick $accent;
+        padding-left: 2;
+        margin: 1 0;
+        color: $text-muted;
+        text-style: italic;
+    }
+    
+    /* Tables */
+    .ai-message Markdown .table,
+    .ai-message-content .table {
+        border: round $border;
+        margin: 1 0;
+    }
+    
+    /* Links */
+    .ai-message Markdown .link,
+    .ai-message-content .link {
+        color: $primary;
+        text-style: underline;
+    }
+    
+    /* Emphasis and strong text */
+    .ai-message Markdown .em,
+    .ai-message-content .em {
+        text-style: italic;
+    }
+    
+    .ai-message Markdown .strong,
+    .ai-message-content .strong {
+        text-style: bold;
+    }
+    
     /* System messages (like success-message for safety checks) have no top margin */
     .system-message,
     .error-message,
@@ -695,9 +786,9 @@ class SQLBotTextualApp(App):
             if not self.initial_query:
                 self.call_after_refresh(self.show_welcome_message)
             
-            # Execute initial query if provided
+            # Execute initial query if provided (after unified display is connected)
             if self.initial_query:
-                self.call_later(self.execute_initial_query)
+                self.call_after_refresh(self._execute_initial_query_after_setup)
             
             # Focus the input and ensure it's visible
             if self.query_input:
@@ -716,6 +807,15 @@ class SQLBotTextualApp(App):
             print(f"❌ Mount error: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _execute_initial_query_after_setup(self) -> None:
+        """Execute initial query after ensuring unified display is connected"""
+        # Ensure unified display connection is established
+        self._setup_unified_display_connection()
+        
+        # Now execute the initial query
+        if self.initial_query:
+            self.call_later(self.execute_initial_query)
     
     async def execute_initial_query(self) -> None:
         """Execute the initial query provided from command line"""
@@ -1011,6 +1111,9 @@ Slash Commands:
             if result and self.conversation_widget:
                 formatted_result = self.session.get_formatted_result(result, "rich")
                 self.conversation_widget.add_ai_message(formatted_result)
+                
+                # Sync conversation display to ensure tool calls are shown
+                self.conversation_widget.sync_conversation_display()
             
             # Notify detail widget of new query result
             if self.detail_widget:
@@ -1079,6 +1182,9 @@ Slash Commands:
             if result and self.conversation_widget:
                 formatted_result = self.session.get_formatted_result(result, "rich")
                 self.conversation_widget.add_ai_message(formatted_result)
+                
+                # Sync conversation display to ensure tool calls are shown
+                self.conversation_widget.sync_conversation_display()
             
             # Refocus the input widget after query completion (with delay to let ListView selection render)
             if self.query_input:

@@ -98,6 +98,12 @@ class DbtService:
         with open(dbt_project_path, 'w') as f:
             yaml.dump(virtual_dbt_config, f, default_flow_style=False)
 
+        # Copy source definitions if they exist
+        self._copy_sources_to_temp_project(temp_dir)
+        
+        # Add macro to prevent dbt from adding LIMIT clauses
+        self._add_no_limit_macro(temp_dir)
+
         # Start with current environment
         env = os.environ.copy()
         env['DBT_PROFILE_NAME'] = self.config.profile
@@ -108,6 +114,85 @@ class DbtService:
             print(f"🔍 DEBUG: Content:\n{yaml.dump(virtual_dbt_config, default_flow_style=False)}")
 
         return env, str(temp_dir)
+
+    def _copy_sources_to_temp_project(self, temp_dir: Path) -> None:
+        """
+        Copy source definitions to the temporary dbt project.
+
+        Args:
+            temp_dir: Path to the temporary dbt project directory
+        """
+        import shutil
+        from ..llm_integration import get_profile_paths
+
+        # Get potential schema file paths
+        try:
+            profile_name = self.config.profile
+            schema_paths, _ = get_profile_paths(profile_name)
+
+            # Find the first existing schema file
+            source_schema_file = None
+            for path in schema_paths:
+                if os.path.exists(path):
+                    source_schema_file = path
+                    break
+
+            if source_schema_file:
+                # Create models directory in temp project
+                models_dir = temp_dir / 'models'
+                models_dir.mkdir(exist_ok=True)
+
+                # Copy the schema file
+                dest_file = models_dir / os.path.basename(source_schema_file)
+                shutil.copy2(source_schema_file, dest_file)
+
+                if os.environ.get('SQLBOT_DEBUG'):
+                    print(f"🔍 DEBUG: Copied schema file from {source_schema_file} to {dest_file}")
+
+        except Exception as e:
+            # Don't fail if schema copying fails - just log it
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: Could not copy schema file: {e}")
+
+    def _add_no_limit_macro(self, temp_dir: Path) -> None:
+        """
+        Add macro to prevent dbt from adding LIMIT clauses to queries.
+        
+        This macro overrides dbt's default behavior of wrapping queries with LIMIT.
+        
+        Args:
+            temp_dir: Path to the temporary dbt project directory
+        """
+        try:
+            # Create macros directory in temp project
+            macros_dir = temp_dir / 'macros'
+            macros_dir.mkdir(exist_ok=True)
+            
+            # Create macro for raw SQL execution without modifications
+            # Try both default and SQLite-specific macro names
+            macro_content = '''{% macro default__get_limit_subquery_sql(sql, limit) %}
+    {{ sql }}
+{% endmacro %}
+
+{% macro sqlite__get_limit_subquery_sql(sql, limit) %}
+    {{ sql }}
+{% endmacro %}
+
+{% macro get_limit_subquery_sql(sql, limit) %}
+    {{ sql }}
+{% endmacro %}'''
+            
+            macro_file = macros_dir / 'get_limit_subquery_sql.sql'
+            with open(macro_file, 'w') as f:
+                f.write(macro_content)
+            
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: Added no-limit macro to {macro_file}")
+                
+        except Exception as e:
+            # Don't fail if macro creation fails - just log it
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: Could not create no-limit macro: {e}")
 
     def get_dbt_config_info(self) -> dict:
         """
@@ -133,6 +218,7 @@ class DbtService:
                 raise ImportError("dbt-core is required but not installed")
         return self._dbt_runner
     
+
     def execute_query(self, sql_query: str, limit: Optional[int] = None) -> QueryResult:
         """
         Execute SQL query using dbt show --inline (much simpler approach).
@@ -162,9 +248,8 @@ class DbtService:
                 "--log-level", "warn"  # Reduce noise
             ]
 
-            # Add limit if specified
-            if limit:
-                cmd.extend(["--limit", str(limit)])
+            # Don't add --limit flag since we use macro to prevent dbt from adding LIMIT
+            # This ensures dbt executes our SQL exactly as written
 
             if os.environ.get('SQLBOT_DEBUG'):
                 print(f"🔍 DEBUG: Running simple dbt show: {clean_query}")

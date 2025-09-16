@@ -78,7 +78,7 @@ def _extract_text_from_json(text: str) -> str:
                             if text_match:
                                 # Unescape any escaped quotes
                                 extracted = text_match.group(1)
-                                extracted = extracted.replace("\\'", "'").replace('\\"', '"')
+                                extracted = extracted.replace("\\'", "'").replace('\\"', '"').replace('\\n', '\n')
                                 return extracted
                         
                         # Look for other content patterns
@@ -91,7 +91,7 @@ def _extract_text_from_json(text: str) -> str:
                             content_match = re.search(pattern, text, re.DOTALL)
                             if content_match:
                                 extracted = content_match.group(1)
-                                extracted = extracted.replace("\\'", "'").replace('\\"', '"')
+                                extracted = extracted.replace("\\'", "'").replace('\\"', '"').replace('\\n', '\n')
                                 return extracted
                         
                         # If no patterns match, return original
@@ -130,15 +130,15 @@ def _extract_text_from_json(text: str) -> str:
                     # Unescape quotes and join all text matches
                     extracted_texts = []
                     for match in matches:
-                        cleaned = match.replace("\\'", "'").replace('\\"', '"')
+                        cleaned = match.replace("\\'", "'").replace('\\"', '"').replace('\\n', '\n')
                         extracted_texts.append(cleaned)
                     if extracted_texts:
                         return ' '.join(extracted_texts)
         except Exception:
             pass
     
-    # If not JSON or parsing failed, return original text
-    return text
+    # If not JSON or parsing failed, return original text with newline cleanup
+    return text.replace('\\n', '\n') if isinstance(text, str) else text
 
 
 def _format_response_with_tool_calls(raw_response: str) -> str:

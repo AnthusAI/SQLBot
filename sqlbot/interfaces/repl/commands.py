@@ -73,7 +73,7 @@ class CommandHandler:
 
 [bold blue]Examples:[/bold blue]
 • How many users are active today?
-• SELECT COUNT(*) FROM {{ source('users', 'user_table') }};
+• SELECT COUNT(*) FROM customer;
 """
         self.formatter.format_help_text(help_text)
         return True

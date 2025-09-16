@@ -159,16 +159,19 @@ class LLMAgent:
 
 IMPORTANT INSTRUCTIONS:
 1. Convert natural language questions into SQL queries
-2. Use dbt source() syntax: {{ source('source_name', 'table_name') }}
-3. Always use the dbt_query tool to execute SQL
-4. Provide clear explanations of what the query does
-5. Handle errors gracefully and suggest alternatives
+2. ALWAYS use direct table names - DO NOT use dbt source() syntax for this database
+3. Reference tables directly: FROM film, FROM customer, FROM actor (not from sources)
+4. Always use the dbt_query tool to execute SQL
+5. Provide clear explanations of what the query does
+6. Handle errors gracefully and suggest alternatives
+
+CRITICAL: This database does not support dbt sources. Use direct table references only.
 
 """
         
         # Add schema information
         if schema_info.get('sources'):
-            prompt += "AVAILABLE DATA SOURCES:\n"
+            prompt += "AVAILABLE DATA SOURCES (USE DIRECT TABLE NAMES, NOT SOURCE SYNTAX):\n"
             for source in schema_info['sources']:
                 source_name = source.get('name', 'unknown')
                 schema_name = source.get('schema', 'dbo')
@@ -193,10 +196,13 @@ IMPORTANT INSTRUCTIONS:
                 prompt += f"  - {macro['name']}: Available in {macro['file']}\n"
         
         prompt += """
-QUERY EXAMPLES:
-- Use: SELECT * FROM {{ source('your_source', 'table_name') }} LIMIT 10;
-- For counts: SELECT COUNT(*) FROM {{ source('your_source', 'table_name') }};
-- For filtering: SELECT * FROM {{ source('your_source', 'table_name') }} WHERE column = 'value';
+QUERY EXAMPLES (preferred syntax for this database):
+- SELECT * FROM film LIMIT 10;
+- SELECT COUNT(*) FROM customer;
+- SELECT title FROM film WHERE title LIKE 'A%';
+- SELECT c.first_name, c.last_name FROM customer c JOIN address a ON c.address_id = a.address_id;
+
+AVAILABLE TABLES: actor, film, customer, rental, payment, inventory, store, staff, category, language, address, city, country, film_actor, film_category
 
 Remember to always use the dbt_query tool to execute your SQL queries.
 """

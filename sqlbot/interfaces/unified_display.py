@@ -19,7 +19,9 @@ def execute_query_with_unified_display(
     console: Optional[Console] = None,
     display_refresh_func: Optional[Callable] = None,
     show_history: bool = False,
-    skip_user_message: bool = False
+    show_full_history: bool = False,
+    skip_user_message: bool = False,
+    unified_display = None
 ) -> str:
     """
     Execute a query with unified display logic for both text and Textual modes.
@@ -63,20 +65,33 @@ def execute_query_with_unified_display(
         if not skip_user_message:
             # REPL mode: user message already shown by input(), now show thinking -> response progression
             # Move cursor up to overwrite the input line
-            console.print("\033[A\033[K", end="")  # Move up one line and clear it
-            
-            # Start with user message (replacing the input line)
+            import sys
+            sys.stdout.write("\033[1A\033[2K")  # Move up one line and clear it
+            sys.stdout.flush()
+
+            # Print the user message immediately to replace the prompt line
             user_msg = f"[bold dodger_blue2]{MessageSymbols.USER_MESSAGE} {query}[/bold dodger_blue2]"
-            current_display = Text.from_markup(user_msg)
+            console.print(user_msg)
+
+            # Add blank line before thinking indicator
+            console.print()
+
+            # Start Live display with thinking indicator
+            current_display = Text(f"{thinking_msg}", style="dim")
         else:
             # Command-line mode: no input() line to overwrite, start with user message
+            console.print()  # Add blank line before user message
             user_msg = f"[bold dodger_blue2]{MessageSymbols.USER_MESSAGE} {query}[/bold dodger_blue2]"
             console.print(user_msg)
             current_display = Text(f"{thinking_msg}", style="dim")
         
         with Live(current_display, console=console, refresh_per_second=10, auto_refresh=True) as live:
             import time
-            
+
+            # Set the Live display on the unified_display's CLI implementation for real-time tool updates
+            if unified_display and hasattr(unified_display.display_impl, 'set_live_display'):
+                unified_display.display_impl.set_live_display(live)
+
             if not skip_user_message:
                 # REPL mode: show user message briefly, then transition to thinking
                 time.sleep(0.3)  # Brief pause to show user message
@@ -102,14 +117,49 @@ def execute_query_with_unified_display(
                     # Add the real LLM response to memory
                     memory_manager.add_assistant_message(result)
                     
-                    # Update the live display with the actual response
-                    formatted_response = format_llm_response(result)
-                    response_text = Text.from_markup(formatted_response)
-                    live.update(response_text)
-                    time.sleep(0.2)  # Brief pause to show response
+                    # Check if Live display is still active (may have been exited for data tables)
+                    if unified_display and hasattr(unified_display.display_impl, 'live_display') and unified_display.display_impl.live_display:
+                        # Update the live display with the actual response as Markdown
+                        from rich.markdown import Markdown
+                        from rich.console import Group
+
+                        formatted_response = format_llm_response(result)
+                        # Extract content after symbol if present
+                        if formatted_response.startswith(MessageSymbols.AI_RESPONSE):
+                            content = formatted_response[len(MessageSymbols.AI_RESPONSE):].strip()
+                        else:
+                            content = result
+
+                        # For Live display, combine symbol and markdown content
+                        # Rich Markdown can include the symbol at the beginning
+                        symbol_text = f"{MessageSymbols.AI_RESPONSE} "
+                        full_content = symbol_text + content
+                        md = Markdown(full_content)
+                        live.update(md)
+                        time.sleep(0.2)  # Brief pause to show response
+                    else:
+                        # Live display was exited early, print AI response directly with proper spacing and Markdown
+                        from rich.markdown import Markdown
+
+                        formatted_response = format_llm_response(result)
+                        # Extract content after symbol if present
+                        if formatted_response.startswith(MessageSymbols.AI_RESPONSE):
+                            content = formatted_response[len(MessageSymbols.AI_RESPONSE):].strip()
+                        else:
+                            content = result
+
+                        # Print symbol and markdown
+                        ai_symbol = f"[ai_symbol]{MessageSymbols.AI_RESPONSE}[/ai_symbol] "
+                        console.print(f"\n{ai_symbol}", end="")
+                        md = Markdown(content)
+                        console.print(md)
                 
+                # Clear the Live display reference when we're done
+                if unified_display and hasattr(unified_display.display_impl, 'set_live_display'):
+                    unified_display.display_impl.set_live_display(None)
+
                 # History display moved to before each LLM call in llm_integration.py
-                
+
                 return result
                 
             except Exception as e:
@@ -126,6 +176,11 @@ def execute_query_with_unified_display(
                 
                 # Update live display with error
                 live.update(Text(error_msg, style="red"))
+
+                # Clear the Live display reference when we're done (error case)
+                if unified_display and hasattr(unified_display.display_impl, 'set_live_display'):
+                    unified_display.display_impl.set_live_display(None)
+
                 return error_msg
                 
     elif display_refresh_func:
@@ -202,7 +257,7 @@ def execute_query_with_unified_display(
             return error_msg
 
 
-def _display_conversation_history(memory_manager, console: Console) -> None:
+def _display_conversation_history(memory_manager, console: Console, show_full_history: bool = False) -> None:
     """Display conversation history panel for text mode when history is enabled."""
     from rich.panel import Panel
     from rich.text import Text
@@ -215,8 +270,10 @@ def _display_conversation_history(memory_manager, console: Console) -> None:
         from sqlbot.llm_integration import build_system_prompt
         system_prompt = build_system_prompt()
         
-        # Truncate system prompt for display readability
-        if len(system_prompt) > 200:
+        # Truncate system prompt for display readability (unless full history is requested)
+        if show_full_history:
+            system_prompt_display = system_prompt
+        elif len(system_prompt) > 200:
             system_prompt_display = system_prompt[:200] + "... [TRUNCATED - Full system prompt sent to LLM]"
         else:
             system_prompt_display = system_prompt

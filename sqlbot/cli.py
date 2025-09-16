@@ -72,6 +72,7 @@ def create_cli_parser():
     parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
     parser.add_argument('--text', action='store_true', help='Use text-based REPL with shared session (for debugging)')
     parser.add_argument('--history', action='store_true', help='Show conversation history panel (for debugging)')
+    parser.add_argument('--full-history', action='store_true', help='Show full conversation history without truncation (for debugging)')
     parser.add_argument('--theme', choices=['qbot', 'dark', 'light'], default='qbot', help='Color theme (default: qbot)')
     
     # Create subparsers (but make them optional)
@@ -130,6 +131,7 @@ def parse_args_with_subcommands(args=None):
         parser.add_argument('--no-repl', '--norepl', action='store_true', help='Exit after executing query without starting interactive mode')
         parser.add_argument('--text', action='store_true', help='Use text-based REPL with shared session (for debugging)')
         parser.add_argument('--history', action='store_true', help='Show conversation history panel (for debugging)')
+        parser.add_argument('--full-history', action='store_true', help='Show full conversation history without truncation (for debugging)')
         parser.add_argument('--theme', choices=['qbot', 'dark', 'light'], default='qbot', help='Color theme (default: qbot)')
         parser.add_argument('--help', '-h', action='store_true', help='Show help')
         parser.add_argument('query', nargs='*', help='Query to execute')

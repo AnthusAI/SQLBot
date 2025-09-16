@@ -303,9 +303,9 @@ class DbtQueryTool(BaseTool):
     Use this tool to run SQL queries or dbt macros to answer questions about the data.
 
     Input should be valid SQL or dbt macro syntax such as:
-    - SELECT * FROM {{{{ source('your_source', 'your_table') }}}} LIMIT 10
-    - {{{{ your_macro_name(parameter) }}}}
-    - SELECT column, COUNT(*) FROM {{{{ source('your_source', 'your_table') }}}} WHERE date_col >= '2024-01-01' GROUP BY column
+    - SELECT * FROM film LIMIT 10
+    - {{ your_macro_name(parameter) }}
+    - SELECT column, COUNT(*) FROM customer WHERE date_col >= '2024-01-01' GROUP BY column
     
     The tool will return formatted query results or error messages.
     """
@@ -343,13 +343,15 @@ class DbtQueryTool(BaseTool):
             # Mark that a tool execution is happening
             global tool_execution_happened
             tool_execution_happened = True
-            
+
             log_to_file(f"✅ Tool execution flag set, unified_display available: {self._unified_display is not None}")
-            
-            # Display tool call in real-time if we have unified display
+
+            # Display tool call directly since callback system isn't working
             if self._unified_display:
                 self._unified_display.display_impl.display_tool_call("Database Query", query)
-                log_to_file("✅ Displayed tool call to unified display")
+                log_to_file("✅ Tool call displayed directly")
+            else:
+                log_to_file("❌ No unified display available for tool call")
             
             from rich.console import Console
             console = Console()
@@ -427,6 +429,7 @@ class DbtQueryTool(BaseTool):
                 # console.print("📊 Results:")
                 
                 # Execute query and get structured results
+                # No limit needed - macro prevents dbt from adding LIMIT clauses
                 result = dbt_service.execute_query(query)
                 
                 # Record the result in the query result list
@@ -562,26 +565,30 @@ def get_profile_paths(profile_name):
     if not profile_name:
         return [], []
 
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    
+    # Use current working directory (where the user's project is)
+    project_root = os.getcwd()
+
     schema_paths = [
         # 1. Hidden .sqlbot/profiles/ (preferred)
-        os.path.join(project_root, '.qbot', 'profiles', profile_name, 'models', 'schema.yml'),
+        os.path.join(project_root, '.sqlbot', 'profiles', profile_name, 'models', 'sources.yml'),
+        os.path.join(project_root, '.sqlbot', 'profiles', profile_name, 'models', 'schema.yml'),
         # 2. Project ./profiles/ (fallback)
+        os.path.join(project_root, 'profiles', profile_name, 'models', 'sources.yml'),
         os.path.join(project_root, 'profiles', profile_name, 'models', 'schema.yml'),
-        # 3. Legacy ./models/ (final fallback)
+        # 3. dbt models directory (standard location)
+        os.path.join(project_root, 'models', 'sources.yml'),
         os.path.join(project_root, 'models', 'schema.yml')
     ]
-    
+
     macro_paths = [
         # 1. Hidden .sqlbot/profiles/ (preferred)
-        os.path.join(project_root, '.qbot', 'profiles', profile_name, 'macros'),
+        os.path.join(project_root, '.sqlbot', 'profiles', profile_name, 'macros'),
         # 2. Project ./profiles/ (fallback)
         os.path.join(project_root, 'profiles', profile_name, 'macros'),
-        # 3. Legacy ./macros/ (final fallback)
+        # 3. dbt macros directory (standard location)
         os.path.join(project_root, 'macros')
     ]
-    
+
     return schema_paths, macro_paths
 
 def ensure_schema_available_to_dbt():
@@ -603,6 +610,7 @@ def ensure_schema_available_to_dbt():
         if profile_schema_path:
             from rich.console import Console
             console = Console()
+            # Schema file found and available
         else:
             from rich.console import Console
             console = Console()
@@ -746,7 +754,7 @@ Consider creating:
                         
                         macro_info.append(f"• {macro_name}({params})")
                         macro_info.append(f"  Description: {description}")
-                        macro_info.append(f"  Usage: {{{{ {macro_name}({params}) }}}}")
+                        macro_info.append(f"  Usage: {{ {macro_name}({params}) }}")
                         macro_info.append("")
                         
                 except Exception as e:
@@ -790,7 +798,7 @@ DATABASE TABLES:
 AVAILABLE MACROS:
 {macro_info}
 
-Use dbt source() syntax: {{{{ source('your_source', 'table_name') }}}} and always execute queries using the tool.
+Use direct table names: SELECT * FROM film, SELECT * FROM customer, etc. Always execute queries using the tool.
 """
 
 def load_profile_system_prompt_template(profile_name: str) -> str:
@@ -831,25 +839,32 @@ AVAILABLE DBT MACROS:
 {{ macro_info }}
 
 STRICT SYNTAX RULES (dbt + Jinja):
-• ALWAYS reference tables via dbt sources with EXACTLY double braces: {{ source('source_name', 'table_name') }}
-• NEVER output quadruple braces (e.g., {{{{ … }}}}) or single-brace forms (e.g., { source(…) }).
+• ALWAYS reference tables with direct table names: film, customer, actor, rental, etc.
+• NEVER use dbt source() syntax for this database - use direct table names only.
 • Do NOT end inline queries with a semicolon.
-• Do NOT include pagination keywords (TOP or LIMIT). Pagination is handled by the executor.
-• For counts, prefer: SELECT COUNT(*) AS row_count FROM {{ source('s', 't') }}
-• For sampling: SELECT * FROM {{ source('s', 't') }}  (no TOP/LIMIT)
+• Use standard SQL LIMIT clause for row limiting: SELECT * FROM film LIMIT 10
+• For counts, prefer: SELECT COUNT(*) AS row_count FROM film
+• For sampling: SELECT * FROM customer LIMIT 5
 • Ensure Jinja braces are balanced and source names come from the provided schema.
 • If unsure about the exact source/table name, first run a small safe discovery query or ask for clarification rather than guessing.
 
 BEHAVIOR:
 • Always execute queries immediately using the provided tool; do not just propose SQL.
-• Use dbt source() syntax for all table references.
-• Focus on concise analysis and actionable follow-ups rather than restating result rows.
+• Use direct table names for all table references (film, customer, actor, etc.).
+• Focus on directly answering the user's question with the query results.
+• STOP after successfully answering the question - do not perform additional analysis unless specifically requested.
 
 RESPONSE FORMAT:
 1. Briefly acknowledge the question
 2. Execute the query using the tool
-3. Provide concise analysis of results
-4. Suggest logical follow-up queries if relevant
+3. Present the results clearly and concisely
+4. ONLY suggest follow-up queries if the user explicitly asks for suggestions or if the initial query was incomplete
+
+COMPLETION CRITERIA:
+• If your query successfully returns the requested data, you are DONE
+• Do not perform exhaustive analysis unless specifically requested
+• If a query fails with syntax error, fix the specific syntax issue - do NOT try multiple different approaches
+• Maximum 2 query attempts per user request - get it right or ask for clarification
 """
 
 # Global counter for LLM requests in current session
@@ -876,12 +891,13 @@ def log_llm_request():
 class LoggingChatOpenAI(ChatOpenAI):
     """Custom ChatOpenAI that logs each request with context and shows LLM reasoning to user"""
     
-    def __init__(self, *args, console=None, show_history=False, **kwargs):
+    def __init__(self, *args, console=None, show_history=False, show_full_history=False, **kwargs):
         # Remove our custom fields from kwargs before passing to parent
         super().__init__(*args, **kwargs)
         # Store as private attributes after initialization
         self._console = console
         self._show_history = show_history
+        self._show_full_history = show_full_history
     
     def invoke(self, input, *args, **kwargs):
         # Show conversation history before every LLM call if enabled
@@ -899,8 +915,8 @@ class LoggingChatOpenAI(ChatOpenAI):
                     role = getattr(msg, 'type', 'unknown')
                     content = getattr(msg, 'content', str(msg))
                     
-                    # Truncate very long content for readability
-                    if len(content) > 500:
+                    # Truncate very long content for readability (unless full history is requested)
+                    if not self._show_full_history and len(content) > 500:
                         content = content[:500] + "... [TRUNCATED]"
                     
                     conversation_text.append(f"[{i+1}] {role.upper()} MESSAGE:\n", style="bold yellow")
@@ -1058,7 +1074,7 @@ def set_session_id(session_id: str):
     """Set the session ID for LLM agent creation"""
     create_llm_agent._session_id = session_id
 
-def create_llm_agent(unified_display=None, console=None, show_history=False):
+def create_llm_agent(unified_display=None, console=None, show_history=False, show_full_history=False):
     """
     Create LangChain agent with dbt query tool for database analysis.
     
@@ -1096,7 +1112,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
                 "reasoning": {"effort": effort}
             }
         
-        llm = LoggingChatOpenAI(console=console, show_history=show_history, **llm_kwargs)
+        llm = LoggingChatOpenAI(console=console, show_history=show_history, show_full_history=show_full_history, **llm_kwargs)
         
         # Create tools - both query execution and result lookup
         from .core.query_result_lookup_tool import create_query_result_lookup_tool
@@ -1138,7 +1154,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
             def on_tool_start(self, serialized, input_str, **kwargs):
                 global tool_execution_happened
                 tool_execution_happened = True
-                
+
                 # Display tool call if we have access to unified display
                 if self.unified_display:
                     tool_name = serialized.get("name", "Unknown tool")
@@ -1150,16 +1166,22 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
             
             def on_tool_end(self, output, **kwargs):
                 # Display tool result if we have access to unified display
+                # Skip execute_dbt_query as it handles its own result display
                 if self.unified_display and output:
-                    # Truncate long results for display
-                    result_preview = str(output)[:200] + "..." if len(str(output)) > 200 else str(output)
-                    self.unified_display.display_impl.display_tool_result("Query Result", result_preview)
+                    # Check if this is execute_dbt_query tool - skip if so to avoid duplicates
+                    serialized = kwargs.get('serialized', {})
+                    tool_name = serialized.get('name', 'Unknown tool')
+
+                    if tool_name != 'execute_dbt_query':
+                        # Only display results for non-dbt tools to avoid duplicates
+                        result_preview = str(output)[:200] + "..." if len(str(output)) > 200 else str(output)
+                        self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
                 
         agent_executor = AgentExecutor(
             agent=agent, 
             tools=tools, 
             verbose=False,  # Disable verbose to prevent raw JSON output
-            max_iterations=20,  # Allow more iterations but let agent decide when to stop
+            max_iterations=20,  # Allow more iterations for complex analysis
             handle_parsing_errors=True,
             callbacks=[ToolTrackingCallback(unified_display, console, show_history)],
             return_intermediate_steps=True  # Ensure tool results are available to agent
@@ -1175,7 +1197,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False):
 _dbt_setup_cache = None
 _dbt_setup_cache_time = 0
 
-def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False) -> str:
+def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False, show_full_history: bool = False) -> str:
     """
     Handle natural language query via LLM agent with retry logic.
     
@@ -1212,7 +1234,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
             if attempt > 0:
                 console.print(f"🔄 [yellow]Retrying LLM request (attempt {attempt + 1}/{max_retries})...[/yellow]")
             
-            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history)
+            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history, show_full_history)
             
         except Exception as e:
             error_msg = str(e)
@@ -1234,7 +1256,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
                 console.print(f"❌ [red]LLM query failed after {attempt + 1} attempts: {error_msg}[/red]")
                 return f"LLM query failed: {error_msg}"
 
-def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False) -> str:
+def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False) -> str:
     """
     Execute the actual LLM query with timeout handling.
     
@@ -1299,7 +1321,7 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         
         sys.stdout.flush()  # Force immediate display
         # Create agent (fresh instance ensures latest schema/macro info)  
-        agent = create_llm_agent(unified_display, console, show_history)
+        agent = create_llm_agent(unified_display, console, show_history, show_full_history)
         
         # Execute query with chat history (conversation history now shown by callback before each LLM call)
         result = agent.invoke({
@@ -1385,8 +1407,8 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
                     query_executed = step[0].tool_input.get('query', 'Unknown query')
                     query_result = step[1] if len(step) > 1 else 'No result'
                     
-                    # Truncate large results for conversation history
-                    if len(query_result) > 2000:
+                    # Truncate large results for conversation history (unless full history is requested)
+                    if not show_full_history and len(query_result) > 2000:
                         truncated_result = query_result[:1500] + f"\n\n[TRUNCATED - Original result was {len(query_result)} characters. This truncation was applied to manage conversation history size for the AI model. The user saw the complete results above.]"
                         query_results.append(f"Query: {query_executed}\nResult: {truncated_result}")
                     else:

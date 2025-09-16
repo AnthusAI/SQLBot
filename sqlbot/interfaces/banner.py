@@ -59,7 +59,7 @@ def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = 
     content = f"{title}\n"
     if config_text:
         content += f"{config_text}\n\n"
-    content += "Natural Language Queries (Default):\n• Just type your question in plain English\n• Example: How many customers are there?\n\nSQL/dbt Queries:\n• End with semicolon for direct execution\n• SQL: SELECT COUNT(*) FROM customers;\n• dbt: SELECT * FROM {{ source('sakila', 'customer') }} LIMIT 10;\n\nCommands:\n• /help - Show all available commands\n• /preview - Preview SQL compilation before execution\n• /dangerous - Toggle dangerous mode (disables safeguards)\n• exit, quit, or q - Exit SQLBot"
+    content += "Natural Language Queries (Default):\n• Just type your question in plain English\n• Example: How many customers are there?\n\nSQL Queries:\n• End with semicolon for direct execution\n• SQL: SELECT COUNT(*) FROM customers;\n• SQL: SELECT * FROM customer LIMIT 10;\n\nCommands:\n• /help - Show all available commands\n• /preview - Preview SQL compilation before execution\n• /dangerous - Toggle dangerous mode (disables safeguards)\n• exit, quit, or q - Exit SQLBot"
     
     return content
 
@@ -126,7 +126,7 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
         "## SQL/dbt Queries\n"
         "- End with semicolon for direct execution\n"
         "- **SQL:** `SELECT COUNT(*) FROM customers;`\n"
-        "- **dbt:** `SELECT * FROM {{ source('sakila', 'customer') }} LIMIT 10;`\n\n"
+        "- **SQL:** `SELECT * FROM customer LIMIT 10;`\n\n"
         
         "## Commands\n"
         "- `/help` - Show all available commands\n"
@@ -204,7 +204,7 @@ def get_interactive_banner_content(profile: Optional[str] = None, llm_model: Opt
         
         "## SQL/dbt Queries: End with semicolon\n"
         "- **SQL:** `SELECT COUNT(*) FROM sys.tables;`\n"
-        "- **dbt:** `SELECT * FROM {{ source('your_source', 'your_table') }} LIMIT 10;`\n\n"
+        "- **SQL:** `SELECT * FROM film LIMIT 10;`\n\n"
         
         "## Commands\n"
         "- `/help` - Show all commands\n"

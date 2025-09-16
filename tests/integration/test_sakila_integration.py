@@ -24,14 +24,14 @@ pytestmark = pytest.mark.integration
 # Import SQLBot modules
 try:
     from sqlbot.repl import execute_safe_sql as execute_dbt_query
-    from sqlbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME
+    from sqlbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME, get_current_profile
     from sqlbot.repl import main as repl_main
 except ImportError:
     # Fallback for direct script execution
     import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
     from sqlbot.repl import execute_safe_sql as execute_dbt_query
-    from sqlbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME
+    from sqlbot.llm_integration import load_schema_info, get_profile_paths, handle_llm_query, DBT_PROFILE_NAME, get_current_profile
     from sqlbot.repl import main as repl_main
 
 
@@ -123,6 +123,11 @@ class TestSakilaSchemaIntegration:
     @pytest.fixture(autouse=True)
     def setup_sakila_profile(self):
         """Set up Sakila profile for all tests."""
+        # Change to project root where schema files exist
+        project_root = Path(__file__).parent.parent.parent
+        old_cwd = os.getcwd()
+        os.chdir(str(project_root))
+
         import sqlbot.llm_integration as llm
         llm.DBT_PROFILE_NAME = 'Sakila'
         os.environ['DBT_PROFILE_NAME'] = 'Sakila'
@@ -130,6 +135,7 @@ class TestSakilaSchemaIntegration:
         # Cleanup
         if 'DBT_PROFILE_NAME' in os.environ:
             del os.environ['DBT_PROFILE_NAME']
+        os.chdir(old_cwd)
 
     def test_sakila_profile_paths(self):
         """Test that Sakila profile paths are correctly identified."""
@@ -144,11 +150,24 @@ class TestSakilaSchemaIntegration:
 
     def test_sakila_schema_loading(self):
         """Test that Sakila schema information loads correctly."""
+        # Debug: Check current environment
+        print(f"Current profile: {get_current_profile()}")
+        print(f"Working directory: {os.getcwd()}")
+
         schema_info = load_schema_info()
+        print(f"Schema info result: {schema_info[:100]}...")
 
         # Schema files are optional - test should handle missing files gracefully
+        # But we've configured schema files, so they should be found
         if "schema file not found" in str(schema_info).lower():
-            pytest.skip("Schema files not configured - this is expected for basic setup")
+            # Check if files actually exist before skipping
+            schema_paths, _ = get_profile_paths('Sakila')
+            existing_files = [p for p in schema_paths if os.path.exists(p)]
+            if existing_files:
+                print(f"Schema files DO exist: {existing_files}")
+                # Don't skip if files exist - there might be another issue
+            else:
+                pytest.skip("Schema files not configured - this is expected for basic setup")
 
         assert schema_info is not None, "Failed to load schema information"
         assert len(schema_info) > 0, "Schema information is empty"

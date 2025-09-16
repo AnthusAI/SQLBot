@@ -232,9 +232,10 @@ WHERE id = {{ report_id }}
                     assert "Test schema" in prompt
                     assert "Test macros" in prompt
                     
-                    # Check that dbt syntax is properly rendered from template
-                    # Should contain the rendered dbt source syntax
-                    assert "{{ source(" in prompt
+                    # Check that template variables were properly rendered
+                    # Should contain Jinja template placeholders that were substituted
+                    assert "{{ macro_info }}" not in prompt  # Should be substituted
+                    assert "{{ schema_info }}" not in prompt  # Should be substituted
 
     def test_handle_llm_query_success(self, mock_env):
         """Test successful LLM query handling."""

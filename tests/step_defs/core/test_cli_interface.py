@@ -4,9 +4,16 @@ Test steps for CLI interface behavior.
 
 import os
 import pytest
+import re
 import subprocess
 import sys
 from pathlib import Path
+
+def strip_ansi_codes(text):
+    """Remove ANSI escape sequences from text."""
+    # Remove all ANSI escape sequences including cursor movements
+    ansi_escape = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
+    return ansi_escape.sub('', text)
 
 
 @pytest.fixture
@@ -24,10 +31,19 @@ def test_text_mode_with_query_skips_banner(sqlbot_command):
     This corresponds to the BDD scenario:
     "Text mode with command-line query should skip banner"
     """
-    # Run sqlbot with --text and a query, with proper environment
+    # Use the actual project root directory where all files exist
+    project_root = Path(__file__).parent.parent.parent.parent
+    profiles_dir = project_root / '.dbt'
+
+    # Debug: Print environment info
+    print(f"Project root: {project_root}")
+    print(f"Database file exists: {(project_root / 'profiles/Sakila/data/sakila.db').exists()}")
+    print(f"Profiles dir exists: {profiles_dir.exists()}")
+
+    # Run sqlbot with --text and a query, using absolute paths
     env = os.environ.copy()
     env.update({
-        'DBT_PROFILES_DIR': '.dbt',
+        'DBT_PROFILES_DIR': str(profiles_dir),
         'DBT_PROFILE_NAME': 'Sakila'
     })
     result = subprocess.run(
@@ -35,14 +51,16 @@ def test_text_mode_with_query_skips_banner(sqlbot_command):
         capture_output=True,
         text=True,
         timeout=30,
-        env=env
+        env=env,
+        cwd=str(project_root)  # Run from project root where files exist
     )
 
     # Check that the command succeeded
     assert result.returncode == 0, f"Command failed with: {result.stderr}"
 
-    # Get the output lines
-    output_lines = result.stdout.strip().split('\n')
+    # Get the output lines, cleaning ANSI codes
+    clean_output = strip_ansi_codes(result.stdout)
+    output_lines = clean_output.strip().split('\n')
 
     # The first non-empty line should be the user message (starts with ◀)
     first_content_line = None
@@ -93,10 +111,14 @@ def test_regular_mode_with_query_behavior():
     Test that regular mode (not --text) behaves correctly.
     This helps ensure we didn't break existing functionality.
     """
-    # Test with --no-repl to avoid interactive mode, with proper environment
+    # Use the actual project root directory where all files exist
+    project_root = Path(__file__).parent.parent.parent.parent
+    profiles_dir = project_root / '.dbt'
+
+    # Test with --no-repl to avoid interactive mode, using absolute paths
     env = os.environ.copy()
     env.update({
-        'DBT_PROFILES_DIR': '.dbt',
+        'DBT_PROFILES_DIR': str(profiles_dir),
         'DBT_PROFILE_NAME': 'Sakila'
     })
     result = subprocess.run(
@@ -104,7 +126,8 @@ def test_regular_mode_with_query_behavior():
         capture_output=True,
         text=True,
         timeout=30,
-        env=env
+        env=env,
+        cwd=str(project_root)  # Run from project root where files exist
     )
 
     # Should succeed

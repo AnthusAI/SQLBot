@@ -35,8 +35,9 @@ dependencies = [
     "dotyaml>=0.1.0",
 ]
 
-[tool.setuptools]
-packages = ["sqlbot"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sqlbot*"]
 
 [project.optional-dependencies]
 sqlserver = [

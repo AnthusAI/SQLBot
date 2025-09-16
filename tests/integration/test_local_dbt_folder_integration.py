@@ -133,7 +133,7 @@ class TestLocalDbtFolderIntegration:
             try:
                 os.chdir(temp_dir)
 
-                from scripts.setup_sakila_db import SakilaSetup
+                from sqlbot.core.sakila import SakilaManager as SakilaSetup
 
                 # Create database structure
                 db_dir = Path('profiles/Sakila/data')
@@ -201,7 +201,7 @@ class TestLocalDbtFolderIntegration:
             try:
                 os.chdir(temp_dir)
 
-                from scripts.setup_sakila_db import SakilaSetup
+                from sqlbot.core.sakila import SakilaManager as SakilaSetup
 
                 # Create database structure
                 db_dir = Path('profiles/Sakila/data')

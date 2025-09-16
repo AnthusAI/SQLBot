@@ -155,18 +155,26 @@ class UnifiedMessageDisplay:
 
 class CLIMessageDisplay:
     """CLI text mode implementation of message display"""
-    
-    def __init__(self, console: Console):
+
+    def __init__(self, console: Console, live_display=None):
         self.console = console
+        self.live_display = live_display  # Rich Live display for real-time updates
         self.interactive_mode = False
         self.last_was_prompt = False
         self.thinking_shown = False
+        self.tool_call_shown = False
         self._lines_since_thinking = 0
+        self._should_exit_live = False  # Flag to signal Live display should exit
+        self._exited_live_for_data = False  # Flag to track if we exited Live for data tables
         self._apply_rich_theme()
     
     def set_interactive_mode(self, interactive: bool = True):
         """Set whether we're in interactive mode (for prompt overwriting)"""
         self.interactive_mode = interactive
+
+    def set_live_display(self, live_display):
+        """Set the Rich Live display for real-time updates"""
+        self.live_display = live_display
     
     def _apply_rich_theme(self):
         """Apply Rich theme to console based on current theme manager"""
@@ -211,7 +219,7 @@ class CLIMessageDisplay:
     def display_user_message(self, message: str) -> None:
         """Display a user message in CLI"""
         styled_message = f"[user_message][user_symbol]{MessageSymbols.USER_MESSAGE}[/user_symbol] {message}[/user_message]"
-        
+
         # In interactive mode, overwrite the prompt line if it was just shown
         if self.interactive_mode and self.last_was_prompt:
             # Move cursor up one line and clear it, then print the user message
@@ -223,10 +231,13 @@ class CLIMessageDisplay:
             self.console.print()  # Add newline
             self.last_was_prompt = False
         else:
+            self.console.print()  # Add blank line before message
             self.console.print(styled_message)
     
     def display_ai_message(self, message: str) -> None:
-        """Display an AI response message in CLI"""
+        """Display an AI response message in CLI with Markdown rendering"""
+        from rich.markdown import Markdown
+
         # Apply message formatting first
         pre_formatted = format_llm_response(message)
         # Extract content after symbol if present
@@ -234,20 +245,30 @@ class CLIMessageDisplay:
             content = pre_formatted[len(MessageSymbols.AI_RESPONSE):].strip()
         else:
             content = message
-        
-        formatted_response = f"[ai_response][ai_symbol]{MessageSymbols.AI_RESPONSE}[/ai_symbol] {content}[/ai_response]"
-        
+
+        # Create the AI response symbol
+        ai_symbol = f"[ai_symbol]{MessageSymbols.AI_RESPONSE}[/ai_symbol] "
+
         # If thinking indicator was shown, overwrite it
         if self.thinking_shown:
             import sys
             # Move cursor up one line and clear it, then print the AI response
             sys.stdout.write("\033[1A\033[2K")  # Move up and clear line
             sys.stdout.flush()
-            self.console.print(formatted_response, end="")
-            self.console.print()  # Add newline
+            # Add blank line before AI response
+            self.console.print()
+            # Print symbol and markdown separately
+            self.console.print(ai_symbol, end="")
+            md = Markdown(content)
+            self.console.print(md)
             self.thinking_shown = False
         else:
-            self.console.print(formatted_response)
+            # Add blank line before AI response
+            self.console.print()
+            # Print symbol and markdown separately
+            self.console.print(ai_symbol, end="")
+            md = Markdown(content)
+            self.console.print(md)
     
     def display_system_message(self, message: str, style: str = "system_message") -> None:
         """Display a system message in CLI"""
@@ -257,42 +278,114 @@ class CLIMessageDisplay:
     def display_error_message(self, message: str) -> None:
         """Display an error message in CLI"""
         styled_message = f"[error_message][error_symbol]{MessageSymbols.ERROR}[/error_symbol] {message}[/error_message]"
-        self.console.print(styled_message)
+
+        # If we have a Live display, print above it (accumulates)
+        if self.live_display:
+            self.live_display.console.print(styled_message)
+            self.thinking_shown = False
+        else:
+            # Fallback to direct console printing
+            # If thinking indicator was shown, overwrite it
+            if self.thinking_shown:
+                # Use carriage return and overwrite the thinking line
+                print(f"\r{' ' * 80}\r", end="", flush=True)  # Clear the line
+                self.console.print(styled_message)
+                self.thinking_shown = False
+            else:
+                self.console.print(styled_message)
     
     def display_success_message(self, message: str) -> None:
         """Display a success message in CLI"""
         styled_message = f"[success_message][success_symbol]{MessageSymbols.SUCCESS}[/success_symbol] {message}[/success_message]"
-        self.console.print(styled_message)
+
+        # If we have a Live display, print above it (accumulates)
+        if self.live_display:
+            self.live_display.console.print()  # Add blank line before message
+            self.live_display.console.print(styled_message)
+            self.live_display.console.print()  # Add blank line after message for thinking indicator spacing
+            self.thinking_shown = False
+        else:
+            # Fallback to direct console printing
+            # If thinking indicator was shown, overwrite it
+            if self.thinking_shown:
+                # Use carriage return and overwrite the thinking line
+                print(f"\r{' ' * 80}\r", end="", flush=True)  # Clear the line
+                self.console.print()  # Add blank line before message
+                self.console.print(styled_message)
+                # Ensure there's a newline after overwriting
+                print()  # Add explicit newline
+                self.thinking_shown = False
+            else:
+                self.console.print()  # Add blank line before message
+                self.console.print(styled_message)
+                # Ensure there's a newline after the success message
+                print()  # Add explicit newline
     
     def display_tool_call(self, tool_name: str, description: str = "") -> None:
-        """Display a tool call in CLI"""
-        display_text = f"{tool_name}: {description}" if description else f"Calling {tool_name}..."
+        """Display a tool call in CLI using Rich Live properly"""
+        if description:
+            display_text = f"{tool_name}: {description}"
+        else:
+            display_text = f"Calling {tool_name}..."
+
         styled_message = f"[tool_call][tool_call_symbol]{MessageSymbols.TOOL_CALL}[/tool_call_symbol] {display_text}[/tool_call]"
-        self.console.print(styled_message)
+
+        # If we have a Live display, print above it (accumulates)
+        if self.live_display:
+            self.live_display.console.print(styled_message)
+            self.thinking_shown = False
+            self.tool_call_shown = True
+        else:
+            # Fallback to direct console printing
+            self.console.print(styled_message)
+            self.tool_call_shown = True
     
     def display_tool_result(self, tool_name: str, result_summary: str) -> None:
         """Display a tool result in CLI"""
         styled_message = f"[tool_result][tool_result_symbol]{MessageSymbols.TOOL_RESULT}[/tool_result_symbol] {tool_name} → {result_summary}[/tool_result]"
-        self.console.print(styled_message)
+
+        # If we have a Live display, print above it (accumulates)
+        if self.live_display:
+            self.live_display.console.print(styled_message)
+            self.tool_call_shown = False
+        else:
+            # Fallback to direct console printing
+            # If tool call was shown, overwrite it
+            if self.tool_call_shown:
+                # Use carriage return and overwrite the tool call line
+                print(f"\r{' ' * 80}\r", end="", flush=True)  # Clear the line
+                self.console.print(styled_message)
+                self.tool_call_shown = False
+            else:
+                self.console.print(styled_message)
     
     def display_tool_result_with_data(self, tool_name: str, result_summary: str, result_data=None) -> None:
         """Display a tool result with actual data in CLI using Rich table"""
         # First show the summary
         styled_message = f"[tool_result][tool_result_symbol]{MessageSymbols.TOOL_RESULT}[/tool_result_symbol] {tool_name} → {result_summary}[/tool_result]"
-        self.console.print(styled_message)
+
+        # If we have a Live display, print the summary above it (accumulates)
+        if self.live_display:
+            self.live_display.console.print(styled_message)
+            self.tool_call_shown = False
+        else:
+            # Fallback to direct console printing
+            self.console.print()  # Add blank line before message
+            self.console.print(styled_message)
+            self.tool_call_shown = False
         
         # Then show the actual data if available
         if result_data and hasattr(result_data, 'data') and result_data.data:
             from rich.table import Table
-            
+
             # Create a Rich table with no width limit for all data
             table = Table(show_header=True, header_style="bold magenta", width=None)
-            
+
             # Add columns - no width limits for any columns
             if hasattr(result_data, 'columns') and result_data.columns:
                 for col in result_data.columns:
                     table.add_column(str(col), no_wrap=False, width=None)
-            
+
             # Add rows (limit to first 10 for readability, show full text for all columns)
             max_rows = 10
             for i, row in enumerate(result_data.data):
@@ -302,18 +395,37 @@ class CLIMessageDisplay:
                 # Convert all values to strings and handle None values - show full text for ALL columns
                 row_values = [str(val) if val is not None else "" for val in row.values()]
                 table.add_row(*row_values)
-            
-            self.console.print(table)
-            
+
+            # Print table above live display (accumulates) or use regular console
+            if self.live_display:
+                self.live_display.console.print(table)
+            else:
+                self.console.print(table)
+
             # Show row count info
             total_rows = len(result_data.data)
             if total_rows > max_rows:
-                self.console.print(f"[dim]Showing first {max_rows} of {total_rows} rows[/dim]")
+                row_count_msg = f"[dim]Showing first {max_rows} of {total_rows} rows[/dim]"
+                if self.live_display:
+                    self.live_display.console.print(row_count_msg)
+                    self.live_display.console.print()  # Add blank line after table
+                else:
+                    self.console.print(row_count_msg)
+                    self.console.print()  # Add blank line after table
+            else:
+                # Add blank line after table even when no row count message
+                if self.live_display:
+                    self.live_display.console.print()
+                else:
+                    self.console.print()
         elif result_data and hasattr(result_data, 'data') and not result_data.data:
-            self.console.print("[dim]No data returned[/dim]")
-        else:
-            # Fallback - no structured data available
-            pass
+            no_data_msg = "[dim]No data returned[/dim]"
+            if self.live_display:
+                self.live_display.console.print(no_data_msg)
+                self.live_display.console.print()  # Add blank line after no data message
+            else:
+                self.console.print(no_data_msg)
+                self.console.print()  # Add blank line after no data message
     
     def clear_display(self) -> None:
         """Clear the CLI display"""

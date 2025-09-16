@@ -49,8 +49,10 @@ class AIMessageWidget(Static):
         symbol_text.append(f"{MessageSymbols.AI_RESPONSE} ", style=ai_color)
         yield Static(symbol_text)
         
-        # Create markdown widget for the message content
-        yield Markdown(self.message)
+        # Create markdown widget for the message content with proper styling
+        markdown_widget = Markdown(self.message)
+        markdown_widget.add_class("ai-message-content")
+        yield markdown_widget
 
 
 class SystemMessageWidget(Static):

@@ -137,7 +137,36 @@ def banner_should_be_first():
 def should_see_cli_banner():
     """Verify the CLI banner is displayed."""
     output = pytest.qbot_result.stdout
-    assert "SQLBot CLI" in output, "Should show CLI banner for --no-repl mode"
+    assert "SQLBot CLI" in output, "Should show CLI banner for interactive mode"
+
+@then('I should NOT see any banner')
+def should_not_see_any_banner():
+    """Verify no banner is displayed in --no-repl mode."""
+    output = pytest.qbot_result.stdout + pytest.qbot_result.stderr
+    # No banner elements should appear
+    assert "SQLBot CLI" not in output, f"No banner should appear in --no-repl mode. Output: {output}"
+    assert "Database Query Interface" not in output, f"No banner should appear in --no-repl mode. Output: {output}"
+    assert "╭" not in output, f"No banner borders should appear in --no-repl mode. Output: {output}"
+    assert "╰" not in output, f"No banner borders should appear in --no-repl mode. Output: {output}"
+
+@then('the output should be minimal')
+def output_should_be_minimal():
+    """Verify the output is minimal in --no-repl mode (no verbose banner)."""
+    output = pytest.qbot_result.stdout + pytest.qbot_result.stderr
+    
+    # The main point is that the verbose intro banner should not appear
+    # We allow query execution output, error messages, mode messages, etc.
+    # But we should NOT see the full intro banner with all the help text
+    
+    # Check that banner elements are NOT present
+    assert "Database Query Interface" not in output, "Verbose banner should not appear in --no-repl mode"
+    assert "Natural Language Queries (Default)" not in output, "Verbose banner should not appear in --no-repl mode"
+    assert "Just type your question in plain English" not in output, "Verbose banner should not appear in --no-repl mode"
+    assert "Commands" not in output, "Verbose banner should not appear in --no-repl mode"
+    assert "/help - Show all available commands" not in output, "Verbose banner should not appear in --no-repl mode"
+    
+    # We should still see the essential operational messages
+    assert "Exiting (--no-repl mode)" in output, "Should show exit message"
 
 @then('I should see the "Ready for questions." banner')
 def should_see_interactive_banner():

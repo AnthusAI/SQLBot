@@ -87,14 +87,6 @@ def run_qbot_with_query_and_flags(query, flags):
     # Store result for later assertions
     pytest.qbot_result = result
 
-@then('I should see the ready banner')
-def should_see_ready_banner():
-    """Verify the ready banner is displayed."""
-    output = pytest.qbot_result.stdout
-    # For --no-repl mode, we show CLI banner
-    assert "Database Query Interface" in output
-    # Should show CLI banner
-    assert "SQLBot CLI" in output
 
 @then(parsers.parse('I should see "{text}"'))
 def should_see_text(text):
@@ -190,3 +182,13 @@ def should_see_exit_interactive_description():
     # This is tested by the fact that /no-repl command exists and works
     result = handle_slash_command("/no-repl")
     assert result == 'EXIT'
+
+@then('I should NOT see the intro banner')
+def should_not_see_intro_banner():
+    """Verify the intro banner is NOT displayed in --no-repl mode."""
+    output = pytest.qbot_result.stdout + pytest.qbot_result.stderr
+    # The intro banner should NOT appear in --no-repl mode
+    assert "SQLBot CLI" not in output, f"Intro banner should not appear in --no-repl mode. Output: {output}"
+    assert "Database Query Interface" not in output, f"Intro banner should not appear in --no-repl mode. Output: {output}"
+    assert "Configuration" not in output, f"Intro banner should not appear in --no-repl mode. Output: {output}"
+    assert "Natural Language Queries (Default)" not in output, f"Intro banner should not appear in --no-repl mode. Output: {output}"

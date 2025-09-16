@@ -7,11 +7,10 @@ Feature: Banner Display Priority
     Given SQLBot is available
     And dbt is configured with profile "Sakila"
 
-  Scenario: Banner appears first in CLI mode
+  Scenario: No banner in --no-repl mode
     When I run SQLBot with query "SELECT 42 AS Answer;" and flag "--no-repl"
-    Then the banner should be the first output
-    And I should see the "SQLBot CLI" banner
-    And initialization messages should appear after the banner
+    Then I should NOT see any banner
+    And the output should be minimal
 
   Scenario: Banner appears first in interactive mode  
     When I start SQLBot in interactive mode
@@ -29,8 +28,7 @@ Feature: Banner Display Priority
     Then the banner should be the first output
     And initialization messages should appear after the banner
 
-  Scenario: Banner appears first with combined flags
+  Scenario: No banner with --no-repl in combined flags
     When I run SQLBot with query "SELECT 42 AS Answer;" and flags "--no-repl --preview --dangerous"
-    Then the banner should be the first output
-    And I should see the "SQLBot CLI" banner
-    And initialization messages should appear after the banner
+    Then I should NOT see any banner
+    And the output should be minimal

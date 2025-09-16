@@ -129,6 +129,7 @@ READONLY_MODE = True  # Default to safeguard mode enabled
 READONLY_CLI_MODE = False  # Track if --dangerous was used to disable safeguards
 PREVIEW_MODE = False
 SHOW_HISTORY = False  # Show conversation history panel
+SHOW_FULL_HISTORY = False  # Show full conversation history without truncation
 
 def setup_history():
     """Setup readline history with persistent storage"""
@@ -262,7 +263,7 @@ def execute_clean_sql(sql_query):
         config = SQLBotConfig.from_env(profile=profile_name)
         dbt_service = get_dbt_service(config)
         
-        # Execute query using SDK
+        # Execute query using SDK - macro prevents dbt from adding LIMIT
         result = dbt_service.execute_query(sql_query)
         
         if result.success:
@@ -687,9 +688,10 @@ def start_console():
     # Create memory manager and execution function
     memory_manager = ConversationMemoryManager()
     def execute_llm_func(q: str) -> str:
+        global SHOW_HISTORY, SHOW_FULL_HISTORY
         timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
         max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
-        return handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds)
+        return handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, show_history=SHOW_HISTORY, show_full_history=SHOW_FULL_HISTORY)
     
     # Start unified REPL
     start_unified_repl(memory_manager, rich_console)
@@ -926,7 +928,7 @@ def main():
     import sys
     
     # Global variable declarations
-    global PREVIEW_MODE, READONLY_MODE, READONLY_CLI_MODE, SHOW_HISTORY
+    global PREVIEW_MODE, READONLY_MODE, READONLY_CLI_MODE, SHOW_HISTORY, SHOW_FULL_HISTORY
     
     # Parse arguments with subcommand support
     from .cli import parse_args_with_subcommands, handle_cli_subcommands
@@ -950,8 +952,10 @@ def main():
     # Global variable declarations
     global dbt, LLM_AVAILABLE
     
-    # Show banner first for CLI mode with query before any initialization that might fail
-    if args.query:
+    # Show banner first ONLY for CLI mode with query (not for Textual app)
+    # Banner should only show when we'll use Rich/CLI interface, not Textual interface
+    # IMPORTANT: Never show banner in --no-repl mode or --text mode with query
+    if args.query and not args.no_repl and not args.text and (not sys.stdin.isatty() or not LLM_AVAILABLE):
         # Get LLM model info for banner
         llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5') if LLM_AVAILABLE else None
         show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
@@ -981,7 +985,9 @@ def main():
     # Continue with the rest of main...
     
     # Handle help
-    if args.help:
+    if hasattr(args, 'help') and args.help:
+        from .cli import create_cli_parser
+        parser = create_cli_parser()
         parser.print_help()
         sys.exit(0)
     
@@ -1011,9 +1017,6 @@ def main():
         # Join all query arguments as a single query
         query = ' '.join(args.query)
         
-        # Show starting message for CLI mode
-        rich_console.print(f"\nStarting with query: {query}")
-        
         # Set global mode flags
         if args.preview:
             PREVIEW_MODE = True
@@ -1027,8 +1030,16 @@ def main():
         if args.history:
             SHOW_HISTORY = True
         
+        if args.full_history:
+            SHOW_HISTORY = True  # Enable history display
+            SHOW_FULL_HISTORY = True  # Enable full history mode
+        
         # Execute query using CLI text mode with unified display
         if args.text:
+            # Add spacing after command line when not showing banner
+            rich_console.print()
+            rich_console.print()
+
             # Execute the initial query using unified display system
             _execute_query_cli_mode(query, rich_console)
             
@@ -1122,11 +1133,12 @@ def _execute_query_cli_mode(query: str, console):
             
             # Create execute_llm_func with conversation sync and unified display
             def execute_llm_func(q: str) -> str:
+                global SHOW_HISTORY, SHOW_FULL_HISTORY
                 timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
                 max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
                 
                 # Call handle_llm_query with unified_display for tool call display
-                result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY)
+                result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY, show_full_history=SHOW_FULL_HISTORY)
                 
                 # Sync the updated global conversation_history back to our memory_manager for next time
                 try:
@@ -1149,7 +1161,9 @@ def _execute_query_cli_mode(query: str, console):
                     execute_llm_func,
                     console=console,
                     show_history=SHOW_HISTORY,
-                    skip_user_message=False
+                    show_full_history=SHOW_FULL_HISTORY,
+                    skip_user_message=False,
+                    unified_display=unified_display
                 )
                 
                 # Check if result indicates a dbt setup issue
@@ -1221,11 +1235,12 @@ def start_unified_repl(memory_manager, console):
     
     # Create execute_llm_func with access to unified_display and conversation sync
     def execute_llm_func(q: str) -> str:
+        global SHOW_HISTORY, SHOW_FULL_HISTORY
         timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
         max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
         
         # Call handle_llm_query which maintains its own global conversation_history
-        result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY)
+        result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY, show_full_history=SHOW_FULL_HISTORY)
         
         # Sync the updated global conversation_history back to our memory_manager
         # This ensures the next query sees the full conversation including tool calls and results
@@ -1246,7 +1261,10 @@ def start_unified_repl(memory_manager, console):
             try:
                 # Mark that we're about to show a prompt
                 cli_display.mark_prompt_shown()
-                
+
+                # Add blank line before prompt for better spacing
+                print()
+
                 # Use the input prompt symbol
                 user_input = input(f"{MessageSymbols.INPUT_PROMPT} ").strip()
                 
@@ -1283,7 +1301,9 @@ def start_unified_repl(memory_manager, console):
                             execute_llm_func,
                             console=console,
                             show_history=SHOW_HISTORY,
-                            skip_user_message=False
+                            show_full_history=SHOW_FULL_HISTORY,
+                            skip_user_message=False,
+                            unified_display=unified_display
                         )
                         # Result is already displayed by execute_query_with_unified_display
                     else:

@@ -34,6 +34,123 @@ SQLBot provides two distinct user interface modes:
 - `qbot/__init__.py` - Package initialization and version management
 - `qbot/__version__.py` - Version information
 
+### System Prompt Architecture
+
+SQLBot uses a **progressive enhancement** approach for system prompts that enables both minimal setup and deep customization:
+
+#### Base System Prompt (Always Present)
+```python
+def get_base_system_prompt_template() -> str:
+    """Returns the hardcoded base system prompt with Jinja placeholders."""
+    return """You are a helpful database analyst assistant...
+    {{ schema_info }}
+    {{ macro_info }}
+    """
+```
+
+**Key Features:**
+- **Always available** - Works with any dbt profile, no additional setup required
+- **Jinja templating** - Dynamic schema and macro information insertion
+- **Core SQL guidance** - Syntax rules, behavior guidelines, response format
+- **Database agnostic** - Works with any database SQLBot supports
+
+#### Profile-Specific System Prompt Addition (Optional)
+```python
+def load_profile_system_prompt_addition(profile_name: str) -> str:
+    """Load optional profile-specific system prompt from system_prompt.txt"""
+    # Searches: .sqlbot/profiles/{profile}/system_prompt.txt
+    #       or: profiles/{profile}/system_prompt.txt
+```
+
+**Benefits:**
+- **Domain knowledge** - Business context, industry terminology, key metrics
+- **Query suggestions** - Common analysis patterns for the specific database
+- **Team sharing** - Codified institutional knowledge about the database
+- **Zero impact** - If missing, SQLBot works perfectly with just the base prompt
+
+#### Progressive Enhancement Model
+
+**Level 1: Minimal Setup (Just dbt profile)**
+```yaml
+# ~/.dbt/profiles.yml or .dbt/profiles.yml
+my_profile:
+  target: dev
+  outputs:
+    dev:
+      type: postgres  # or sqlserver, sqlite, etc.
+      # ... connection details
+```
+- ✅ **Immediate functionality** - Connect and explore any database
+- ✅ **LLM assistance** - Natural language to SQL conversion
+- ✅ **Schema discovery** - Automatic table/column detection via dbt
+
+**Level 2: Schema Documentation (Optional)**
+```yaml
+# profiles/my_profile/models/schema.yml
+sources:
+  - name: my_source
+    tables:
+      - name: customers
+        description: "Customer information and preferences"
+        columns:
+          - name: customer_id
+            description: "Unique customer identifier"
+```
+- ✅ **Enhanced LLM context** - Column descriptions improve query generation
+- ✅ **Better suggestions** - More accurate field selection and joins
+
+**Level 3: Custom Macros (Optional)**
+```sql
+-- profiles/my_profile/macros/business_metrics.sql
+{% macro monthly_revenue() %}
+    SELECT DATE_TRUNC('month', order_date) as month,
+           SUM(total_amount) as revenue
+    FROM {{ source('sales', 'orders') }}
+    GROUP BY 1
+{% endmacro %}
+```
+- ✅ **Reusable logic** - Complex business calculations as simple calls
+- ✅ **Consistency** - Standardized metrics across team
+
+**Level 4: Domain System Prompt (Optional)**
+```
+# profiles/my_profile/system_prompt.txt
+BUSINESS CONTEXT:
+You are analyzing data from an e-commerce platform...
+
+KEY METRICS:
+- Customer acquisition cost (CAC)
+- Lifetime value (LTV)
+- Monthly recurring revenue (MRR)
+```
+- ✅ **Business intelligence** - Domain-aware analysis and suggestions
+- ✅ **Knowledge sharing** - Institutional knowledge codified and shareable
+
+#### Implementation Details
+
+**System Prompt Construction:**
+```python
+def build_system_prompt(profile_name: str = None) -> str:
+    """Build complete system prompt: base + profile addition (if exists)"""
+    base_template = get_base_system_prompt_template()
+    
+    # Always render base template with schema/macro info
+    system_prompt = render_template(base_template, schema_info, macro_info)
+    
+    # Optionally append profile-specific context
+    profile_addition = load_profile_system_prompt_addition(profile_name)
+    if profile_addition:
+        system_prompt += f"\n\n{profile_addition}"
+    
+    return system_prompt
+```
+
+**Key Benefits:**
+1. **Zero barrier to entry** - Works immediately with any database
+2. **Incremental enhancement** - Add sophistication as needed
+3. **Team collaboration** - Share database knowledge through version control
+4. **Debugging visibility** - `--full-history` shows complete system prompt construction
+
 ### Key Implementation Patterns
 
 #### Import Flexibility

@@ -10,7 +10,6 @@ from .types import LLMConfig
 
 from dotyaml import load_config
 
-
 @dataclass
 class SQLBotConfig:
     """Configuration for SQLBot agent"""

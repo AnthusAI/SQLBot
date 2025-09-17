@@ -51,6 +51,34 @@ class SQLBotConfig:
         return str(home_dbt_dir), False
 
     @staticmethod
+    def load_dbt_profiles_with_dotyaml() -> bool:
+        """
+        Load dbt profiles.yml file using dotyaml to resolve environment variables.
+
+        This processes the profiles.yml file and sets any interpolated environment
+        variables that dbt will need.
+
+        Returns:
+            bool: True if profiles were loaded successfully, False otherwise
+        """
+        profiles_dir, _ = SQLBotConfig.detect_dbt_profiles_dir()
+        profiles_file = Path(profiles_dir) / 'profiles.yml'
+
+        if not profiles_file.exists():
+            return False
+
+        try:
+            # Load the profiles.yml with dotyaml to process environment variable interpolation
+            load_config(str(profiles_file))
+            return True
+        except Exception as e:
+            # Debug: print the exception to see what's failing
+            print(f"DEBUG: dotyaml loading failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    @staticmethod
     def load_yaml_config() -> bool:
         """
         Load configuration from .sqlbot/config.yml file using dotyaml.
@@ -74,6 +102,9 @@ class SQLBotConfig:
 
         # Try to load YAML configuration first (this sets environment variables)
         cls.load_yaml_config()
+
+        # Also load dbt profiles.yml with dotyaml to resolve environment variables
+        cls.load_dbt_profiles_with_dotyaml()
 
         # LLM configuration from environment (may be set by YAML config)
         llm_config = LLMConfig(

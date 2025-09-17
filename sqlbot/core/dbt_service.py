@@ -40,6 +40,9 @@ class DbtService:
         profiles_dir, is_local = SQLBotConfig.detect_dbt_profiles_dir()
         os.environ['DBT_PROFILES_DIR'] = profiles_dir
 
+        # Process dbt profiles with dotyaml to ensure environment variables are loaded
+        SQLBotConfig.load_dbt_profiles_with_dotyaml()
+
         # Store detection result for banner/logging purposes
         self._is_using_local_dbt = is_local
         self._dbt_profiles_dir = profiles_dir

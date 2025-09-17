@@ -104,13 +104,6 @@ profiles/*/target/
 profiles/*/
 !profiles/sqlbot/
 
-# Call Criteria specific (sensitive)
-*call_criteria*
-*callcriteria*
-*XCC_*
-*cc_prod*
-*callcriteriadb*
-
 # Any files with sensitive database info
 *prod*
 *production*

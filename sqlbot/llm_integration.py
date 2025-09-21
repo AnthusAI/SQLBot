@@ -68,14 +68,14 @@ def check_dbt_setup():
             return False, f"""
 🔧 **dbt Profile Not Found**
 
-SQLBot needs a dbt profile to connect to your database. Here's how to set it up:
+SQLBot needs a dbt profile to connect to your database. You can create it locally or globally:
 
-**1. Create the dbt directory:**
+**Option 1: Local .dbt folder (recommended):**
 ```bash
-mkdir -p ~/.dbt
+mkdir -p .dbt
 ```
 
-**2. Create `~/.dbt/profiles.yml` with your database connection:**
+**Create `.dbt/profiles.yml` with your database connection:**
 ```yaml
 {get_current_profile()}:
   target: dev
@@ -91,6 +91,13 @@ mkdir -p ~/.dbt
       encrypt: true
       trust_cert: false
 ```
+
+**Option 2: Global ~/.dbt folder:**
+```bash
+mkdir -p ~/.dbt
+```
+
+**Create `~/.dbt/profiles.yml` with your database connection (same format as above)**
 
 **3. Make sure your `.env` file has the database credentials:**
 ```bash

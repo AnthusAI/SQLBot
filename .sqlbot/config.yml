@@ -3,7 +3,7 @@
 # Values set here can be overridden by environment variables
 
 # dbt configuration - all database connection info comes from dbt profiles
-profile: sqlbot
+profile: Sakila
 target: null  # Use default target from dbt profile
 
 # LLM configuration

@@ -500,11 +500,19 @@ class DbtService:
                 print(f"🔍 DEBUG: stdout: {stdout}")
                 print(f"🔍 DEBUG: stderr: {stderr}")
 
+            # Extract detailed error information for better debugging
+            detailed_error = self._extract_dbt_debug_error_details(stdout, stderr, result.returncode)
+
             return {
                 'success': connection_ok,  # Success if connection works, regardless of missing dbt_project.yml
                 'connection_ok': connection_ok,
                 'profile': self.config.profile,
-                'error': None if connection_ok else f"Connection failed: {stderr or stdout}"
+                'error': detailed_error if not connection_ok else None,
+                'stdout': stdout,
+                'stderr': stderr,
+                'return_code': result.returncode,
+                'profiles_dir': os.environ.get('DBT_PROFILES_DIR', str(Path.home() / '.dbt')),
+                'project_dir': temp_project_dir
             }
 
         except Exception as e:
@@ -512,8 +520,115 @@ class DbtService:
                 'success': False,
                 'connection_ok': False,
                 'profile': self.config.profile,
-                'error': str(e)
+                'error': f"Exception during dbt debug: {str(e)}",
+                'stdout': '',
+                'stderr': '',
+                'return_code': -1,
+                'profiles_dir': os.environ.get('DBT_PROFILES_DIR', str(Path.home() / '.dbt')),
+                'project_dir': ''
             }
+    
+    def _extract_dbt_debug_error_details(self, stdout: str, stderr: str, return_code: int) -> str:
+        """
+        Extract detailed error information from dbt debug output for better user guidance.
+        
+        Args:
+            stdout: Standard output from dbt debug
+            stderr: Standard error from dbt debug  
+            return_code: Return code from dbt debug
+            
+        Returns:
+            Detailed error message with specific guidance
+        """
+        error_details = []
+        
+        # Add basic context
+        error_details.append(f"dbt debug failed (exit code: {return_code})")
+        
+        # Parse stdout for specific error patterns
+        if stdout:
+            lines = stdout.split('\n')
+            for line in lines:
+                line = line.strip()
+                
+                # Profile-related errors
+                if "Could not find profile named" in line:
+                    profile_name = line.split("'")[1] if "'" in line else "unknown"
+                    error_details.append(f"Profile '{profile_name}' not found in profiles.yml")
+                    
+                elif "Could not find profile" in line and "profiles.yml" in line:
+                    error_details.append("No profiles.yml file found or it's empty")
+                    
+                elif "Encountered an error while reading the project" in line:
+                    error_details.append("Invalid dbt_project.yml configuration")
+                    
+                # Connection-related errors
+                elif "Connection test: FAIL" in line or "Connection test: [31mFAIL" in line:
+                    error_details.append("Database connection test failed")
+                    
+                elif "ODBC Driver" in line and "not found" in line:
+                    error_details.append("ODBC Driver not installed or not found")
+                    
+                elif "Login failed" in line or "authentication failed" in line:
+                    error_details.append("Database authentication failed - check username/password")
+                    
+                elif "timeout" in line.lower() or "timed out" in line.lower():
+                    error_details.append("Connection timeout - database server may be unreachable")
+                    
+                elif "server not found" in line.lower() or "could not resolve" in line.lower():
+                    error_details.append("Database server hostname could not be resolved")
+                    
+                elif "permission" in line.lower() and "denied" in line.lower():
+                    error_details.append("Permission denied - check database user permissions")
+                    
+                # Environment variable errors
+                elif "env_var" in line and "not set" in line:
+                    var_name = line.split("'")[1] if "'" in line else "unknown"
+                    error_details.append(f"Environment variable '{var_name}' is not set")
+                    
+                # Specific adapter errors
+                elif "No module named 'dbt.adapters." in line:
+                    adapter_name = line.split("'")[1].split('.')[-1] if "'" in line else "unknown"
+                    error_details.append(f"Missing dbt adapter: {adapter_name}")
+                    error_details.append(f"Install with: pip install dbt-{adapter_name}")
+                    
+                elif "Could not find adapter type" in line:
+                    adapter_name = line.split("!")[0].split(" ")[-1] if "!" in line else "unknown"
+                    error_details.append(f"Adapter type '{adapter_name}' not found")
+                    error_details.append(f"Install with: pip install dbt-{adapter_name}")
+                    
+                # Generic error patterns
+                elif "ERROR" in line or "Error" in line:
+                    if line not in error_details:  # Avoid duplicates
+                        error_details.append(line)
+        
+        # Parse stderr for additional error information
+        if stderr and stderr.strip():
+            stderr_lines = stderr.strip().split('\n')
+            for line in stderr_lines:
+                line = line.strip()
+                if line and line not in error_details:  # Avoid duplicates
+                    error_details.append(f"STDERR: {line}")
+        
+        # If no specific errors found, provide the raw output for debugging
+        if len(error_details) <= 1:  # Only the basic context
+            if stdout:
+                # Show the most relevant lines from stdout
+                relevant_lines = []
+                for line in stdout.split('\n'):
+                    line = line.strip()
+                    if any(keyword in line.lower() for keyword in [
+                        'error', 'fail', 'not found', 'invalid', 'missing', 'unable', 'cannot'
+                    ]):
+                        relevant_lines.append(line)
+                
+                if relevant_lines:
+                    error_details.append("Raw error output:")
+                    error_details.extend(relevant_lines[:5])  # Limit to 5 lines
+                else:
+                    error_details.append("No specific error details found in output")
+        
+        return " | ".join(error_details)
     
     def list_models(self) -> List[str]:
         """

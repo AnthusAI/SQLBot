@@ -1,3 +1,12 @@
+## [1.2.2](https://github.com/AnthusAI/SQLBot/compare/v1.2.1...v1.2.2) (2025-09-21)
+
+
+### Bug Fixes
+
+* improve dbt setup error reporting with detailed diagnostics and actionable guidance
+* add missing dbt-sqlite adapter support for SQLite database connections
+* enhance error parsing to provide specific installation commands for missing adapters
+
 ## [1.2.1](https://github.com/AnthusAI/SQLBot/compare/v1.2.0...v1.2.1) (2025-09-21)
 
 

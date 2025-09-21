@@ -115,30 +115,46 @@ dbt debug
 📚 **Need help?** See the README.md for detailed setup instructions.
 """
         
-        elif "Could not connect" in error_output or "connection" in error_output.lower():
-            return False, """
+        elif "Could not connect" in error_output or "connection" in error_output.lower() or "Connection test: FAIL" in error_output:
+            # Get additional debug information from the debug result
+            debug_info = debug_result
+            profiles_dir = debug_info.get('profiles_dir', 'unknown')
+            
+            return False, f"""
 🔌 **Database Connection Failed**
 
-Your dbt profile exists but can't connect to the database. Here's how to fix it:
+Your dbt profile exists but can't connect to the database. Here's what went wrong:
 
-**1. Test your connection:**
+**Error Details:**
+{debug_info.get('error', 'No detailed error information available')}
+
+**Configuration Info:**
+- Profile: `{debug_info.get('profile', 'unknown')}`
+- Profiles directory: `{profiles_dir}`
+- Exit code: {debug_info.get('return_code', 'unknown')}
+
+**How to fix it:**
+
+**1. Check your database connection settings:**
 ```bash
-dbt debug
-```
-
-**2. Check common issues:**
-- ✅ Database server is running and accessible
-- ✅ Credentials in `.env` file are correct
-- ✅ Network/firewall allows database connections
-- ✅ Database drivers are installed (e.g., ODBC Driver for SQL Server)
-
-**3. Verify your `.env` file:**
-```bash
+# Verify your .env file has correct credentials:
 DB_SERVER=your_database_server.com  # Check this hostname
-DB_NAME=your_database_name          # Check this database exists
+DB_NAME=your_database_name          # Check this database exists  
 DB_USER=your_username               # Check this user exists
 DB_PASS=your_password               # Check this password is correct
 ```
+
+**2. Test your connection manually:**
+```bash
+# Test with the same configuration SQLBot is using:
+DBT_PROFILES_DIR="{profiles_dir}" dbt debug --profile {debug_info.get('profile', 'your_profile')}
+```
+
+**3. Common fixes:**
+- ✅ Database server is running and accessible
+- ✅ Network/firewall allows database connections  
+- ✅ Database drivers are installed (e.g., ODBC Driver for SQL Server)
+- ✅ Environment variables are properly set
 
 **4. For SQL Server, ensure you have the ODBC driver:**
 ```bash
@@ -153,22 +169,48 @@ brew install unixodbc
 """
         
         else:
+            # Get additional debug information from the debug result
+            debug_info = debug_result
+            profiles_dir = debug_info.get('profiles_dir', 'unknown')
+            
             return False, f"""
 ⚠️ **dbt Configuration Issue**
 
 There's an issue with your dbt setup. Here's what dbt reported:
 
+**Error Details:**
+{debug_info.get('error', error_output.strip())}
+
+**Configuration Info:**
+- Profile: `{debug_info.get('profile', 'unknown')}`
+- Profiles directory: `{profiles_dir}`
+- Exit code: {debug_info.get('return_code', 'unknown')}
+
+**Raw dbt debug output:**
 ```
-{error_output.strip()}
+{debug_info.get('stdout', '').strip() or 'No output captured'}
 ```
 
-**Quick fixes to try:**
-1. Run `dbt debug` to see detailed error information
-2. Check your `~/.dbt/profiles.yml` file syntax
-3. Verify your `.env` file has all required database credentials
-4. Make sure your database is running and accessible
+**How to fix it:**
 
-📚 **Need help?** See the README.md for detailed setup instructions.
+**1. Test your connection manually:**
+```bash
+# Test with the same configuration SQLBot is using:
+DBT_PROFILES_DIR="{profiles_dir}" dbt debug --profile {debug_info.get('profile', 'your_profile')}
+```
+
+**2. Check your configuration files:**
+- Verify your `{profiles_dir}/profiles.yml` file syntax
+- Check your `.env` file has all required database credentials
+- Make sure your database is running and accessible
+
+**3. Common fixes:**
+- ✅ Profile name matches exactly in profiles.yml
+- ✅ Environment variables are properly set
+- ✅ Database server is accessible
+- ✅ Required database drivers are installed
+
+📚 **Need help?** See the troubleshooting section in README.md.
 """
     
     except subprocess.TimeoutExpired:

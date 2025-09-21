@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/AnthusAI/SQLBot/compare/v1.2.0...v1.2.1) (2025-09-21)
+
+
+### Bug Fixes
+
+* correct dbt profile discovery error messages and configuration ([b29395b](https://github.com/AnthusAI/SQLBot/commit/b29395b2854c6beed906f6e0283da066c39f2f41))
+
 # [1.2.0](https://github.com/AnthusAI/SQLBot/compare/v1.1.0...v1.2.0) (2025-09-14)
 
 

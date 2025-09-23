@@ -47,6 +47,9 @@ sqlserver = [
     "dbt-sqlserver>=1.6.0",
     "pyodbc>=4.0.0",
 ]
+sqlite = [
+    "dbt-sqlite>=1.6.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-bdd>=7.0.0",
@@ -88,7 +91,7 @@ extend-exclude = '''
 '''
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "1.2.2"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

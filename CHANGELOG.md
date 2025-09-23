@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/AnthusAI/SQLBot/compare/v1.2.1...v1.3.0) (2025-09-23)
+
+
+### Features
+
+* **export:** add data export functionality for query results ([91367a5](https://github.com/AnthusAI/SQLBot/commit/91367a5f92f067c3e64c56dbc8aa82aaebf92c40))
+
 ## [1.2.2](https://github.com/AnthusAI/SQLBot/compare/v1.2.1...v1.2.2) (2025-09-21)
 
 

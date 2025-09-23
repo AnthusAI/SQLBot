@@ -1,5 +1,7 @@
 # ✦SQLBot: Your AI Database Analyst
 
+![SQLBot Demo](documentation/diagrams/images/screen.gif)
+
 **"If you give an agent a tool, then nobody has to fish."**
 
 SQLBot is a new kind of interface for your database. Instead of writing SQL queries yourself, you delegate high-level analytical tasks to an AI agent. It reasons through your request, executing a chain of queries and analyzing the results until it arrives at a complete answer—all while keeping your data safe with built-in safeguards.

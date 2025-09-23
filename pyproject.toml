@@ -33,6 +33,9 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "textual>=0.47.0",
     "dotyaml>=0.1.0",
+    "pandas>=1.5.0",
+    "openpyxl>=3.0.0",
+    "pyarrow>=10.0.0",
 ]
 
 [tool.setuptools.packages.find]

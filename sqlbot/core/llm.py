@@ -13,9 +13,10 @@ from .schema import SchemaLoader
 
 class LLMAgent:
     """Handles LLM operations for natural language to SQL conversion"""
-    
-    def __init__(self, config: SQLBotConfig):
+
+    def __init__(self, config: SQLBotConfig, session_id: Optional[str] = None):
         self.config = config
+        self.session_id = session_id or "default"
         self.schema_loader = SchemaLoader(config.profile)
         self._agent = None
         self._llm = None
@@ -113,38 +114,75 @@ class LLMAgent:
             from langchain_core.prompts import ChatPromptTemplate
             from langchain_core.tools import tool
             from pydantic import BaseModel
-            
+            from .export import export_latest_result
+
             # Create dbt query tool
             class DbtQueryInput(BaseModel):
                 sql_query: str
-            
+
             @tool("dbt_query", args_schema=DbtQueryInput)
             def dbt_query_tool(sql_query: str) -> str:
                 """Execute SQL query using dbt"""
                 from .dbt import DbtExecutor
                 executor = DbtExecutor(self.config)
                 result = executor.execute_sql(sql_query)
-                
+
                 if result.success:
                     return f"Query executed successfully. Rows: {result.row_count or 0}"
                 else:
                     return f"Query failed: {result.error}"
-            
+
+            # Create export data tool
+            class ExportDataInput(BaseModel):
+                format: str = "csv"
+                location: str = None
+
+            @tool("export_data", args_schema=ExportDataInput)
+            def export_data_tool(format: str = "csv", location: str = None) -> str:
+                """
+                Export the most recent query results to a file.
+
+                Only exports the most recently executed successful query results.
+
+                Args:
+                    format: Export format - "csv", "excel", or "parquet" (default: "csv")
+                    location: Directory path to save file (default: "./tmp")
+
+                Returns:
+                    Information about the exported file
+                """
+                # Use the session_id from the LLMAgent instance
+                session_id = self.session_id
+
+                # Validate format
+                valid_formats = ["csv", "excel", "parquet"]
+                if format not in valid_formats:
+                    return f"Invalid format '{format}'. Valid formats are: {', '.join(valid_formats)}"
+
+                result = export_latest_result(session_id, format, location)
+
+                if result["success"]:
+                    return (f"Successfully exported {result['row_count']} rows to {result['file_path']} "
+                           f"in {result['format']} format. "
+                           f"Columns: {', '.join(result['columns'])}")
+                else:
+                    return f"Export failed: {result['error']}"
+
             # Build system prompt with schema information
             system_prompt = self._build_system_prompt()
-            
+
             # Create prompt template
             prompt = ChatPromptTemplate.from_messages([
                 ("system", system_prompt),
                 ("human", "{input}"),
                 ("placeholder", "{agent_scratchpad}")
             ])
-            
+
             # Create agent
             llm = self._get_llm()
-            tools = [dbt_query_tool]
+            tools = [dbt_query_tool, export_data_tool]
             agent = create_tool_calling_agent(llm, tools, prompt)
-            
+
             return AgentExecutor(agent=agent, tools=tools, verbose=False)
         
         except ImportError as e:
@@ -155,7 +193,7 @@ class LLMAgent:
         schema_info = self.schema_loader.load_schema_info()
         macro_info = self.schema_loader.load_macro_info()
         
-        prompt = """You are SQLBot, a helpful database query assistant. You help users query their database using natural language.
+        prompt = """You are SQLBot, a helpful database query assistant. You help users query their database using natural language and export query results.
 
 IMPORTANT INSTRUCTIONS:
 1. Convert natural language questions into SQL queries
@@ -164,6 +202,17 @@ IMPORTANT INSTRUCTIONS:
 4. Always use the dbt_query tool to execute SQL
 5. Provide clear explanations of what the query does
 6. Handle errors gracefully and suggest alternatives
+7. Use the export_data tool to export the most recent query results when requested
+
+AVAILABLE TOOLS:
+- dbt_query: Execute SQL queries against the database
+- export_data: Export the most recent successful query results to CSV, Excel, or Parquet format
+
+EXPORT CAPABILITIES:
+- Only the most recent successful query results can be exported
+- Supported formats: CSV (default), Excel, Parquet
+- Default export location: ./tmp directory (created automatically)
+- Users can specify custom export locations
 
 CRITICAL: This database does not support dbt sources. Use direct table references only.
 
@@ -202,9 +251,14 @@ QUERY EXAMPLES (preferred syntax for this database):
 - SELECT title FROM film WHERE title LIKE 'A%';
 - SELECT c.first_name, c.last_name FROM customer c JOIN address a ON c.address_id = a.address_id;
 
+EXPORT EXAMPLES:
+- After running a query, users can say "export this to CSV" or "save this as Excel"
+- Use export_data tool with format parameter: "csv", "excel", or "parquet"
+- Optionally specify location: export_data(format="excel", location="/path/to/directory")
+
 AVAILABLE TABLES: actor, film, customer, rental, payment, inventory, store, staff, category, language, address, city, country, film_actor, film_category
 
-Remember to always use the dbt_query tool to execute your SQL queries.
+Remember to always use the dbt_query tool to execute your SQL queries and export_data tool to export results.
 """
         
         return prompt
@@ -231,18 +285,19 @@ Remember to always use the dbt_query tool to execute your SQL queries.
         return None
 
 
-def test_llm_basic(config: SQLBotConfig) -> bool:
+def test_llm_basic(config: SQLBotConfig, session_id: Optional[str] = None) -> bool:
     """
     Test basic LLM functionality
-    
+
     Args:
         config: SQLBot configuration
-        
+        session_id: Optional session ID
+
     Returns:
         True if LLM is working, False otherwise
     """
     try:
-        agent = LLMAgent(config)
+        agent = LLMAgent(config, session_id)
         return agent.is_available()
     except Exception:
         return False

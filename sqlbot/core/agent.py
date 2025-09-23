@@ -17,29 +17,31 @@ from .llm import LLMAgent
 class SQLBotAgent:
     """
     Main SQLBot agent that coordinates all core functionality
-    
+
     This class provides a clean SDK interface for different presentation layers
     (REPL, Lambda, FastMCP, web APIs, etc.)
     """
-    
-    def __init__(self, config: SQLBotConfig):
+
+    def __init__(self, config: SQLBotConfig, session_id: Optional[str] = None):
         """
         Initialize SQLBot agent
-        
+
         Args:
             config: SQLBot configuration
+            session_id: Optional session ID for query result tracking
         """
         self.config = config
-        
+        self.session_id = session_id or "default"
+
         # Initialize components
         self.safety_analyzer = SQLSafetyAnalyzer(dangerous_mode=config.dangerous)
         self.schema_loader = SchemaLoader(config.profile)
         self.dbt_executor = DbtExecutor(config)
-        self.llm_agent = LLMAgent(config) if self._llm_available() else None
-        
+        self.llm_agent = LLMAgent(config, self.session_id) if self._llm_available() else None
+
         # Clean up any leftover temporary files from previous runs
         self._cleanup_temp_files()
-        
+
         # Cache for schema info
         self._schema_cache = None
         self._tables_cache = None
@@ -241,48 +243,51 @@ class SQLBotAgentFactory:
     """Factory for creating SQLBot agents with different configurations"""
     
     @staticmethod
-    def create_from_env(profile: Optional[str] = None, **overrides) -> SQLBotAgent:
+    def create_from_env(profile: Optional[str] = None, session_id: Optional[str] = None, **overrides) -> SQLBotAgent:
         """
         Create SQLBot agent from environment variables
-        
+
         Args:
             profile: Optional profile name override
+            session_id: Optional session ID for query result tracking
             **overrides: Configuration overrides
-            
+
         Returns:
             Configured SQLBotAgent instance
         """
         config = SQLBotConfig.from_env(profile)
-        
+
         # Apply any overrides
         for key, value in overrides.items():
             if hasattr(config, key):
                 setattr(config, key, value)
-        
-        return SQLBotAgent(config)
+
+        return SQLBotAgent(config, session_id)
     
     @staticmethod
-    def create_read_only(profile: Optional[str] = None) -> SQLBotAgent:
+    def create_read_only(profile: Optional[str] = None, session_id: Optional[str] = None) -> SQLBotAgent:
         """
         Create read-only SQLBot agent
-        
+
         Args:
             profile: Optional profile name
-            
+            session_id: Optional session ID for query result tracking
+
         Returns:
             Read-only SQLBotAgent instance
         """
-        return SQLBotAgentFactory.create_from_env(profile, dangerous=False)
-    
+        return SQLBotAgentFactory.create_from_env(profile, session_id, dangerous=False)
+
     @staticmethod
-    def create_preview_mode(profile: Optional[str] = None) -> SQLBotAgent:
+    def create_preview_mode(profile: Optional[str] = None, session_id: Optional[str] = None) -> SQLBotAgent:
         """
         Create SQLBot agent in preview mode (compile only, don't execute)
-        
+
         Args:
             profile: Optional profile name
-            
+            session_id: Optional session ID for query result tracking
+
         Returns:
             Preview-mode SQLBotAgent instance
         """
-        return SQLBotAgentFactory.create_from_env(profile, preview_mode=True)
+        return SQLBotAgentFactory.create_from_env(profile, session_id, preview_mode=True)

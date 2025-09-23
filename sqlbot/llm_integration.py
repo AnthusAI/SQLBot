@@ -562,6 +562,75 @@ class DbtQueryTool(BaseTool):
         """Async version of _run (not implemented, falls back to sync)"""
         return self._run(query)
 
+
+class ExportDataInput(BaseModel):
+    """Input schema for export data tool"""
+    format: str = Field(default="csv", description="Export format: csv, excel, or parquet")
+    location: str = Field(default=None, description="Directory path to save the file (defaults to ./tmp)")
+
+
+class ExportDataTool(BaseTool):
+    """Tool for exporting the most recent query results to various file formats"""
+
+    name: str = "export_data"
+    description: str = "Export the most recent successful query results to CSV, Excel, or Parquet format. Only exports the most recently executed successful query results."
+    args_schema: Type[BaseModel] = ExportDataInput
+
+    def __init__(self, session_id: str):
+        super().__init__()
+        # Store session_id as a private attribute to avoid Pydantic field conflicts
+        self._session_id = session_id
+
+    def _run(self, format: str = "csv", location: str = None) -> str:
+        """
+        Export the most recent query results
+
+        Args:
+            format: Export format - "csv", "excel", or "parquet" (default: "csv")
+            location: Directory path to save file (default: "./tmp")
+
+        Returns:
+            str: Result message about the export operation
+        """
+        try:
+            from .core.export import export_latest_result
+
+            # Validate format
+            valid_formats = ["csv", "excel", "parquet"]
+            if format not in valid_formats:
+                return f"Invalid format '{format}'. Valid formats are: {', '.join(valid_formats)}"
+
+            # Export the data
+            result = export_latest_result(self._session_id, format, location)
+
+            if result["success"]:
+                return (f"Successfully exported {result['row_count']} rows to {result['file_path']} "
+                       f"in {result['format']} format. "
+                       f"Columns: {', '.join(result['columns'])}")
+            else:
+                return f"Export failed: {result['error']}"
+
+        except Exception as e:
+            return f"Export error: {str(e)}"
+
+    async def _arun(self, format: str = "csv", location: str = None) -> str:
+        """Async version of _run (not implemented, falls back to sync)"""
+        return self._run(format, location)
+
+
+def create_export_data_tool(session_id: str) -> ExportDataTool:
+    """
+    Create an export data tool for the given session
+
+    Args:
+        session_id: Session ID for the tool
+
+    Returns:
+        ExportDataTool instance
+    """
+    return ExportDataTool(session_id=session_id)
+
+
 def get_profile_paths(profile_name):
     """
     Get potential paths for profile configuration in priority order.
@@ -1212,7 +1281,8 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
         
         tools = [
             DbtQueryTool(session_id, unified_display),
-            create_query_result_lookup_tool(session_id)
+            create_query_result_lookup_tool(session_id),
+            create_export_data_tool(session_id)
         ]
         
         # Create dynamic prompt with current schema/macro info

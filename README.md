@@ -187,9 +187,77 @@ The result? You spend time on strategy and insights, not syntax and debugging.
 - **Context-Aware**: Uses your `schema.yml` and dbt macros to generate accurate, business-aware queries.
 - **Built-in Safety**: Read-only safeguards prevent dangerous operations while allowing full analytical power.
 - **Iterative & Interactive**: Reasons through data step-by-step, recovers from errors, and allows for conversational follow-ups.
+- **Data Export**: Export query results to CSV, Excel, or Parquet formats with simple natural language commands.
 - **Direct SQL Passthrough**: For experts, end any query with a semicolon (`;`) to bypass the agent and run it directly.
 - **Profile-Based**: Easily switch between different database environments (`--profile mycompany`).
 - **Broad Database Support**: Works with SQL Server, PostgreSQL, Snowflake, SQLite, and more.
+
+## Data Export Capabilities
+
+SQLBot now includes powerful data export functionality that allows you to save query results in multiple formats:
+
+### Supported Export Formats
+
+- **CSV** (default): Comma-separated values, perfect for spreadsheet applications
+- **Excel**: Native `.xlsx` format with proper formatting
+- **Parquet**: Columnar format optimized for analytics and big data workflows
+
+### How to Export Data
+
+After running any successful query, you can export the results using natural language:
+
+```bash
+# After running a query, simply ask to export
+> "Show me the top 10 customers by revenue"
+[Query executes and shows results]
+
+> "Export this to CSV"
+> "Save this as Excel"
+> "Export to Parquet format"
+> "Save this to /path/to/my/reports as Excel"
+```
+
+### Export Features
+
+- **Automatic File Naming**: Files are automatically named with query index and timestamp (e.g., `sqlbot_query_1_20241201_143022.csv`)
+- **Smart Location**: Exports to `./tmp` directory by default (created automatically)
+- **Custom Locations**: Specify any directory path for your exports
+- **Only Latest Results**: Exports the most recent successful query results for data integrity
+- **Error Handling**: Clear error messages if no data is available or export fails
+
+### Export Examples
+
+```bash
+# Basic export (defaults to CSV in ./tmp directory)
+> "export the results"
+
+# Specify format
+> "export this as Excel"
+> "save as Parquet"
+
+# Custom location
+> "export to CSV in /Users/john/reports"
+> "save this Excel file to ~/Desktop"
+
+# After a specific query
+> "Get monthly sales by region"
+[Results displayed]
+> "Export this to Excel so I can share with the team"
+```
+
+### File Structure
+
+Exported files follow a consistent naming pattern:
+```
+sqlbot_query_{index}_{timestamp}.{extension}
+
+Examples:
+- sqlbot_query_1_20241201_143022.csv
+- sqlbot_query_3_20241201_144517.xlsx
+- sqlbot_query_5_20241201_145203.parquet
+```
+
+This ensures you can easily track which export corresponds to which query and when it was created.
 
 ## Install & Setup
 

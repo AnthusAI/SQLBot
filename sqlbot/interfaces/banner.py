@@ -59,7 +59,7 @@ def get_config_banner(profile: Optional[str] = None, llm_model: Optional[str] = 
     content = f"{title}\n"
     if config_text:
         content += f"{config_text}\n\n"
-    content += "Natural Language Queries (Default):\n• Just type your question in plain English\n• Example: How many customers are there?\n\nSQL Queries:\n• End with semicolon for direct execution\n• SQL: SELECT COUNT(*) FROM customers;\n• SQL: SELECT * FROM customer LIMIT 10;\n\nCommands:\n• /help - Show all available commands\n• /preview - Preview SQL compilation before execution\n• /dangerous - Toggle dangerous mode (disables safeguards)\n• exit, quit, or q - Exit SQLBot"
+    content += "Natural Language Queries (Default):\n• Just type your question in plain English\n• Example: How many customers are there?\n• Example: Show me sales data, then export to Excel\n\nSQL Queries:\n• End with semicolon for direct execution\n• SQL: SELECT COUNT(*) FROM customers;\n• SQL: SELECT * FROM customer LIMIT 10;\n\nCommands:\n• /help - Show all available commands\n• /preview - Preview SQL compilation before execution\n• /dangerous - Toggle dangerous mode (disables safeguards)\n• exit, quit, or q - Exit SQLBot"
     
     return content
 
@@ -121,7 +121,8 @@ def get_banner_content(profile: Optional[str] = None, llm_model: Optional[str] =
     core_help = (
         "## Natural Language Queries (Default)\n"
         "- Just type your question in plain English\n"
-        "- **Example:** How many customers are there?\n\n"
+        "- **Example:** How many customers are there?\n"
+        "- **Example:** Show me sales data, then export to CSV\n\n"
         
         "## SQL/dbt Queries\n"
         "- End with semicolon for direct execution\n"
@@ -200,7 +201,8 @@ def get_interactive_banner_content(profile: Optional[str] = None, llm_model: Opt
     content += (
         "## Default: Natural Language Queries\n"
         "- Just type your question in plain English\n"
-        "- **Example:** How many calls were made today?\n\n"
+        "- **Example:** How many calls were made today?\n"
+        "- **Example:** Show me top customers, then export to Excel\n\n"
         
         "## SQL/dbt Queries: End with semicolon\n"
         "- **SQL:** `SELECT COUNT(*) FROM sys.tables;`\n"

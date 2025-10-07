@@ -100,6 +100,11 @@ class SQLBotConfig:
     def from_env(cls, profile: Optional[str] = None) -> 'SQLBotConfig':
         """Create configuration from environment variables and YAML config"""
 
+        # Load .env file from current working directory to get OPENAI_API_KEY and other secrets
+        # This needs to happen before loading YAML config so variables are available
+        from dotenv import load_dotenv
+        load_dotenv(override=False)  # Don't override existing environment variables
+
         # Try to load YAML configuration first (this sets environment variables)
         cls.load_yaml_config()
 

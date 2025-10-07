@@ -22,7 +22,14 @@ from sqlbot.interfaces.theme_system import get_theme_manager, ThemeMode
 
 # Note: We use dbt for all database connections, no direct pyodbc needed
 
+# Load environment variables using dotenv as fallback (dotyaml will override these)
 load_dotenv()
+
+# Initialize configuration system early to load YAML config and set environment variables
+# This ensures OPENAI_API_KEY and other config values are available before LLM initialization
+from sqlbot.core.config import SQLBotConfig
+_early_config = SQLBotConfig.from_env()
+_early_config.apply_to_env()  # Apply config to environment variables
 
 # Theme-aware messaging system that uses the global theme manager
 class MessageStyle:

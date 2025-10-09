@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/AnthusAI/SQLBot/compare/v1.3.0...v1.3.1) (2025-10-07)
+
+
+### Bug Fixes
+
+* ensure OPENAI_API_KEY loads from .env in current directory ([9b199c0](https://github.com/AnthusAI/SQLBot/commit/9b199c0281f0baa006a4d3be4bf43035fa675493))
+
 # [1.3.0](https://github.com/AnthusAI/SQLBot/compare/v1.2.1...v1.3.0) (2025-09-23)
 
 

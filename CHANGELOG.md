@@ -1,3 +1,15 @@
+# [2.0.0](https://github.com/AnthusAI/SQLBot/compare/v1.3.1...v2.0.0) (2025-10-09)
+
+
+### Features
+
+* add multi-line input support for text and textual modes ([2439e8b](https://github.com/AnthusAI/SQLBot/commit/2439e8b6d6a26df9ad34cfa97c3f26a8e0d4e48e))
+
+
+### BREAKING CHANGES
+
+* none
+
 ## [1.3.1](https://github.com/AnthusAI/SQLBot/compare/v1.3.0...v1.3.1) (2025-10-07)
 
 

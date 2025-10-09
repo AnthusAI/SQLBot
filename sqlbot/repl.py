@@ -1234,21 +1234,21 @@ def start_unified_repl(memory_manager, console):
     from sqlbot.interfaces.unified_display import execute_query_with_unified_display
     from sqlbot.interfaces.message_formatter import MessageSymbols
     import readline
-    
+
     # Set up unified message display
     cli_display = CLIMessageDisplay(console)
     cli_display.set_interactive_mode(True)  # Enable prompt overwriting
     unified_display = UnifiedMessageDisplay(cli_display, memory_manager)
-    
+
     # Create execute_llm_func with access to unified_display and conversation sync
     def execute_llm_func(q: str) -> str:
         global SHOW_HISTORY, SHOW_FULL_HISTORY
         timeout_seconds = int(os.getenv('SQLBOT_LLM_TIMEOUT', '120'))
         max_retries = int(os.getenv('SQLBOT_LLM_RETRIES', '3'))
-        
+
         # Call handle_llm_query which maintains its own global conversation_history
-        result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY, show_full_history=SHOW_FULL_HISTORY)
-        
+        result = handle_llm_query(q, max_retries=max_retries, timeout_seconds=timeout_seconds, unified_display=unified_display, show_history=SHOW_HISTORY, show_full_history=SHOW_HISTORY)
+
         # Sync the updated global conversation_history back to our memory_manager
         # This ensures the next query sees the full conversation including tool calls and results
         try:
@@ -1260,21 +1260,88 @@ def start_unified_repl(memory_manager, console):
                 _sync_conversation_history_to_memory(memory_manager, llm_integration.conversation_history)
             except ImportError:
                 pass  # If we can't sync, continue without it
-        
+
         return result
-    
+
+    def read_multiline_input() -> str:
+        """
+        Read multi-line input in text mode using prompt_toolkit.
+        - Press Enter to submit
+        - Press Alt+Enter (or Esc then Enter) to add a new line
+        """
+        try:
+            from prompt_toolkit import prompt
+            from prompt_toolkit.key_binding import KeyBindings
+
+            # Create custom key bindings
+            bindings = KeyBindings()
+
+            @bindings.add('enter')
+            def _(event):
+                """Submit on plain Enter"""
+                event.current_buffer.validate_and_handle()
+
+            @bindings.add('escape', 'enter')
+            def _(event):
+                """Insert newline on Alt+Enter"""
+                event.current_buffer.insert_text('\n')
+
+            # Add blank line before prompt for better spacing
+            print()
+            console.print("[dim](Alt+Enter for new line, Enter to submit)[/dim]")
+
+            # Use prompt_toolkit with custom key bindings
+            user_input = prompt(
+                f"{MessageSymbols.INPUT_PROMPT} ",
+                multiline=False,  # We handle newlines manually via Alt+Enter
+                key_bindings=bindings
+            )
+
+            return user_input
+
+        except ImportError:
+            # Fallback to simple multi-line input if prompt_toolkit not available
+            lines = []
+            first_line = True
+
+            while True:
+                try:
+                    if first_line:
+                        # Add blank line before first prompt for better spacing
+                        print()
+                        # Show hint about multi-line input
+                        console.print("[dim](Press Enter on empty line to submit multi-line input)[/dim]")
+                        line = input(f"{MessageSymbols.INPUT_PROMPT} ")
+                        first_line = False
+                    else:
+                        # Continuation lines with a different prompt
+                        line = input("... ")
+
+                    # If line is empty, we're done (unless nothing has been entered yet)
+                    if not line:
+                        if lines:
+                            # Empty line submits multi-line input
+                            break
+                        else:
+                            # Nothing entered yet, return empty string
+                            return ""
+
+                    lines.append(line)
+                except EOFError:
+                    # Ctrl+D submits what we have so far
+                    break
+
+            return "\n".join(lines)
+
     try:
         while True:
             try:
                 # Mark that we're about to show a prompt
                 cli_display.mark_prompt_shown()
 
-                # Add blank line before prompt for better spacing
-                print()
+                # Read input (single or multi-line)
+                user_input = read_multiline_input().strip()
 
-                # Use the input prompt symbol
-                user_input = input(f"{MessageSymbols.INPUT_PROMPT} ").strip()
-                
                 if not user_input:
                     # Reset prompt flag if no input
                     cli_display.last_was_prompt = False

@@ -10,7 +10,7 @@ import time
 import sys
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, ScrollableContainer, VerticalScroll
-from textual.widgets import Header, Footer, Input, RichLog, Static
+from textual.widgets import Header, Footer, Input, RichLog, Static, TextArea
 from textual.geometry import Size
 from textual.reactive import reactive
 from textual.message import Message
@@ -339,14 +339,47 @@ class SQLBotCommandProvider(Provider):
             self.app.set_theme(theme_mode)
 
 
-class QueryInput(Input):
-    """Custom input widget for SQLBot queries"""
-    
+class QueryInput(TextArea):
+    """Custom multi-line input widget for SQLBot queries"""
+
+    class Submitted(Message):
+        """Message sent when query is submitted"""
+        def __init__(self, value: str):
+            self.value = value
+            super().__init__()
+
     def __init__(self, **kwargs):
         super().__init__(
-            placeholder="Type your question or SQL query (end with ; for SQL)...",
+            language="sql",
+            theme="monokai",
+            show_line_numbers=False,
             **kwargs
         )
+        self.placeholder = "Type your question or SQL query (Alt+Enter for new line, Enter to submit)..."
+
+    def _on_key(self, event: events.Key) -> None:
+        """Handle key events BEFORE default processing - Enter submits, Alt+Enter adds newline"""
+        if event.key == "enter":
+            # Check for Alt modifier (which may come through as different attributes)
+            is_alt = False
+            if hasattr(event, 'alt') and event.alt:
+                is_alt = True
+            elif hasattr(event, 'meta') and event.meta:
+                is_alt = True
+
+            if is_alt:
+                # Alt+Enter adds a newline
+                event.prevent_default()
+                event.stop()
+                # Insert newline at cursor position
+                cursor_pos = self.cursor_location
+                self.insert("\n", cursor_pos)
+            else:
+                # Plain Enter submits the query
+                event.prevent_default()
+                event.stop()
+                value = self.text
+                self.post_message(self.Submitted(value))
 
 
 class SQLBotTextualApp(App):
@@ -384,11 +417,16 @@ class SQLBotTextualApp(App):
     }
 
     #query-input {
-        height: 3;
+        height: 5;
         dock: bottom;
         border: heavy $qbot-input-border;
         background: $surface;
         color: $qbot-user-message;
+    }
+
+    #query-input TextArea {
+        background: $surface;
+        color: $text;
     }
 
     ConversationHistoryWidget {
@@ -850,34 +888,34 @@ class SQLBotTextualApp(App):
         
         self.conversation_widget.refresh()
     
-    async def on_input_submitted(self, event: Input.Submitted) -> None:
+    async def on_query_input_submitted(self, event: QueryInput.Submitted) -> None:
         """Handle user input submission with immediate feedback"""
         try:
             if not self.query_input or not self.conversation_widget:
                 return
-                
+
             user_input = event.value.strip()
             if not user_input:
                 return
-            
+
             # 1. Clear the input immediately (user feedback)
-            self.query_input.value = ""
-            
+            self.query_input.text = ""
+
             # Note: Thinking indicator will be added by the specific query handler
-            
+
             # Handle exit commands
             if user_input.lower() in ['exit', 'quit', 'q'] or user_input == '/exit':
                 self.exit()
                 return
-            
+
             # Handle slash commands
             if user_input.startswith('/'):
                 await self.handle_slash_command(user_input)
                 return
-            
+
             # Handle regular queries
             await self.handle_query(user_input)
-                
+
         except Exception as e:
             # Log error and show to user instead of crashing
             if self.conversation_widget:

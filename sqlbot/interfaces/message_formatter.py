@@ -46,8 +46,67 @@ def _extract_text_from_json(text: str) -> str:
         return text
     
     text = text.strip()
-    
-    # Check if this looks like JSON
+
+    # Check for concatenated JSON objects FIRST (before trying to parse as single object)
+    # This handles GPT-5 Responses API format that concatenates multiple dicts
+    if '}{' in text:
+        try:
+            import ast
+            # Split concatenated dicts by properly tracking brace nesting
+            dict_strings = []
+            current_dict = ""
+            brace_count = 0
+
+            for char in text:
+                current_dict += char
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0 and current_dict.strip():
+                        # Complete dict found
+                        dict_strings.append(current_dict.strip())
+                        current_dict = ""
+
+            # Parse each dict and extract text content
+            extracted_texts = []
+            for dict_str in dict_strings:
+                try:
+                    # Try to parse as Python dict (handles single quotes)
+                    parsed = ast.literal_eval(dict_str)
+                    if isinstance(parsed, dict):
+                        # Skip reasoning blocks
+                        if parsed.get('type') == 'reasoning':
+                            continue
+                        # Extract text content
+                        if 'text' in parsed:
+                            extracted_texts.append(parsed['text'])
+                        elif 'content' in parsed:
+                            extracted_texts.append(parsed['content'])
+                        elif 'message' in parsed:
+                            extracted_texts.append(parsed['message'])
+                except (ValueError, SyntaxError):
+                    # If parsing as Python dict fails, try JSON
+                    try:
+                        parsed = json.loads(dict_str)
+                        if isinstance(parsed, dict):
+                            if parsed.get('type') == 'reasoning':
+                                continue
+                            if 'text' in parsed:
+                                extracted_texts.append(parsed['text'])
+                            elif 'content' in parsed:
+                                extracted_texts.append(parsed['content'])
+                            elif 'message' in parsed:
+                                extracted_texts.append(parsed['message'])
+                    except json.JSONDecodeError:
+                        continue
+
+            if extracted_texts:
+                return '\n\n'.join(extracted_texts)
+        except Exception:
+            pass
+
+    # Check if this looks like JSON (single object)
     if text.startswith('{') and text.endswith('}'):
         try:
             import ast
@@ -109,32 +168,6 @@ def _extract_text_from_json(text: str) -> str:
                     return data['message']
         except (json.JSONDecodeError, ValueError, SyntaxError, Exception):
             # If JSON parsing fails, return original text
-            pass
-    
-    # Handle concatenated JSON objects - simple approach using regex
-    if '}{' in text:
-        try:
-            import re
-            # Use regex to find all JSON objects that contain 'text' field
-            # Look for patterns like {'type': 'text', 'text': '...'} or {'text': '...'}
-            text_patterns = [
-                r"\{'type'\s*:\s*'text'[^}]*'text'\s*:\s*'([^']*(?:\\'[^']*)*)'\s*[^}]*\}",
-                r"\{'text'\s*:\s*'([^']*(?:\\'[^']*)*)'\s*[^}]*\}",
-                r'\{"type"\s*:\s*"text"[^}]*"text"\s*:\s*"([^"]*(?:\\"[^"]*)*)"\s*[^}]*\}',
-                r'\{"text"\s*:\s*"([^"]*(?:\\"[^"]*)*)"\s*[^}]*\}',
-            ]
-            
-            for pattern in text_patterns:
-                matches = re.findall(pattern, text, re.DOTALL)
-                if matches:
-                    # Unescape quotes and join all text matches
-                    extracted_texts = []
-                    for match in matches:
-                        cleaned = match.replace("\\'", "'").replace('\\"', '"').replace('\\n', '\n')
-                        extracted_texts.append(cleaned)
-                    if extracted_texts:
-                        return ' '.join(extracted_texts)
-        except Exception:
             pass
     
     # If not JSON or parsing failed, return original text with newline cleanup
@@ -214,22 +247,31 @@ def format_llm_response(raw_response: str) -> str:
     """
     Format LLM response by parsing JSON and extracting meaningful content.
     Also handles tool calls and formats them with appropriate symbols.
-    
+
     Args:
         raw_response: Raw response from LLM (may be JSON or plain text)
-        
+
     Returns:
         Formatted response string with appropriate symbols
     """
     if not raw_response or not raw_response.strip():
         return f"{MessageSymbols.AI_RESPONSE} No response"
-    
+
     # Check if this is already formatted (starts with a message symbol)
     response_str = raw_response.strip()
-    if (response_str.startswith(MessageSymbols.AI_RESPONSE) or 
-        response_str.startswith(MessageSymbols.TOOL_CALL) or 
+    if (response_str.startswith(MessageSymbols.AI_RESPONSE) or
+        response_str.startswith(MessageSymbols.TOOL_CALL) or
         response_str.startswith(MessageSymbols.TOOL_RESULT)):
         return response_str
+
+    # Handle concatenated dictionary objects at the start (e.g., "{'id': 'rs_...'}{'type': 'text', ...}")
+    # This happens when GPT-5 Responses API returns multiple objects concatenated without proper separation
+    if response_str.startswith('{') and '}{' in response_str[:200]:
+        # Try to extract text from concatenated JSON/dict objects
+        extracted_text = _extract_text_from_json(response_str)
+        if extracted_text and extracted_text != response_str:
+            # Successfully extracted text, return it formatted
+            return f"{MessageSymbols.AI_RESPONSE} {extracted_text}"
     
     # Debug: Check what the raw response looks like
     # print(f"DEBUG: Raw response length: {len(raw_response)}")
@@ -257,7 +299,40 @@ def format_llm_response(raw_response: str) -> str:
     # Check if this looks like JSON
     response_str = raw_response.strip()
     if response_str.startswith('{') or response_str.startswith('['):
-        # Handle concatenated JSON objects (common with GPT-5 responses)
+        # Special handling for GPT-5 Responses API format: list of dicts with 'reasoning' and 'text' blocks
+        if response_str.startswith('[{') and "'type':" in response_str or '"type":' in response_str:
+            try:
+                import ast
+
+                # Try to parse as actual Python list (might use single quotes)
+                try:
+                    data = ast.literal_eval(response_str)
+                except (ValueError, SyntaxError):
+                    # Try as JSON (double quotes)
+                    data = json.loads(response_str)
+
+                if isinstance(data, list):
+                    # Extract text from list of response blocks
+                    text_parts = []
+                    for item in data:
+                        if isinstance(item, dict):
+                            # Look for text content blocks (skip reasoning blocks)
+                            if item.get('type') == 'text' and 'text' in item:
+                                text_parts.append(item['text'])
+                            elif item.get('type') == 'reasoning':
+                                # Skip reasoning blocks - they're internal to GPT-5
+                                continue
+                            elif 'text' in item and item.get('type') != 'reasoning':
+                                text_parts.append(item['text'])
+
+                    if text_parts:
+                        combined_text = '\n\n'.join(text_parts)
+                        return f"{MessageSymbols.AI_RESPONSE} {combined_text}"
+            except (json.JSONDecodeError, ValueError, SyntaxError):
+                # Fall through to other parsing methods
+                pass
+
+        # Handle concatenated JSON objects (common with some GPT-5 responses)
         if response_str.count('}{') > 0:
             # Split concatenated JSON objects
             json_parts = []

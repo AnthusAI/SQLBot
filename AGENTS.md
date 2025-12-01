@@ -502,6 +502,68 @@ Key integration test files:
 - Environment variables use `SQLBOT_*` prefix for configuration
 - Generic table/source names used for open source compatibility
 
+## Debugging Features
+
+### Debug Logging (`--debug`)
+
+When SQLBot displays raw JSON responses or formatting errors, use debug logging to diagnose the issue:
+
+```bash
+# Enable debug logging for a single query
+sqlbot --debug "How many films are there?"
+
+# Enable debug logging in interactive mode
+sqlbot --debug
+```
+
+**What gets logged:**
+- Raw response type (list, string, dict, etc.)
+- Response structure with nested objects
+- Full raw output from the LLM
+- Timestamp and query text
+
+**Log location:** `~/.sqlbot_debug.log`
+
+**Real-world use case:** When users report seeing raw JSON like `{'id': '...', 'type': 'text', ...}`, run the query with `--debug`, check the log to see the exact response structure, create a TDD test case, and fix the formatter.
+
+**Implementation:** `sqlbot/llm_integration.py:1560-1587` - Global `DEBUG_MODE` flag with structured text output
+
+### Conversation Persistence (`--continue`)
+
+Resume previous conversations across sessions:
+
+```bash
+# Resume the last conversation (shows last 2 exchanges for context)
+sqlbot --continue
+
+# Continue with a new query
+sqlbot --continue "What was the last query we ran?"
+```
+
+**Features:**
+- Auto-saves after each user-assistant exchange
+- Shows last 4 messages (2 exchanges) when resuming with color-coded display
+- Retains last 20 messages in memory
+- Stored in `~/.sqlbot_conversations/current_session.json`
+- Archive support in `~/.sqlbot_conversations/archive/`
+
+**Use cases:**
+- Accidentally closed terminal or SQLBot crashed - just `sqlbot --continue`
+- Reload SQLBot code while maintaining conversation context
+- Review conversation history for debugging
+
+**Implementation:**
+- Module: `sqlbot/conversation_persistence.py` (new file)
+- Integration: `sqlbot/llm_integration.py:1668-1674`
+- Loader: `sqlbot/repl.py:975-1008`
+
+### Combined Debugging
+
+Both features work together:
+```bash
+sqlbot --debug --continue "Tell me more about that last query"
+```
+
 ## Common Debugging Patterns
 
 ### LLM Integration Issues

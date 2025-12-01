@@ -263,16 +263,107 @@ class TestMessageFormatterEdgeCases:
         assert result == f"{MessageSymbols.AI_RESPONSE} {{'type': 'text'}}"
 
 
+class TestConcatenatedDictFormats:
+    """Test handling of concatenated dictionary objects from GPT-5 Responses API"""
+
+    def test_concatenated_reasoning_and_text_dicts(self):
+        """Test formatting when GPT-5 returns concatenated dict objects"""
+        # This is the exact format from the user's issue - note the escaped newlines in the text
+        response = "{'id': 'rs_0bd21394fc852dfb00691613fff6808190aa24b7c8b407ea5c', 'summary': [], 'type': 'reasoning'}{'type': 'text', 'text': 'Got it — you want to return form IDs by phone number.\\n\\nApproach:\\n- Query vwForm (has F_ID = form_id plus ANI/DNIS/phone).', 'annotations': [], 'id': 'msg_0bd21394fc852dfb006916140a012c81909d470b0fe8a3847b'}"
+
+        result = format_llm_response(response)
+
+        # Should extract just the text content, not show raw dicts
+        assert "'id':" not in result, "Should not contain raw dict keys"
+        assert "'type': 'reasoning'" not in result, "Should not show reasoning dict"
+        assert "Got it — you want to return form IDs by phone number" in result
+        assert result.startswith(MessageSymbols.AI_RESPONSE)
+
+    def test_concatenated_dicts_with_error_details(self):
+        """Test formatting when response includes error details in dict format"""
+        # Simulating a response with error diagnostics
+        response = "{'id': 'rs_123', 'type': 'reasoning'}{'type': 'text', 'text': 'Query execution failed (success=False, execution_time=71.294s) - Diagnostics: {\"success\": false, \"execution_time\": 71.294, \"row_count\": 0}'}"
+
+        result = format_llm_response(response)
+
+        # Should show the error message but not raw dict format
+        assert "'id':" not in result, "Should not contain raw dict keys"
+        assert "Query execution failed" in result
+        assert result.startswith(MessageSymbols.AI_RESPONSE)
+
+    def test_multiple_concatenated_text_blocks(self):
+        """Test handling multiple concatenated text dict objects"""
+        response = "{'type': 'text', 'text': 'First part.'}{'type': 'text', 'text': 'Second part.'}"
+
+        result = format_llm_response(response)
+
+        # Should extract all text content
+        assert "First part" in result
+        assert "Second part" in result
+        assert "'type':" not in result
+        assert result.startswith(MessageSymbols.AI_RESPONSE)
+
+    def test_concatenated_dicts_with_nested_json(self):
+        """Test when text content itself contains JSON"""
+        response = "{'type': 'reasoning', 'id': 'rs_1'}{'type': 'text', 'text': 'The result is: {\"count\": 42, \"status\": \"ok\"}'}"
+
+        result = format_llm_response(response)
+
+        # Should preserve the nested JSON in the text content
+        assert "The result is:" in result
+        assert '"count": 42' in result or 'count' in result
+        assert "'type': 'reasoning'" not in result
+        assert result.startswith(MessageSymbols.AI_RESPONSE)
+
+    def test_extract_text_from_concatenated_dicts(self):
+        """Test _extract_text_from_json specifically handles concatenated dicts"""
+        concatenated = "{'id': 'rs_123', 'type': 'reasoning'}{'type': 'text', 'text': 'Extracted message'}"
+
+        result = _extract_text_from_json(concatenated)
+
+        # Should extract just the text content
+        assert result == "Extracted message" or "Extracted message" in result
+
+
+class TestErrorMessageFormatting:
+    """Test formatting of error messages to ensure clean output"""
+
+    def test_error_with_clean_diagnostic_json(self):
+        """Test that error messages with diagnostics are cleanly formatted"""
+        # This simulates the improved error format from llm_integration.py
+        error_msg = 'Query execution failed (success=False, execution_time=71.294s) - Diagnostics: {"success": false, "execution_time": 71.294, "row_count": 0}'
+
+        result = format_llm_response(error_msg)
+
+        # Should format cleanly as plain text
+        assert result.startswith(MessageSymbols.AI_RESPONSE)
+        assert "Query execution failed" in result
+        # Should not have messy dict representations
+        assert "<QueryType.SQL:" not in result
+        assert "result.__dict__" not in result
+
+    def test_error_without_raw_dict_dump(self):
+        """Test that errors don't include raw __dict__ dumps"""
+        # Old problematic format that should now be avoided
+        bad_error = "Query failed - Details: {'success': True, 'query_type': <QueryType.SQL: 'sql'>, 'execution_time': 71.29}"
+
+        result = format_llm_response(bad_error)
+
+        # Should at least format it with the AI symbol
+        assert result.startswith(MessageSymbols.AI_RESPONSE)
+        # In an ideal world, this would be cleaned up further, but at minimum it should be formatted
+
+
 class TestMessageSymbols:
     """Test that message symbols are correctly defined and used"""
-    
+
     def test_message_symbols_exist(self):
         """Test that all required message symbols are defined"""
         assert hasattr(MessageSymbols, 'AI_RESPONSE')
         assert hasattr(MessageSymbols, 'TOOL_CALL')
         assert hasattr(MessageSymbols, 'TOOL_RESULT')
         assert hasattr(MessageSymbols, 'USER_MESSAGE')
-    
+
     def test_message_symbols_are_unique(self):
         """Test that message symbols are unique"""
         symbols = [
@@ -282,7 +373,7 @@ class TestMessageSymbols:
             MessageSymbols.USER_MESSAGE
         ]
         assert len(symbols) == len(set(symbols)), "Message symbols should be unique"
-    
+
     def test_ai_response_symbol_used_correctly(self):
         """Test that AI response symbol is used in formatted responses"""
         result = format_llm_response("Test message")

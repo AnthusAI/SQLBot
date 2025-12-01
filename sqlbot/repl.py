@@ -972,13 +972,134 @@ def main():
         from dbt.cli.main import dbtRunner
         dbt = dbtRunner()
     
-    # Clear conversation history at startup to avoid stale data
-    try:
-        from .llm_integration import clear_conversation_history
-        clear_conversation_history()
-    except ImportError:
-        from llm_integration import clear_conversation_history
-        clear_conversation_history()
+    # Handle conversation continuation
+    if hasattr(args, 'continue_session') and args.continue_session:
+        # Load previous conversation instead of clearing
+        try:
+            from .conversation_persistence import load_conversation_history
+            from . import llm_integration
+            from rich.panel import Panel
+            from rich.text import Text
+
+            loaded_history = load_conversation_history()
+            if loaded_history:
+                llm_integration.conversation_history = loaded_history
+                rich_console.print(f"\n[green]✓ Resumed conversation with {len(loaded_history)} previous messages[/green]\n")
+
+                # Show last few messages for context
+                num_to_show = min(4, len(loaded_history))  # Show up to 4 recent messages
+                if num_to_show > 0:
+                    rich_console.print("[bold cyan]📜 Recent conversation history:[/bold cyan]\n")
+
+                    for msg in loaded_history[-num_to_show:]:
+                        role = msg.get("role", "unknown")
+                        content = msg.get("content", "")
+
+                        # Truncate long content for display
+                        if len(content) > 300:
+                            display_content = content[:300] + "..."
+                        else:
+                            display_content = content
+
+                        # Remove query details section for cleaner display
+                        if "--- Query Details ---" in display_content:
+                            display_content = display_content.split("--- Query Details ---")[0].strip()
+
+                        # Format based on role
+                        if role == "user":
+                            style = "blue"
+                            icon = "👤"
+                            label = "You"
+                        elif role == "assistant":
+                            style = "magenta"
+                            icon = "🤖"
+                            label = "Assistant"
+                        else:
+                            style = "dim"
+                            icon = "◦"
+                            label = role
+
+                        # Create panel for message
+                        message_text = Text(display_content, style=f"{style}")
+                        panel = Panel(
+                            message_text,
+                            title=f"{icon} {label}",
+                            border_style=style,
+                            padding=(0, 1)
+                        )
+                        rich_console.print(panel)
+
+                    rich_console.print()  # Add spacing after history
+            else:
+                rich_console.print("[yellow]No previous conversation found, starting fresh[/yellow]")
+        except ImportError:
+            try:
+                from conversation_persistence import load_conversation_history
+                import llm_integration
+                from rich.panel import Panel
+                from rich.text import Text
+
+                loaded_history = load_conversation_history()
+                if loaded_history:
+                    llm_integration.conversation_history = loaded_history
+                    rich_console.print(f"\n[green]✓ Resumed conversation with {len(loaded_history)} previous messages[/green]\n")
+
+                    # Show last few messages for context
+                    num_to_show = min(4, len(loaded_history))  # Show up to 4 recent messages
+                    if num_to_show > 0:
+                        rich_console.print("[bold cyan]📜 Recent conversation history:[/bold cyan]\n")
+
+                        for msg in loaded_history[-num_to_show:]:
+                            role = msg.get("role", "unknown")
+                            content = msg.get("content", "")
+
+                            # Truncate long content for display
+                            if len(content) > 300:
+                                display_content = content[:300] + "..."
+                            else:
+                                display_content = content
+
+                            # Remove query details section for cleaner display
+                            if "--- Query Details ---" in display_content:
+                                display_content = display_content.split("--- Query Details ---")[0].strip()
+
+                            # Format based on role
+                            if role == "user":
+                                style = "blue"
+                                icon = "👤"
+                                label = "You"
+                            elif role == "assistant":
+                                style = "magenta"
+                                icon = "🤖"
+                                label = "Assistant"
+                            else:
+                                style = "dim"
+                                icon = "◦"
+                                label = role
+
+                            # Create panel for message
+                            message_text = Text(display_content, style=f"{style}")
+                            panel = Panel(
+                                message_text,
+                                title=f"{icon} {label}",
+                                border_style=style,
+                                padding=(0, 1)
+                            )
+                            rich_console.print(panel)
+
+                        rich_console.print()  # Add spacing after history
+                else:
+                    rich_console.print("[yellow]No previous conversation found, starting fresh[/yellow]")
+            except Exception as e:
+                rich_console.print(f"[yellow]Failed to load previous conversation: {e}[/yellow]")
+    else:
+        # Clear conversation history at startup to avoid stale data
+        try:
+            from .llm_integration import clear_conversation_history
+            clear_conversation_history()
+        except ImportError:
+            from llm_integration import clear_conversation_history
+            clear_conversation_history()
     
     # Get LLM model info for banner
     llm_model = None
@@ -1002,19 +1123,21 @@ def main():
     global DBT_PROFILE_NAME
     DBT_PROFILE_NAME = args.profile
     
-    # Set global context flag
+    # Set global context flag and debug mode
     if LLM_AVAILABLE:
         try:
             # Try relative import first (when run as module)
             from . import llm_integration
             llm_integration.show_context = args.context
             llm_integration.DBT_PROFILE_NAME = args.profile
+            llm_integration.DEBUG_MODE = args.debug if hasattr(args, 'debug') else False
         except ImportError:
             try:
                 # Fallback for direct execution
                 import llm_integration
                 llm_integration.show_context = args.context
                 llm_integration.DBT_PROFILE_NAME = args.profile
+                llm_integration.DEBUG_MODE = args.debug if hasattr(args, 'debug') else False
             except ImportError:
                 # If we can't import the module, just skip setting the flag
                 pass

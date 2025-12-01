@@ -275,6 +275,9 @@ def clear_conversation_history():
 # Global flag to control context display
 show_context = False
 
+# Global flag to control debug logging
+DEBUG_MODE = False
+
 def get_llm():
     """
     Create and return a configured OpenAI LLM instance for ccdbi.
@@ -498,6 +501,17 @@ class DbtQueryTool(BaseTool):
                     import json
                     # Use serialized data to handle Decimal objects
                     serialized_data = result._serialize_data(result.data)
+
+                    # Build performance context for LLM
+                    exec_time = result.execution_time
+                    perf_note = ""
+                    if exec_time >= 10.0:
+                        perf_note = "⚠️ SLOW QUERY (>10s) - Consider optimization with EXPLAIN or adding indexes"
+                    elif exec_time >= 5.0:
+                        perf_note = "⚠️ Moderately slow query (>5s) - May benefit from optimization"
+                    elif exec_time < 1.0:
+                        perf_note = "⚡ Fast query (<1s)"
+
                     result_json = json.dumps({
                         "query_index": entry.index,
                         "query": query.strip(),
@@ -505,7 +519,9 @@ class DbtQueryTool(BaseTool):
                         "columns": result.columns,
                         "data": serialized_data,
                         "row_count": result.row_count,
-                        "execution_time": result.execution_time
+                        "execution_time": exec_time,
+                        "execution_time_seconds": f"{exec_time:.2f}s",
+                        "performance_note": perf_note
                     }, indent=2)
                     
                     # Display tool result in real-time if we have unified display
@@ -537,11 +553,19 @@ class DbtQueryTool(BaseTool):
                         # Fallback: try to get error details from the result object itself
                         error_msg = f"Query execution failed (success=False, execution_time={result.execution_time:.3f}s)"
                         if hasattr(result, '__dict__'):
-                            # Include any other available error information
-                            result_details = {k: v for k, v in result.__dict__.items() if v is not None and k != 'data'}
-                            if result_details:
-                                error_msg += f" - Details: {result_details}"
-                    
+                            # Include error information but format it cleanly
+                            # Only include key diagnostic fields, not internal representation
+                            diagnostic_fields = {
+                                'success': getattr(result, 'success', None),
+                                'execution_time': getattr(result, 'execution_time', None),
+                                'row_count': getattr(result, 'row_count', None)
+                            }
+                            # Filter out None values
+                            diagnostic_info = {k: v for k, v in diagnostic_fields.items() if v is not None}
+                            if diagnostic_info:
+                                import json
+                                error_msg += f" - Diagnostics: {json.dumps(diagnostic_info)}"
+
                     error_result = f"Query #{entry.index} failed: {error_msg}"
                     
                     # Display tool result in real-time if we have unified display
@@ -1466,16 +1490,16 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
 def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False) -> str:
     """
     Execute the actual LLM query with timeout handling.
-    
+
     Args:
         query_text: User's natural language question
         console: Rich console for output
         timeout_seconds: Timeout in seconds
-        
+
     Returns:
         str: LLM response
     """
-    global conversation_history, llm_request_count, tool_execution_happened
+    global conversation_history, llm_request_count, tool_execution_happened, DEBUG_MODE
     
     try:
         
@@ -1553,7 +1577,36 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         # Extract the final answer and intermediate steps
         # Handle both string and list responses (Responses API may return different format)
         raw_output = result.get("output", "No response generated")
-        
+
+        # Debug logging: Log raw response structure before formatting
+        if DEBUG_MODE:
+            import json
+            debug_log_path = os.path.join(os.path.expanduser("~"), ".sqlbot_debug.log")
+            try:
+                with open(debug_log_path, 'a', encoding='utf-8') as f:
+                    import datetime
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    f.write(f"\n{'='*80}\n")
+                    f.write(f"[{timestamp}] RAW LLM RESPONSE\n")
+                    f.write(f"{'='*80}\n")
+                    f.write(f"Query: {query_text}\n")
+                    f.write(f"\nRaw output type: {type(raw_output).__name__}\n")
+                    f.write(f"\nRaw output structure:\n")
+                    if isinstance(raw_output, list):
+                        f.write(f"List with {len(raw_output)} items:\n")
+                        for i, item in enumerate(raw_output):
+                            f.write(f"  [{i}] Type: {type(item).__name__}\n")
+                            if hasattr(item, '__dict__'):
+                                f.write(f"      Attributes: {list(item.__dict__.keys())}\n")
+                            f.write(f"      String repr: {str(item)[:200]}...\n")
+                    else:
+                        f.write(f"String/Other:\n{str(raw_output)[:1000]}...\n")
+                    f.write(f"\nFull raw_output:\n{repr(raw_output)}\n")
+                    f.write(f"{'='*80}\n\n")
+                    f.flush()
+            except Exception as e:
+                console.print(f"[dim yellow]Debug logging failed: {e}[/dim yellow]")
+
         # Extract response from GPT-5 Responses API format
         if isinstance(raw_output, list):
             response = ""
@@ -1628,11 +1681,19 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         
         # Add assistant response with query results to conversation history
         conversation_history.append({"role": "assistant", "content": full_response})
-        
+
         # Limit history to last 20 messages to prevent memory bloat
         if len(conversation_history) > 20:
             conversation_history = conversation_history[-20:]
-        
+
+        # Save conversation to disk after each exchange
+        try:
+            from .conversation_persistence import save_conversation_history
+            save_conversation_history(conversation_history)
+        except Exception as e:
+            # Don't fail the query if persistence fails
+            logger.warning(f"Failed to save conversation history: {e}")
+
         # Return the full response including tool call details for display
         return full_response
         

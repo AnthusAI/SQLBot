@@ -191,15 +191,34 @@ class ResultFormatter:
         """Show successful query result"""
         if result.data:
             self._show_data_table(result.data, result.columns)
-        
-        # Show execution info
-        info_text = f"Query executed in {result.execution_time:.2f}s"
+
+        # Show execution info with performance warnings
+        exec_time = result.execution_time
+        info_text = f"Query executed in {exec_time:.2f}s"
         if result.row_count is not None:
             info_text += f" • {result.row_count} rows"
-        
+
         theme = get_theme_manager()
-        info_color = theme.get_color("info_message") or "blue"
-        self.console.print(f"[{info_color}]{info_text}[/{info_color}]")
+
+        # Color code based on execution time
+        if exec_time < 1.0:
+            info_color = theme.get_color("info_message") or "green"
+            perf_indicator = "⚡"
+        elif exec_time < 5.0:
+            info_color = theme.get_color("info_message") or "blue"
+            perf_indicator = ""
+        elif exec_time < 10.0:
+            info_color = "yellow"
+            perf_indicator = "⚠️ "
+        else:
+            info_color = "red"
+            perf_indicator = "🐌 "
+
+        self.console.print(f"[{info_color}]{perf_indicator}{info_text}[/{info_color}]")
+
+        # Add optimization hint for slow queries
+        if exec_time >= 10.0:
+            self.console.print(f"[dim yellow]💡 Consider using EXPLAIN to analyze query performance[/dim yellow]")
     
     def _show_error_result(self, result: QueryResult):
         """Show error result"""

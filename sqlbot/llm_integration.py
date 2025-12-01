@@ -1364,24 +1364,24 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
             ("human", "{input}"),
             ("placeholder", "{agent_scratchpad}"),
         ])
-        
+
         # Create agent (ensure no streaming)
         agent = create_tool_calling_agent(llm, tools, prompt)
-        
+
         # Custom callback to track tool execution and display messages
         from langchain_core.callbacks import BaseCallbackHandler
-        
+
         class ToolTrackingCallback(BaseCallbackHandler):
             def __init__(self, unified_display=None, console=None, show_history=False):
                 super().__init__()
                 self.unified_display = unified_display
                 self.console = console
                 self.show_history = show_history
-                
+
             def on_llm_start(self, serialized, prompts, **kwargs):
                 """Called before every LLM API call - show conversation history here"""
                 pass  # History display now handled in LoggingChatOpenAI.invoke()
-                
+
             def on_tool_start(self, serialized, input_str, **kwargs):
                 global tool_execution_happened
                 tool_execution_happened = True
@@ -1394,7 +1394,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         self.unified_display.display_impl.display_tool_call("Database Query", query)
                     else:
                         self.unified_display.display_impl.display_tool_call(tool_name, str(input_str))
-            
+
             def on_tool_end(self, output, **kwargs):
                 # Display tool result if we have access to unified display
                 # Skip execute_dbt_query as it handles its own result display
@@ -1407,10 +1407,10 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         # Only display results for non-dbt tools to avoid duplicates
                         result_preview = str(output)[:200] + "..." if len(str(output)) > 200 else str(output)
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
-                
+
         agent_executor = AgentExecutor(
-            agent=agent, 
-            tools=tools, 
+            agent=agent,
+            tools=tools,
             verbose=False,  # Disable verbose to prevent raw JSON output
             max_iterations=20,  # Allow more iterations for complex analysis
             handle_parsing_errors=True,

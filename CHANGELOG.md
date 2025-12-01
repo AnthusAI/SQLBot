@@ -1,3 +1,10 @@
+## [2.2.1](https://github.com/AnthusAI/SQLBot/compare/v2.2.0...v2.2.1) (2025-12-01)
+
+
+### Bug Fixes
+
+* pass callbacks via config parameter in agent.invoke ([e9807c6](https://github.com/AnthusAI/SQLBot/commit/e9807c638562ef0c95950dc844b5f8f643e99f2a))
+
 # [2.2.0](https://github.com/AnthusAI/SQLBot/compare/v2.1.0...v2.2.0) (2025-12-01)
 
 

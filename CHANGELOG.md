@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/AnthusAI/SQLBot/compare/v2.0.0...v2.1.0) (2025-12-01)
+
+
+### Features
+
+* add debug logging, conversation persistence, and performance indicators ([5080619](https://github.com/AnthusAI/SQLBot/commit/50806193739b6ea63020815a8680ab7c3007ff89))
+
 # [2.0.0](https://github.com/AnthusAI/SQLBot/compare/v1.3.1...v2.0.0) (2025-10-09)
 
 

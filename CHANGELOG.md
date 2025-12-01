@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/AnthusAI/SQLBot/compare/v2.1.0...v2.2.0) (2025-12-01)
+
+
+### Features
+
+* update to langchain 1.1.0 API ([f8ed99c](https://github.com/AnthusAI/SQLBot/commit/f8ed99c25572f9a34d58e0655ca66123f0000e2f))
+
 # [2.1.0](https://github.com/AnthusAI/SQLBot/compare/v2.0.0...v2.1.0) (2025-12-01)
 
 

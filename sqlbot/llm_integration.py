@@ -1546,9 +1546,15 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
 
         # Execute query with chat history (conversation history now shown by callback before each LLM call)
         # Note: New langchain 1.1 API expects messages list format
-        result = agent.invoke({
-            "messages": [{"role": "user", "content": query_text}]
-        })
+        # Pass callbacks via config parameter
+        config = {}
+        if hasattr(agent, '_callbacks'):
+            config['callbacks'] = agent._callbacks
+
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": query_text}]},
+            config=config if config else None
+        )
 
         # Extract intermediate steps from the new response format
         # The new API returns messages in the result

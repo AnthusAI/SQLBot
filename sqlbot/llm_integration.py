@@ -1545,14 +1545,24 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         agent = create_llm_agent(unified_display, console, show_history, show_full_history)
 
         # Execute query with chat history (conversation history now shown by callback before each LLM call)
-        # Note: New langchain 1.1 API expects messages list format
+        # Note: New langchain 1.1 API expects messages list format with history included
+        # Build messages list with chat history + current query
+        messages_list = []
+
+        # Add chat history to messages
+        for msg in chat_history:
+            messages_list.append(msg)
+
+        # Add current query
+        messages_list.append({"role": "user", "content": query_text})
+
         # Pass callbacks via config parameter
         config = {}
         if hasattr(agent, '_callbacks'):
             config['callbacks'] = agent._callbacks
 
         result = agent.invoke(
-            {"messages": [{"role": "user", "content": query_text}]},
+            {"messages": messages_list},
             config=config if config else None
         )
 

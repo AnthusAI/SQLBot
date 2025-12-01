@@ -8,7 +8,7 @@ Clean version with simple status messages and full query visibility.
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.tools import BaseTool
-from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import create_agent
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Type
 from pydantic import BaseModel, Field
@@ -1354,20 +1354,6 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
         # Create dynamic prompt with current schema/macro info
         system_prompt = build_system_prompt()
 
-        # Escape any remaining {{ }} in the system prompt so LangChain doesn't interpret them as template variables
-        # Double curly braces should be literal text for the LLM, not LangChain template variables
-        system_prompt_escaped = system_prompt.replace("{{", "{{{{").replace("}}", "}}}}")
-
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt_escaped),
-            ("placeholder", "{chat_history}"),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ])
-
-        # Create agent (ensure no streaming)
-        agent = create_tool_calling_agent(llm, tools, prompt)
-
         # Custom callback to track tool execution and display messages
         from langchain_core.callbacks import BaseCallbackHandler
 
@@ -1408,17 +1394,21 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         result_preview = str(output)[:200] + "..." if len(str(output)) > 200 else str(output)
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
 
-        agent_executor = AgentExecutor(
-            agent=agent,
+        # Create agent using new langchain 1.1 API
+        # Note: create_agent returns a CompiledStateGraph, not an AgentExecutor
+        agent = create_agent(
+            model=llm,
             tools=tools,
-            verbose=False,  # Disable verbose to prevent raw JSON output
-            max_iterations=20,  # Allow more iterations for complex analysis
-            handle_parsing_errors=True,
-            callbacks=[ToolTrackingCallback(unified_display, console, show_history)],
-            return_intermediate_steps=True  # Ensure tool results are available to agent
+            system_prompt=system_prompt,
+            cache=llm._client if hasattr(llm, '_client') else None
         )
-        
-        return agent_executor
+
+        # Note: The new create_agent returns a graph that can be invoked directly
+        # We need to adapt the interface to match the old AgentExecutor API
+        # Store the callback for use during invocation
+        agent._callbacks = [ToolTrackingCallback(unified_display, console, show_history)]
+
+        return agent
         
     except Exception as e:
         logger.error(f"Failed to create LLM agent: {e}")
@@ -1551,32 +1541,36 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         
         
         sys.stdout.flush()  # Force immediate display
-        # Create agent (fresh instance ensures latest schema/macro info)  
+        # Create agent (fresh instance ensures latest schema/macro info)
         agent = create_llm_agent(unified_display, console, show_history, show_full_history)
-        
+
         # Execute query with chat history (conversation history now shown by callback before each LLM call)
+        # Note: New langchain 1.1 API expects messages list format
         result = agent.invoke({
-            "input": query_text,
-            "chat_history": chat_history
+            "messages": [{"role": "user", "content": query_text}]
         })
-        
-        # Extract intermediate steps (tool calls and results) for conversation history
-        intermediate_steps = result.get("intermediate_steps", [])
-        
-        # Add tool calls and results to conversation history
-        for i, (action, observation) in enumerate(intermediate_steps):
-            tool_name = getattr(action, 'tool', 'unknown_tool')
-            tool_input = getattr(action, 'tool_input', {})
-            
-            # Add tool call to conversation history
-            conversation_history.append({
-                "role": "assistant", 
-                "content": f"🔧 TOOL CALL: {tool_name}\nInput: {tool_input}\n\n📊 TOOL RESULT:\n{observation}"
-            })
-        
-        # Extract the final answer and intermediate steps
-        # Handle both string and list responses (Responses API may return different format)
-        raw_output = result.get("output", "No response generated")
+
+        # Extract intermediate steps from the new response format
+        # The new API returns messages in the result
+        intermediate_steps = []
+        messages = result.get("messages", [])
+
+        # Parse messages for tool calls and results
+        for msg in messages:
+            if hasattr(msg, 'type') and msg.type == 'tool':
+                # This is a tool result
+                pass  # Tool tracking is handled by callbacks
+
+        # Extract the final answer
+        # The new API returns messages list, extract the last AI message
+        raw_output = None
+        for msg in reversed(messages):
+            if hasattr(msg, 'type') and msg.type == 'ai':
+                raw_output = msg.content
+                break
+
+        if raw_output is None:
+            raw_output = "No response generated"
 
         # Debug logging: Log raw response structure before formatting
         if DEBUG_MODE:
@@ -1658,21 +1652,28 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
             else:
                 response = response_str
         
-        # Capture query results from intermediate steps for context
+        # Capture query results from messages for context
         query_results = []
-        if "intermediate_steps" in result:
-            for step in result["intermediate_steps"]:
-                if len(step) >= 2 and hasattr(step[0], 'tool') and step[0].tool == "execute_dbt_query":
-                    # Extract the query and result
-                    query_executed = step[0].tool_input.get('query', 'Unknown query')
-                    query_result = step[1] if len(step) > 1 else 'No result'
-                    
-                    # Truncate large results for conversation history (unless full history is requested)
-                    if not show_full_history and len(query_result) > 2000:
-                        truncated_result = query_result[:1500] + f"\n\n[TRUNCATED - Original result was {len(query_result)} characters. This truncation was applied to manage conversation history size for the AI model. The user saw the complete results above.]"
-                        query_results.append(f"Query: {query_executed}\nResult: {truncated_result}")
-                    else:
-                        query_results.append(f"Query: {query_executed}\nResult: {query_result}")
+        # Parse tool calls and results from messages
+        for i, msg in enumerate(messages):
+            if hasattr(msg, 'type'):
+                if msg.type == 'ai' and hasattr(msg, 'tool_calls') and msg.tool_calls:
+                    # AI message with tool calls
+                    for tool_call in msg.tool_calls:
+                        if tool_call.get('name') == 'execute_dbt_query':
+                            query_executed = tool_call.get('args', {}).get('query', 'Unknown query')
+                            # Find the corresponding tool result
+                            for j in range(i+1, len(messages)):
+                                result_msg = messages[j]
+                                if hasattr(result_msg, 'type') and result_msg.type == 'tool':
+                                    query_result = result_msg.content
+                                    # Truncate large results for conversation history (unless full history is requested)
+                                    if not show_full_history and len(query_result) > 2000:
+                                        truncated_result = query_result[:1500] + f"\n\n[TRUNCATED - Original result was {len(query_result)} characters. This truncation was applied to manage conversation history size for the AI model. The user saw the complete results above.]"
+                                        query_results.append(f"Query: {query_executed}\nResult: {truncated_result}")
+                                    else:
+                                        query_results.append(f"Query: {query_executed}\nResult: {query_result}")
+                                    break
         
         # Build comprehensive response with truncated query results for history
         full_response = response

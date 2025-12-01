@@ -1,3 +1,10 @@
+## [2.2.2](https://github.com/AnthusAI/SQLBot/compare/v2.2.1...v2.2.2) (2025-12-01)
+
+
+### Bug Fixes
+
+* include chat history in messages list for agent invocation ([135ad89](https://github.com/AnthusAI/SQLBot/commit/135ad899fe748c041b8989249ed442c8c1e936c0))
+
 ## [2.2.1](https://github.com/AnthusAI/SQLBot/compare/v2.2.0...v2.2.1) (2025-12-01)
 
 

@@ -1,3 +1,10 @@
+## [2.3.4](https://github.com/AnthusAI/SQLBot/compare/v2.3.3...v2.3.4) (2025-12-02)
+
+
+### Bug Fixes
+
+* prevent .sqlbot/config.yml from overriding test environment variables ([dcc00cd](https://github.com/AnthusAI/SQLBot/commit/dcc00cd4f18e2e5cd0338c827658c8e2be192fa9))
+
 ## [2.3.3](https://github.com/AnthusAI/SQLBot/compare/v2.3.2...v2.3.3) (2025-12-02)
 
 

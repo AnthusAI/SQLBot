@@ -1,6 +1,6 @@
 """SQLBot: Database Query Bot with AI-powered natural language processing."""
 
-__version__ = "2.3.3"
+__version__ = "2.3.4"
 __author__ = "SQLBot Team"
 __email__ = "team@sqlbot.dev"
 

@@ -105,7 +105,12 @@ def execute_query_with_unified_display(
                 time.sleep(0.1)
             try:
                 # Execute LLM query while showing thinking indicator
+                print(f"DEBUG unified_display: About to call execute_llm_func with query: {query[:50]}...")
+                import sys
+                sys.stdout.flush()
                 result = execute_llm_func(query)
+                print(f"DEBUG unified_display: execute_llm_func returned!")
+                sys.stdout.flush()
                 
                 # Replace thinking message with actual result in memory
                 if result:

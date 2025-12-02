@@ -218,7 +218,16 @@ class CLIMessageDisplay:
     
     def display_user_message(self, message: str) -> None:
         """Display a user message in CLI"""
-        styled_message = f"[user_message][user_symbol]{MessageSymbols.USER_MESSAGE}[/user_symbol] {message}[/user_message]"
+        # Format multi-line messages with proper indentation
+        lines = message.split('\n')
+        if len(lines) > 1:
+            # First line with symbol, continuation lines indented with 2 spaces
+            formatted_lines = [lines[0]] + [f"  {line}" for line in lines[1:]]
+            formatted_message = '\n'.join(formatted_lines)
+        else:
+            formatted_message = message
+
+        styled_message = f"[user_message][user_symbol]{MessageSymbols.USER_MESSAGE}[/user_symbol] {formatted_message}[/user_message]"
 
         # In interactive mode, overwrite the prompt line if it was just shown
         if self.interactive_mode and self.last_was_prompt:

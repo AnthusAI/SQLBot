@@ -15,17 +15,25 @@ from sqlbot.interfaces.theme_system import get_theme_manager
 
 class UserMessageWidget(Static):
     """Widget for displaying user messages"""
-    
+
     def __init__(self, message: str, **kwargs):
         # Create Rich Text with styling
         theme = get_theme_manager()
         user_color = theme.get_color('user_message') or "blue"
-        
+
+        # Format multi-line messages with proper indentation
+        lines = message.split('\n')
+        if len(lines) > 1:
+            # First line with symbol, continuation lines indented with 2 spaces
+            formatted_message = lines[0] + '\n' + '\n'.join(f"  {line}" for line in lines[1:])
+        else:
+            formatted_message = message
+
         # Create styled text
         text = Text()
         text.append(f"{MessageSymbols.USER_MESSAGE} ", style=f"bold {user_color}")
-        text.append(message, style=f"bold {user_color}")
-        
+        text.append(formatted_message, style=f"bold {user_color}")
+
         super().__init__(text, **kwargs)
         self.add_class("user-message")
 

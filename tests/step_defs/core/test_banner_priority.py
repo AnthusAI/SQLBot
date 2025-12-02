@@ -100,7 +100,7 @@ def banner_should_be_first():
 
     # Check for unexpected errors in stderr
     if stderr.strip():
-        allowed_patterns = ["DeprecationWarning", "UserWarning"]
+        allowed_patterns = ["DeprecationWarning", "UserWarning", "Warning: Input is not a terminal"]
         stderr_lines = stderr.strip().split('\n')
         for line in stderr_lines:
             if line.strip() and not any(pattern in line for pattern in allowed_patterns):

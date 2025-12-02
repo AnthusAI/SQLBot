@@ -1,3 +1,10 @@
+## [2.2.4](https://github.com/AnthusAI/SQLBot/compare/v2.2.3...v2.2.4) (2025-12-02)
+
+
+### Bug Fixes
+
+* auto-submit queries ending with semicolon in text mode ([9b067a3](https://github.com/AnthusAI/SQLBot/commit/9b067a3b2e890f6cbe6a75fe4186214c046b72c9))
+
 ## [2.2.3](https://github.com/AnthusAI/SQLBot/compare/v2.2.2...v2.2.3) (2025-12-02)
 
 

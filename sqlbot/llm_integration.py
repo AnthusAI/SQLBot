@@ -1363,6 +1363,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                 self.unified_display = unified_display
                 self.console = console
                 self.show_history = show_history
+                self.current_tool_name = None  # Track current tool name
 
             def on_llm_start(self, serialized, prompts, **kwargs):
                 """Called before every LLM API call - show conversation history here"""
@@ -1372,22 +1373,24 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                 global tool_execution_happened
                 tool_execution_happened = True
 
+                # Store tool name for use in on_tool_end
+                self.current_tool_name = serialized.get("name", "Unknown tool")
+
                 # Display tool call if we have access to unified display
                 if self.unified_display:
-                    tool_name = serialized.get("name", "Unknown tool")
-                    if tool_name == "execute_dbt_query" and isinstance(input_str, dict):
+                    if self.current_tool_name == "execute_dbt_query" and isinstance(input_str, dict):
                         query = input_str.get("query", "Unknown query")
                         self.unified_display.display_impl.display_tool_call("Database Query", query)
                     else:
-                        self.unified_display.display_impl.display_tool_call(tool_name, str(input_str))
+                        self.unified_display.display_impl.display_tool_call(self.current_tool_name, str(input_str))
 
             def on_tool_end(self, output, **kwargs):
                 # Display tool result if we have access to unified display
                 # Skip execute_dbt_query as it handles its own result display
                 if self.unified_display and output:
-                    # Check if this is execute_dbt_query tool - skip if so to avoid duplicates
+                    # Use stored tool name if serialized not in kwargs (langchain 1.1.0 compatibility)
                     serialized = kwargs.get('serialized', {})
-                    tool_name = serialized.get('name', 'Unknown tool')
+                    tool_name = serialized.get('name') or self.current_tool_name or 'Unknown tool'
 
                     if tool_name != 'execute_dbt_query':
                         # Only display results for non-dbt tools to avoid duplicates

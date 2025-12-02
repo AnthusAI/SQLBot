@@ -960,12 +960,8 @@ def main():
     global dbt, LLM_AVAILABLE
     
     # Show banner first ONLY for CLI mode with query (not for Textual app)
-    # Banner should only show when we'll use Rich/CLI interface, not Textual interface
-    # IMPORTANT: Never show banner in --no-repl mode or when query is provided
-    if args.query and not args.no_repl and args.textual and (not sys.stdin.isatty() or not LLM_AVAILABLE):
-        # Get LLM model info for banner
-        llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5') if LLM_AVAILABLE else None
-        show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
+    # Banner logic: Don't show banner when query is provided from command line
+    # Banner will be shown later in interactive mode startup if appropriate
     
     # Initialize everything after banner display
     if dbt is None:

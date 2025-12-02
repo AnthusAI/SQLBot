@@ -1542,9 +1542,7 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         
         sys.stdout.flush()  # Force immediate display
         # Create agent (fresh instance ensures latest schema/macro info)
-        console.print("[dim yellow]Creating agent...[/dim yellow]")
         agent = create_llm_agent(unified_display, console, show_history, show_full_history)
-        console.print("[dim yellow]Agent created, invoking...[/dim yellow]")
 
         # Execute query with chat history (conversation history now shown by callback before each LLM call)
         # Note: New langchain 1.1 API expects messages list format with history included
@@ -1558,20 +1556,15 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         # Add current query
         messages_list.append({"role": "user", "content": query_text})
 
-        console.print(f"[dim yellow]Messages list has {len(messages_list)} items[/dim yellow]")
-
         # Pass callbacks via config parameter
         config = {}
         if hasattr(agent, '_callbacks'):
             config['callbacks'] = agent._callbacks
 
-        console.print("[dim yellow]About to invoke agent...[/dim yellow]")
-        sys.stdout.flush()
         result = agent.invoke(
             {"messages": messages_list},
             config=config if config else None
         )
-        console.print("[dim yellow]Agent invoke returned![/dim yellow]")
 
         # Extract intermediate steps from the new response format
         # The new API returns messages in the result

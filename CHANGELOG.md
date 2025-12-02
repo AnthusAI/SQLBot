@@ -1,3 +1,10 @@
+## [2.3.8](https://github.com/AnthusAI/SQLBot/compare/v2.3.7...v2.3.8) (2025-12-02)
+
+
+### Bug Fixes
+
+* properly indent all multi-line user message continuation lines ([e75b5f6](https://github.com/AnthusAI/SQLBot/commit/e75b5f6c3f8eb03c5a38aebb86ea86bee88cde2f))
+
 ## [2.3.7](https://github.com/AnthusAI/SQLBot/compare/v2.3.6...v2.3.7) (2025-12-02)
 
 

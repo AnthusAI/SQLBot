@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/AnthusAI/SQLBot/compare/v2.3.0...v2.3.1) (2025-12-02)
+
+
+### Bug Fixes
+
+* update tests to use text mode as default ([3986263](https://github.com/AnthusAI/SQLBot/commit/3986263fcf64cd1035426b07cbe670398ac221ce))
+
 # [2.3.0](https://github.com/AnthusAI/SQLBot/compare/v2.2.4...v2.3.0) (2025-12-02)
 
 

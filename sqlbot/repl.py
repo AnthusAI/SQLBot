@@ -1433,13 +1433,16 @@ def start_unified_repl(memory_manager, console):
                         # Add blank line before first prompt for better spacing
                         print()
                         # Show hint about multi-line input
-                        console.print("[dim](Press Enter twice to submit, or continue typing for multi-line)[/dim]")
+                        console.print("[dim](Press Enter twice to submit, or end with ; to submit immediately)[/dim]")
                         line = input(f"{MessageSymbols.INPUT_PROMPT} ")
                         first_line = False
 
                         # If first line is not empty, add it and wait for next line
                         if line:
                             lines.append(line)
+                            # If line ends with semicolon, submit immediately
+                            if line.rstrip().endswith(';'):
+                                break
                             # Continue to allow multi-line, but user can press Enter on blank line to submit
                         else:
                             # Empty first line, return empty string

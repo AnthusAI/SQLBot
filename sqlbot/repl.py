@@ -961,8 +961,8 @@ def main():
     
     # Show banner first ONLY for CLI mode with query (not for Textual app)
     # Banner should only show when we'll use Rich/CLI interface, not Textual interface
-    # IMPORTANT: Never show banner in --no-repl mode or --text mode with query
-    if args.query and not args.no_repl and not args.text and (not sys.stdin.isatty() or not LLM_AVAILABLE):
+    # IMPORTANT: Never show banner in --no-repl mode or when query is provided
+    if args.query and not args.no_repl and args.textual and (not sys.stdin.isatty() or not LLM_AVAILABLE):
         # Get LLM model info for banner
         llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5') if LLM_AVAILABLE else None
         show_banner(is_no_repl=True, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
@@ -1164,15 +1164,23 @@ def main():
             SHOW_HISTORY = True  # Enable history display
             SHOW_FULL_HISTORY = True  # Enable full history mode
         
-        # Execute query using CLI text mode with unified display
-        if args.text:
+        # Execute query using appropriate interface
+        if args.textual and LLM_AVAILABLE:
+            # Textual TUI mode requested
+            from sqlbot.interfaces.textual_repl import create_textual_repl_from_args
+            textual_repl = create_textual_repl_from_args(args)
+            textual_repl.initial_query = query
+            textual_repl.run()
+            return
+        else:
+            # Default: text-based CLI mode
             # Add spacing after command line when not showing banner
             rich_console.print()
             rich_console.print()
 
             # Execute the initial query using unified display system
             _execute_query_cli_mode(query, rich_console)
-            
+
             # Check --no-repl flag to determine next action
             if args.no_repl:
                 rich_console.print("\n[dim]Exiting (--no-repl mode)[/dim]")
@@ -1181,41 +1189,18 @@ def main():
                 # Continue to interactive CLI mode
                 _start_cli_interactive_mode(rich_console)
                 return
-        else:
-            # Default: Use Textual interface or CLI mode based on availability and environment
-            if args.no_repl or not sys.stdin.isatty():
-                # --no-repl or non-interactive terminal: use CLI mode and exit
-                if not LLM_AVAILABLE:
-                    rich_console.print("[yellow]LLM integration not available. Using CLI mode.[/yellow]")
-                
-                _execute_query_cli_mode(query, rich_console)
-                rich_console.print("\n[dim]Exiting (--no-repl mode)[/dim]")
-                return
-            elif LLM_AVAILABLE:
-                # Interactive environment with LLM: start Textual interface directly with the query
-                from sqlbot.interfaces.textual_repl import create_textual_repl_from_args
-                textual_repl = create_textual_repl_from_args(args)
-                textual_repl.initial_query = query
-                textual_repl.run()
-                return
-            else:
-                # Interactive environment without LLM: use CLI mode and continue to interactive
-                rich_console.print("[yellow]LLM integration not available. Using CLI mode.[/yellow]")
-                _execute_query_cli_mode(query, rich_console)
-                _start_cli_interactive_mode(rich_console)
-                return
 
     # No query provided, start interactive mode based on interface choice
     else:
-        if args.text or os.getenv('SQLBOT_TEXT_MODE'):
-            # Text-mode interactive REPL (can be forced via environment variable for testing)
-            show_banner(is_no_repl=False, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
-            _start_cli_interactive_mode(rich_console)
-        else:
-            # Default: Use Textual interface
+        if args.textual and LLM_AVAILABLE:
+            # Textual TUI mode requested
             from sqlbot.interfaces.textual_repl import create_textual_repl_from_args
             textual_repl = create_textual_repl_from_args(args)
             textual_repl.run()
+        else:
+            # Default: text-based interactive REPL
+            show_banner(is_no_repl=False, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
+            _start_cli_interactive_mode(rich_console)
 
 
 def _execute_query_cli_mode(query: str, console):

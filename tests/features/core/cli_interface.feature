@@ -45,17 +45,23 @@ Feature: Command Line Interface
     Then I should see the same help as "sqlbot --help"
     And the functionality should be identical
 
-  Scenario: Text mode with command-line query should skip banner
+  Scenario: Default text mode with command-line query should skip banner
     Given the database is available
-    When I run 'sqlbot --text "count the films"'
+    When I run 'sqlbot "count the films"'
     Then the first output line should be the user message
     And I should not see the SQLBot banner
     And I should not see "Starting with query:"
     And the query should execute normally
 
-  Scenario: Text mode without query should show banner
+  Scenario: Default text mode without query should show banner
     Given the database is available
-    When I run "sqlbot --text" in interactive mode
+    When I run "sqlbot" in interactive mode
     Then I should see the SQLBot banner
     And I should enter interactive mode
     And I should be able to enter queries
+
+  Scenario: Textual mode can be enabled with --textual flag
+    Given the database is available
+    When I run "sqlbot --textual" in interactive mode
+    Then I should see the Textual UI
+    And I should be able to enter queries in the TUI

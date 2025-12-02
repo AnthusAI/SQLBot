@@ -502,9 +502,16 @@ class SQLBotSession:
         """
         Call handle_llm_query with proper conversation history management.
         """
+        print(f"DEBUG: _call_handle_llm_query_safely called with query: {query_text[:50]}...")
+        import sys
+        sys.stdout.flush()
+
         from sqlbot.repl import handle_llm_query
         import sqlbot.llm_integration as llm_module
-        
+
+        print("DEBUG: Imported handle_llm_query")
+        sys.stdout.flush()
+
         # Save the current conversation history
         original_history = getattr(llm_module, 'conversation_history', [])
         

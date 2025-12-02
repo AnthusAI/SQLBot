@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/AnthusAI/SQLBot/compare/v2.2.4...v2.3.0) (2025-12-02)
+
+
+### Features
+
+* make text-based UI the default, add --textual flag for TUI ([76c9182](https://github.com/AnthusAI/SQLBot/commit/76c91829d18b4b5f6e856c968d78195207bbe092))
+
 ## [2.2.4](https://github.com/AnthusAI/SQLBot/compare/v2.2.3...v2.2.4) (2025-12-02)
 
 

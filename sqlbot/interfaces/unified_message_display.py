@@ -221,13 +221,15 @@ class CLIMessageDisplay:
         # Format multi-line messages with proper indentation
         lines = message.split('\n')
         if len(lines) > 1:
-            # First line with symbol, continuation lines indented with 2 spaces
-            formatted_lines = [lines[0]] + [f"  {line}" for line in lines[1:]]
-            formatted_message = '\n'.join(formatted_lines)
+            # Build styled message line by line to preserve indentation
+            # First line with symbol
+            styled_lines = [f"[user_message][user_symbol]{MessageSymbols.USER_MESSAGE}[/user_symbol] {lines[0]}[/user_message]"]
+            # Continuation lines with indentation (inside style tags to preserve spaces)
+            for line in lines[1:]:
+                styled_lines.append(f"[user_message]  {line}[/user_message]")
+            styled_message = '\n'.join(styled_lines)
         else:
-            formatted_message = message
-
-        styled_message = f"[user_message][user_symbol]{MessageSymbols.USER_MESSAGE}[/user_symbol] {formatted_message}[/user_message]"
+            styled_message = f"[user_message][user_symbol]{MessageSymbols.USER_MESSAGE}[/user_symbol] {message}[/user_message]"
 
         # In interactive mode, overwrite the prompt line if it was just shown
         if self.interactive_mode and self.last_was_prompt:

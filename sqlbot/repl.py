@@ -1435,6 +1435,9 @@ def start_unified_repl(memory_manager, console):
                             # If line ends with semicolon, submit immediately
                             if line.rstrip().endswith(';'):
                                 break
+                            # If line is a slash command or exit command, submit immediately
+                            if line.startswith('/') or line.lower() in ['exit', 'quit', 'q']:
+                                break
                             # Continue to allow multi-line, but user can press Enter on blank line to submit
                         else:
                             # Empty first line, return empty string

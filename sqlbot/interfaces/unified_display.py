@@ -64,14 +64,22 @@ def execute_query_with_unified_display(
     if console:
         if not skip_user_message:
             # REPL mode: user message already shown by input(), now show thinking -> response progression
-            # Move cursor up to overwrite the input line
+            # Move cursor up to overwrite the input line(s)
             import sys
-            sys.stdout.write("\033[1A\033[2K")  # Move up one line and clear it
+            # Count how many lines the input has
+            num_input_lines = query.count('\n') + 1
+            # Move up and clear all input lines
+            for _ in range(num_input_lines):
+                sys.stdout.write("\033[1A\033[2K")  # Move up one line and clear it
             sys.stdout.flush()
 
-            # Print the user message immediately to replace the prompt line
-            user_msg = f"[bold dodger_blue2]{MessageSymbols.USER_MESSAGE} {query}[/bold dodger_blue2]"
-            console.print(user_msg)
+            # Display the user message using unified display to preserve multi-line formatting
+            if unified_display:
+                unified_display.display_impl.display_user_message(query)
+            else:
+                # Fallback if unified_display not available
+                user_msg = f"[bold dodger_blue2]{MessageSymbols.USER_MESSAGE} {query}[/bold dodger_blue2]"
+                console.print(user_msg)
 
             # Add blank line before thinking indicator
             console.print()
@@ -81,8 +89,15 @@ def execute_query_with_unified_display(
         else:
             # Command-line mode: no input() line to overwrite, start with user message
             console.print()  # Add blank line before user message
-            user_msg = f"[bold dodger_blue2]{MessageSymbols.USER_MESSAGE} {query}[/bold dodger_blue2]"
-            console.print(user_msg)
+
+            # Display the user message using unified display to preserve multi-line formatting
+            if unified_display:
+                unified_display.display_impl.display_user_message(query)
+            else:
+                # Fallback if unified_display not available
+                user_msg = f"[bold dodger_blue2]{MessageSymbols.USER_MESSAGE} {query}[/bold dodger_blue2]"
+                console.print(user_msg)
+
             current_display = Text(f"{thinking_msg}", style="dim")
         
         with Live(current_display, console=console, refresh_per_second=10, auto_refresh=True) as live:

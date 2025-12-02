@@ -220,6 +220,7 @@ class CLIMessageDisplay:
         """Display a user message in CLI"""
         # Format multi-line messages with proper indentation
         lines = message.split('\n')
+
         if len(lines) > 1:
             # Build styled message line by line to preserve indentation
             # First line with symbol

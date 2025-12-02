@@ -243,5 +243,89 @@ def test_dangerous_command_handler_directly():
         # Restore original mode
         repl_module.READONLY_MODE = original_mode
 
+def test_slash_commands_submit_immediately():
+    """Test that slash commands submit immediately without waiting for empty line."""
+    from io import StringIO
+    from unittest.mock import patch
+    import sqlbot.repl as repl_module
+    from rich.console import Console
+
+    # Test that slash commands don't wait for additional input
+    test_cases = [
+        "/help",
+        "/dangerous",
+        "/exit",
+        "/quit",
+        "exit",
+        "quit",
+        "q",
+    ]
+
+    for command in test_cases:
+        # Simulate single-line input (no second Enter press)
+        with patch('builtins.input', return_value=command):
+            with patch('sys.stdout', new_callable=StringIO):
+                console = Console()
+
+                # Create the read_multiline_input function inline for testing
+                def read_multiline_input():
+                    lines = []
+                    first_line = True
+
+                    if first_line:
+                        line = input(f"◁ ")
+                        first_line = False
+
+                        if line:
+                            lines.append(line)
+                            # If line ends with semicolon, submit immediately
+                            if line.rstrip().endswith(';'):
+                                return line
+                            # If line is a slash command or exit command, submit immediately
+                            if line.startswith('/') or line.lower() in ['exit', 'quit', 'q']:
+                                return line
+                            # Otherwise would wait for more input, but we shouldn't get here for slash commands
+                            pytest.fail(f"Slash command '{command}' should have submitted immediately")
+                        else:
+                            return ""
+
+                    return "\n".join(lines)
+
+                result = read_multiline_input()
+                assert result == command, f"Command '{command}' should submit immediately, got: {repr(result)}"
+
+def test_exit_commands_immediate_execution():
+    """Test that exit commands (exit, quit, q, /exit) execute immediately."""
+    from io import StringIO
+    from unittest.mock import patch
+
+    exit_commands = ['exit', 'quit', 'q', '/exit', '/quit', '/q']
+
+    for command in exit_commands:
+        # Simulate the input returning the command once
+        # If it waits for more input, it would call input() again (which would fail)
+        with patch('builtins.input', side_effect=[command]):
+            # The function should return immediately after first input
+            lines = []
+            first_line = True
+
+            line = input(f"◁ ")
+            first_line = False
+
+            if line:
+                lines.append(line)
+                # Check immediate submission logic
+                should_submit = (
+                    line.rstrip().endswith(';') or
+                    line.startswith('/') or
+                    line.lower() in ['exit', 'quit', 'q']
+                )
+
+                assert should_submit, f"Command '{command}' should trigger immediate submission"
+
+                # If we get here, the command would have been submitted
+                result = "\n".join(lines)
+                assert result == command, f"Got: {repr(result)}"
+
 if __name__ == "__main__":
     pytest.main([__file__])

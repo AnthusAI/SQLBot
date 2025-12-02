@@ -27,9 +27,11 @@ load_dotenv()
 
 # Initialize configuration system early to load YAML config and set environment variables
 # This ensures OPENAI_API_KEY and other config values are available before LLM initialization
+# Skip this during tests to avoid overriding test environment variables
 from sqlbot.core.config import SQLBotConfig
-_early_config = SQLBotConfig.from_env()
-_early_config.apply_to_env()  # Apply config to environment variables
+if not os.getenv('PYTEST_CURRENT_TEST'):  # Only load config when not in pytest
+    _early_config = SQLBotConfig.from_env()
+    _early_config.apply_to_env()  # Apply config to environment variables
 
 # Theme-aware messaging system that uses the global theme manager
 class MessageStyle:

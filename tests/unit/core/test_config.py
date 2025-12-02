@@ -47,10 +47,10 @@ class TestSQLBotConfig:
             'SQLBOT_QUERY_TIMEOUT': '120',
             'SQLBOT_MAX_ROWS': '500'
         }
-        
+
         with patch.dict(os.environ, env_vars):
             config = SQLBotConfig.from_env()
-            
+
             assert config.profile == 'test_profile'
             assert config.target == 'test_target'
             # Database credentials now come from dbt profiles, not environment variables
@@ -58,7 +58,7 @@ class TestSQLBotConfig:
             assert config.preview_mode == True
             assert config.query_timeout == 120
             assert config.max_rows == 500
-            
+
             # Test LLM config
             assert config.llm.model == 'gpt-5'
             assert config.llm.max_tokens == 2000

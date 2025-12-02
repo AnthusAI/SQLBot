@@ -10,6 +10,17 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Set PYTEST_CURRENT_TEST early to prevent repl.py from loading config
+os.environ['PYTEST_CURRENT_TEST'] = 'conftest'
+
+# Patch config loading BEFORE any sqlbot modules are imported
+# This prevents .sqlbot/config.yml from overriding test environment variables
+from sqlbot.core.config import SQLBotConfig
+_original_load_yaml = SQLBotConfig.load_yaml_config
+_original_load_dbt = SQLBotConfig.load_dbt_profiles_with_dotyaml
+SQLBotConfig.load_yaml_config = staticmethod(lambda: False)
+SQLBotConfig.load_dbt_profiles_with_dotyaml = staticmethod(lambda: False)
+
 def setup_subprocess_environment(env=None):
     """Set up environment for subprocess tests to find local qbot module.
     

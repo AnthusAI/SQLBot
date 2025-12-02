@@ -199,7 +199,7 @@ class TestSQLBotAgentFactory:
     def test_create_from_env(self, mock_llm_agent, mock_dbt_executor, mock_schema_loader):
         """Test creating agent from environment"""
         agent = SQLBotAgentFactory.create_from_env()
-        
+
         assert agent.config.profile == 'test_profile'
         assert agent.config.dangerous == False
     

@@ -1,3 +1,10 @@
+## [2.3.5](https://github.com/AnthusAI/SQLBot/compare/v2.3.4...v2.3.5) (2025-12-02)
+
+
+### Bug Fixes
+
+* remove debug output and fix Unknown tool callback issue ([d1a1e08](https://github.com/AnthusAI/SQLBot/commit/d1a1e08c610bd7964f8b03a192b58cd9d6d9840e))
+
 ## [2.3.4](https://github.com/AnthusAI/SQLBot/compare/v2.3.3...v2.3.4) (2025-12-02)
 
 

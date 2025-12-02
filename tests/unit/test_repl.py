@@ -283,11 +283,11 @@ class TestMainFunction:
     def test_main_interactive_mode(self):
         """Test main function in interactive mode."""
         from sqlbot.repl import main
-        
-        with patch('sys.argv', ['sqlbot', '--text']):
+
+        with patch('sys.argv', ['sqlbot']):  # No flag needed, text is default
             with patch('sqlbot.repl._start_cli_interactive_mode') as mock_cli_mode:
                 with patch('sqlbot.repl.show_banner'):  # Mock banner to avoid output
                     with patch('sqlbot.repl.rich_console') as mock_rich_console:  # Mock rich console to avoid output
                         main()
-                        # Should use text-mode interactive REPL
+                        # Should use text-mode interactive REPL (default)
                         mock_cli_mode.assert_called_once()

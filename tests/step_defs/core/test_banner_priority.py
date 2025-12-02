@@ -69,7 +69,8 @@ def start_qbot_interactive():
     env['DBT_PROFILE_NAME'] = 'Sakila'
     
     # Use echo to provide input and exit quickly
-    cmd = ['python', '-m', 'sqlbot.repl', '--profile', 'Sakila', '--text']
+    # Note: No --textual flag needed since text mode is now the default
+    cmd = ['python', '-m', 'sqlbot.repl', '--profile', 'Sakila']
     
     # Send exit command immediately to avoid hanging
     process = subprocess.Popen(

@@ -1,3 +1,10 @@
+## [2.2.3](https://github.com/AnthusAI/SQLBot/compare/v2.2.2...v2.2.3) (2025-12-02)
+
+
+### Bug Fixes
+
+* improve multi-line input UX - now requires blank line to submit after first line ([e9382ce](https://github.com/AnthusAI/SQLBot/commit/e9382ce0e7721edeab1e24e020eb8f52cc18a051))
+
 ## [2.2.2](https://github.com/AnthusAI/SQLBot/compare/v2.2.1...v2.2.2) (2025-12-01)
 
 

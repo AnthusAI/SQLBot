@@ -1,3 +1,10 @@
+## [2.3.6](https://github.com/AnthusAI/SQLBot/compare/v2.3.5...v2.3.6) (2025-12-02)
+
+
+### Bug Fixes
+
+* use consistent left-arrow prompt for multi-line input continuation ([d3e56d8](https://github.com/AnthusAI/SQLBot/commit/d3e56d8240becbe9bb81306cf2b2ea20406761f8))
+
 ## [2.3.5](https://github.com/AnthusAI/SQLBot/compare/v2.3.4...v2.3.5) (2025-12-02)
 
 

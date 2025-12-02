@@ -1,3 +1,10 @@
+## [2.3.2](https://github.com/AnthusAI/SQLBot/compare/v2.3.1...v2.3.2) (2025-12-02)
+
+
+### Bug Fixes
+
+* remove incorrect banner display logic for query mode ([1dfdafd](https://github.com/AnthusAI/SQLBot/commit/1dfdafdb66bdde1c121eab6699e4b7912013e6dd))
+
 ## [2.3.1](https://github.com/AnthusAI/SQLBot/compare/v2.3.0...v2.3.1) (2025-12-02)
 
 

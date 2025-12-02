@@ -1440,8 +1440,8 @@ def start_unified_repl(memory_manager, console):
                             # Empty first line, return empty string
                             return ""
                     else:
-                        # Continuation lines with a different prompt
-                        line = input("... ")
+                        # Continuation lines with same prompt character
+                        line = input(f"{MessageSymbols.INPUT_PROMPT} ")
 
                         # If line is empty, we're done
                         if not line:

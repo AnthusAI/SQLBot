@@ -1,3 +1,10 @@
+## [2.3.3](https://github.com/AnthusAI/SQLBot/compare/v2.3.2...v2.3.3) (2025-12-02)
+
+
+### Bug Fixes
+
+* resolve langchain 1.1.0 compatibility and banner display issues ([1334b5a](https://github.com/AnthusAI/SQLBot/commit/1334b5ade063f491bc72c3771f4771271f6cdb52))
+
 ## [2.3.2](https://github.com/AnthusAI/SQLBot/compare/v2.3.1...v2.3.2) (2025-12-02)
 
 

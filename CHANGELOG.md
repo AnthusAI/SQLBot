@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/AnthusAI/SQLBot/compare/v2.3.8...v2.4.0) (2025-12-04)
+
+
+### Features
+
+* implement SQLBot web interface with real-time updates ([f1ac73d](https://github.com/AnthusAI/SQLBot/commit/f1ac73d41fb2aacdcdd7ae6a656a2859a142f1a2))
+
 ## [2.3.8](https://github.com/AnthusAI/SQLBot/compare/v2.3.7...v2.3.8) (2025-12-02)
 
 

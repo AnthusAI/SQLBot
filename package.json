@@ -17,5 +17,9 @@
     "@semantic-release/github": "^9.2.6",
     "@semantic-release/release-notes-generator": "^12.1.0",
     "semantic-release": "^22.0.12"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.4.0"
   }
 }

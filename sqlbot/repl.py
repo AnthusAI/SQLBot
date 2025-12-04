@@ -114,7 +114,7 @@ try:
 except ImportError:
     try:
         # Fallback to absolute import (when run as script)
-        from llm_integration import handle_llm_query
+        from sqlbot.llm_integration import handle_llm_query
         LLM_AVAILABLE = True
         pass  # LLM integration loaded - will show message later
     except ImportError as e:
@@ -876,8 +876,13 @@ def is_sql_query(query):
     """Detect if query should be treated as SQL/dbt (ends with semicolon)"""
     return query.strip().endswith(';')
 
-def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=False):
-    """Show SQLBot banner with setup information"""
+def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=False, unified_display=None):
+    """
+    Show SQLBot banner with setup information.
+
+    If unified_display is provided, adds banner as a system message to the chat.
+    Otherwise, prints to console for backwards compatibility.
+    """
     from sqlbot.interfaces.banner import get_banner_content, get_interactive_banner_content
     from rich.markdown import Markdown
     from rich.panel import Panel
@@ -923,13 +928,17 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
             dbt_config_info=dbt_config_info
         )
 
-        # Use Rich Markdown for proper formatting
-        theme = get_theme_manager()
-        markdown_content = Markdown(banner_text)
+        # If unified_display is provided, add as system message to chat
+        if unified_display:
+            unified_display.add_system_message(banner_text)
+        else:
+            # Fallback: Use Rich Markdown for proper formatting
+            theme = get_theme_manager()
+            markdown_content = Markdown(banner_text)
 
-        # Display in a panel with theme colors
-        ai_color = theme.get_color('ai_response')
-        rich_console.print(Panel(markdown_content, border_style=ai_color))
+            # Display in a panel with theme colors
+            ai_color = theme.get_color('ai_response')
+            rich_console.print(Panel(markdown_content, border_style=ai_color))
 
 
 
@@ -1171,11 +1180,9 @@ def main():
             return
         else:
             # Default: text-based CLI mode
-            # Show banner when NOT in --no-repl mode
-            if not args.no_repl:
-                show_banner(is_no_repl=False, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
-            else:
-                # In --no-repl mode, just add spacing
+            # Banner will be shown by start_unified_repl for interactive mode
+            if args.no_repl:
+                # In --no-repl mode, just add spacing (no banner)
                 rich_console.print()
                 rich_console.print()
 
@@ -1193,7 +1200,7 @@ def main():
                 rich_console.print("\n[dim]Exiting (--no-repl mode)[/dim]")
                 return  # Exit after query execution
             else:
-                # Continue to interactive CLI mode
+                # Continue to interactive CLI mode (banner will be shown by start_unified_repl)
                 _start_cli_interactive_mode(rich_console)
                 return
 
@@ -1205,8 +1212,7 @@ def main():
             textual_repl = create_textual_repl_from_args(args)
             textual_repl.run()
         else:
-            # Default: text-based interactive REPL
-            show_banner(is_no_repl=False, profile=args.profile, llm_model=llm_model, llm_available=LLM_AVAILABLE)
+            # Default: text-based interactive REPL (banner will be shown by start_unified_repl)
             _start_cli_interactive_mode(rich_console)
 
 
@@ -1354,6 +1360,13 @@ def start_unified_repl(memory_manager, console):
     cli_display = CLIMessageDisplay(console)
     cli_display.set_interactive_mode(True)  # Enable prompt overwriting
     unified_display = UnifiedMessageDisplay(cli_display, memory_manager)
+
+    # Show banner as first system message in chat
+    global DBT_PROFILE_NAME, LLM_AVAILABLE
+    llm_model = None
+    if LLM_AVAILABLE:
+        llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
+    show_banner(is_no_repl=False, profile=DBT_PROFILE_NAME, llm_model=llm_model, llm_available=LLM_AVAILABLE, unified_display=unified_display)
 
     # Create execute_llm_func with access to unified_display and conversation sync
     def execute_llm_func(q: str) -> str:

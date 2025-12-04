@@ -36,8 +36,14 @@ def get_current_profile():
         from .core.config import SQLBotConfig
         config = SQLBotConfig.from_env()
         return config.profile
-    except:
-        return None
+    except Exception as e:
+        # Last resort: check environment variable
+        import os
+        profile = os.getenv('DBT_PROFILE_NAME') or os.getenv('SQLBOT_PROFILE')
+        if profile:
+            return profile
+        # If still nothing, return a default
+        return 'sqlbot'
 
 def check_dbt_setup():
     """
@@ -363,11 +369,12 @@ class DbtQueryTool(BaseTool):
     """
     args_schema: Type[BaseModel] = DbtQueryInput
     
-    def __init__(self, session_id: str = 'default_session', unified_display=None):
-        """Initialize with session ID for query result tracking and unified display"""
+    def __init__(self, session_id: str = 'default_session', unified_display=None, event_notifier=None):
+        """Initialize with session ID for query result tracking, unified display, and event notifier"""
         super().__init__()
         self._session_id = session_id
         self._unified_display = unified_display
+        self._event_notifier = event_notifier
     
     def _run(self, query: str) -> str:
         """Execute the dbt query and ALWAYS show results to user"""
@@ -447,27 +454,49 @@ class DbtQueryTool(BaseTool):
                 dbt_service = get_dbt_service(config)
                 formatter = ResultFormatter(console)
                 
+                # Emit query execution message
+                query_message = f"🔍 Executing SQL query:\n```sql\n{query.strip()}\n```"
+                if self._unified_display:
+                    self._unified_display.display_impl.display_tool_call("Database Query", query)
+                if self._event_notifier:
+                    self._event_notifier("message", {
+                        "role": "system",
+                        "content": query_message
+                    })
+
                 # Perform safety check if safeguards are enabled
                 safeguard_message = None
                 if safeguard_enabled:
                     from .core.safety import analyze_sql_safety
                     safety_analysis = analyze_sql_safety(query, dangerous_mode=False)
-                    
+
                     if safety_analysis.is_read_only and safety_analysis.level.value == "safe":
                         # Query is safe
-                        safeguard_message = "Query passes safeguard against dangerous operations."
+                        safeguard_message = "✔ Query passes safeguard against dangerous operations."
                         if self._unified_display:
                             # Display safeguard success message
                             self._unified_display.display_impl.display_success_message(safeguard_message)
+                        # Also send to web interface via event notifier
+                        if self._event_notifier:
+                            self._event_notifier("message", {
+                                "role": "system",
+                                "content": safeguard_message
+                            })
                     else:
                         # Query has dangerous operations
                         operations_str = ", ".join(safety_analysis.dangerous_operations)
-                        safeguard_message = f"Query disallowed due to dangerous operations: {operations_str}"
-                        
+                        safeguard_message = f"✖ Query disallowed due to dangerous operations: {operations_str}"
+
                         if self._unified_display:
                             # Display safeguard error message
                             self._unified_display.display_impl.display_error_message(safeguard_message)
-                        
+                        # Also send to web interface via event notifier
+                        if self._event_notifier:
+                            self._event_notifier("message", {
+                                "role": "system",
+                                "content": safeguard_message
+                            })
+
                         # Return error without executing the query
                         import json
                         return json.dumps({
@@ -483,14 +512,46 @@ class DbtQueryTool(BaseTool):
                 # Execute query and get structured results
                 # No limit needed - macro prevents dbt from adding LIMIT clauses
                 result = dbt_service.execute_query(query)
-                
+
                 # Record the result in the query result list
                 from .core.query_result_list import get_query_result_list
-                
+
                 # Use the session ID from this tool instance
                 session_id = self._session_id
                 result_list = get_query_result_list(session_id)
                 entry = result_list.add_result(query.strip(), result)
+
+                # Emit query results as a system message with formatted table
+                if result.success and result.data:
+                    row_count = len(result.data)
+                    exec_time = result.execution_time
+
+                    # Build a formatted results message
+                    results_message = f"📊 Query results: {row_count} row(s) returned in {exec_time:.2f}s"
+
+                    # For small result sets, include the data in markdown table format
+                    if row_count <= 10 and result.columns:
+                        results_message += "\n\n"
+                        # Header
+                        results_message += "| " + " | ".join(result.columns) + " |\n"
+                        results_message += "| " + " | ".join(["---"] * len(result.columns)) + " |\n"
+                        # Rows - handle both dict and list formats
+                        for row in result.data[:10]:
+                            if isinstance(row, dict):
+                                # Row is a dictionary - extract values in column order
+                                row_values = [row.get(col) for col in result.columns]
+                            else:
+                                # Row is already a list/tuple
+                                row_values = row
+                            results_message += "| " + " | ".join(str(v) if v is not None else "NULL" for v in row_values) + " |\n"
+                    elif row_count > 10:
+                        results_message += f"\n(Showing first 10 of {row_count} rows)"
+
+                    if self._event_notifier:
+                        self._event_notifier("message", {
+                            "role": "system",
+                            "content": results_message
+                        })
                 
                 # Suppress result formatting to avoid interfering with thinking indicator
                 # formatter.format_query_result(result)
@@ -523,26 +584,9 @@ class DbtQueryTool(BaseTool):
                         "execution_time_seconds": f"{exec_time:.2f}s",
                         "performance_note": perf_note
                     }, indent=2)
-                    
-                    # Display tool result in real-time if we have unified display
-                    if self._unified_display:
-                        # Show concise result summary to avoid confusing the agent
-                        try:
-                            row_count = result.row_count if hasattr(result, 'row_count') else len(result.data) if result.data else 0
-                            result_summary = f"Success: {row_count} rows returned"
-                            if result.columns and len(result.columns) <= 3:
-                                result_summary += f" (columns: {', '.join(result.columns)})"
-                            
-                            # Pass the actual query result data for DataTable display
-                            self._unified_display.display_impl.display_tool_result_with_data(
-                                "Query Result", 
-                                result_summary, 
-                                result  # Pass the full result object
-                            )
-                        except Exception as e:
-                            # Fallback to basic success message if result parsing fails
-                            self._unified_display.display_impl.display_tool_result("Query Result", "Success: Query completed")
-                    
+                    # Note: Query results are now displayed via system message above
+                    # (no need to display via unified_display anymore)
+
                     log_to_file(f"✅ TOOL SUCCESS: Query executed successfully, returning result")
                     return result_json
                 else:
@@ -1299,7 +1343,7 @@ def set_session_id(session_id: str):
     """Set the session ID for LLM agent creation"""
     create_llm_agent._session_id = session_id
 
-def create_llm_agent(unified_display=None, console=None, show_history=False, show_full_history=False):
+def create_llm_agent(unified_display=None, console=None, show_history=False, show_full_history=False, event_notifier=None):
     """
     Create LangChain agent with dbt query tool for database analysis.
     
@@ -1346,7 +1390,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
         session_id = getattr(create_llm_agent, '_session_id', 'default_session')
         
         tools = [
-            DbtQueryTool(session_id, unified_display),
+            DbtQueryTool(session_id, unified_display, event_notifier),
             create_query_result_lookup_tool(session_id),
             create_export_data_tool(session_id)
         ]
@@ -1397,13 +1441,12 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         result_preview = str(output)[:200] + "..." if len(str(output)) > 200 else str(output)
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
 
-        # Create agent using new langchain 1.1 API
-        # Note: create_agent returns a CompiledStateGraph, not an AgentExecutor
+        # Create agent using LangChain tool calling API
+        # Note: create_agent returns a runnable agent graph
         agent = create_agent(
             model=llm,
             tools=tools,
-            system_prompt=system_prompt,
-            cache=llm._client if hasattr(llm, '_client') else None
+            system_prompt=system_prompt
         )
 
         # Note: The new create_agent returns a graph that can be invoked directly
@@ -1421,15 +1464,16 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
 _dbt_setup_cache = None
 _dbt_setup_cache_time = 0
 
-def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False, show_full_history: bool = False) -> str:
+def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None) -> str:
     """
     Handle natural language query via LLM agent with retry logic.
-    
+
     Args:
         query_text: User's natural language question about the data
         max_retries: Maximum number of retry attempts (default: 3)
         timeout_seconds: Timeout for LLM requests in seconds (default: 120)
-        
+        event_notifier: Optional callback for streaming events (for web interface)
+
     Returns:
         str: Agent's response with query results and analysis
     """
@@ -1458,7 +1502,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
             if attempt > 0:
                 console.print(f"🔄 [yellow]Retrying LLM request (attempt {attempt + 1}/{max_retries})...[/yellow]")
             
-            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history, show_full_history)
+            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history, show_full_history, event_notifier)
             
         except Exception as e:
             error_msg = str(e)
@@ -1480,7 +1524,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
                 console.print(f"❌ [red]LLM query failed after {attempt + 1} attempts: {error_msg}[/red]")
                 return f"LLM query failed: {error_msg}"
 
-def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False) -> str:
+def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None) -> str:
     """
     Execute the actual LLM query with timeout handling.
 
@@ -1545,51 +1589,143 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         
         sys.stdout.flush()  # Force immediate display
         # Create agent (fresh instance ensures latest schema/macro info)
-        agent = create_llm_agent(unified_display, console, show_history, show_full_history)
+        agent = create_llm_agent(unified_display, console, show_history, show_full_history, event_notifier)
 
         # Execute query with chat history (conversation history now shown by callback before each LLM call)
-        # Note: New langchain 1.1 API expects messages list format with history included
-        # Build messages list with chat history + current query
-        messages_list = []
-
-        # Add chat history to messages
-        for msg in chat_history:
-            messages_list.append(msg)
-
-        # Add current query
-        messages_list.append({"role": "user", "content": query_text})
-
+        # create_tool_calling_agent expects: input, chat_history, intermediate_steps
         # Pass callbacks via config parameter
         config = {}
         if hasattr(agent, '_callbacks'):
             config['callbacks'] = agent._callbacks
+
+        # Add streaming callback if we have an event notifier
+        import sys
+        print(f"[DEBUG] About to check event_notifier, locals: {list(locals().keys())}", file=sys.stderr)
+        if event_notifier:
+            from langchain_core.callbacks import BaseCallbackHandler
+
+            class StreamingCallback(BaseCallbackHandler):
+                def __init__(self, notifier):
+                    self.notifier = notifier
+
+                def on_llm_start(self, serialized, prompts, **kwargs):
+                    """Called when LLM starts generating"""
+                    pass
+
+                def on_llm_new_token(self, token, **kwargs):
+                    """Called when LLM generates a new token"""
+                    # For streaming token-by-token (optional enhancement)
+                    pass
+
+                def on_tool_start(self, serialized, input_str, **kwargs):
+                    """Called when a tool starts executing"""
+                    tool_name = serialized.get('name', 'unknown')
+                    if tool_name == 'execute_dbt_query':
+                        # Extract query from input
+                        query = input_str
+                        if isinstance(input_str, dict):
+                            query = input_str.get('query', str(input_str))
+                        self.notifier("message", {
+                            "role": "assistant",
+                            "content": f"Executing query:\n```sql\n{query}\n```"
+                        })
+
+                def on_tool_end(self, output, **kwargs):
+                    """Called when a tool finishes executing"""
+                    # Emit tool result
+                    self.notifier("message", {
+                        "role": "assistant",
+                        "content": f"Query result:\n```\n{str(output)[:500]}\n```"
+                    })
+
+                def on_agent_action(self, action, **kwargs):
+                    """Called when agent takes an action"""
+                    # Emit the agent's reasoning before tool execution
+                    if hasattr(action, 'log') and action.log:
+                        # Extract just the reasoning text from the log
+                        log_text = action.log.strip()
+                        if log_text and not log_text.startswith('\nInvoking:'):
+                            self.notifier("message", {
+                                "role": "assistant",
+                                "content": log_text
+                            })
+
+            streaming_callback = StreamingCallback(event_notifier)
+            if 'callbacks' not in config:
+                config['callbacks'] = []
+            config['callbacks'].append(streaming_callback)
+
+        # Build messages list for the new create_agent API
+        messages_list = []
+        for msg in chat_history:
+            messages_list.append(msg)
+        messages_list.append({"role": "user", "content": query_text})
 
         result = agent.invoke(
             {"messages": messages_list},
             config=config if config else None
         )
 
-        # Extract intermediate steps from the new response format
-        # The new API returns messages in the result
-        intermediate_steps = []
-        messages = result.get("messages", [])
+        # Debug: Log what type of result we got
+        import sys
+        print(f"[DEBUG] Agent result type: {type(result)}", file=sys.stderr)
+        print(f"[DEBUG] Agent result hasattr return_values: {hasattr(result, 'return_values')}", file=sys.stderr)
+        if isinstance(result, dict):
+            print(f"[DEBUG] Result is dict with keys: {list(result.keys())}", file=sys.stderr)
 
-        # Parse messages for tool calls and results
-        for msg in messages:
-            if hasattr(msg, 'type') and msg.type == 'tool':
-                # This is a tool result
-                pass  # Tool tracking is handled by callbacks
+        # Extract the output from the agent result
+        # create_tool_calling_agent returns an AgentFinish object with return_values
+        if hasattr(result, 'return_values') and isinstance(result.return_values, dict):
+            # AgentFinish object from LangChain
+            raw_output = result.return_values.get("output", "No response generated")
+            # intermediate_steps should be empty for AgentFinish
+            intermediate_steps = []
 
-        # Extract the final answer
-        # The new API returns messages list, extract the last AI message
-        raw_output = None
-        for msg in reversed(messages):
-            if hasattr(msg, 'type') and msg.type == 'ai':
-                raw_output = msg.content
-                break
+            # Debug: Always log raw_output info to stderr
+            import sys
+            print(f"[DEBUG] result type = {type(result)}", file=sys.stderr)
+            print(f"[DEBUG] raw_output type = {type(raw_output)}", file=sys.stderr)
+            if isinstance(raw_output, list):
+                print(f"[DEBUG] raw_output is list with {len(raw_output)} items", file=sys.stderr)
+                for i, item in enumerate(raw_output[:3]):  # First 3 items only
+                    print(f"[DEBUG]   Item {i}: type={type(item).__name__}, repr={repr(item)[:100]}", file=sys.stderr)
+            else:
+                print(f"[DEBUG] raw_output = {str(raw_output)[:300]}", file=sys.stderr)
 
-        if raw_output is None:
-            raw_output = "No response generated"
+            # Debug: Check if output extraction worked
+            if DEBUG_MODE:
+                print(f"DEBUG: result type = {type(result)}")
+                print(f"DEBUG: raw_output type = {type(raw_output)}")
+                print(f"DEBUG: raw_output = {str(raw_output)[:300]}")
+        elif isinstance(result, dict):
+            # LangChain 1.1.0 create_agent returns dict with 'messages' key
+            if "messages" in result:
+                # Extract the last AI message from the messages list
+                messages = result["messages"]
+                raw_output = None
+                for msg in reversed(messages):
+                    # Look for AIMessage (the last assistant response)
+                    if hasattr(msg, 'type') and msg.type == 'ai':
+                        raw_output = msg.content
+                        break
+                    elif hasattr(msg, 'role') and msg.role == 'assistant':
+                        raw_output = msg.content
+                        break
+
+                if raw_output is None:
+                    raw_output = "No response generated"
+                intermediate_steps = []
+            else:
+                # Fallback: old dict format with output key
+                raw_output = result.get("output", "No response generated")
+                intermediate_steps = result.get("intermediate_steps", [])
+
+            # If raw_output is a list, filter out ToolAgentAction objects
+            if isinstance(raw_output, list):
+                raw_output = [item for item in raw_output if type(item).__name__ != 'ToolAgentAction']
+        else:
+            raw_output = str(result)
+            intermediate_steps = []
 
         # Debug logging: Log raw response structure before formatting
         if DEBUG_MODE:
@@ -1621,9 +1757,14 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
                 console.print(f"[dim yellow]Debug logging failed: {e}[/dim yellow]")
 
         # Extract response from GPT-5 Responses API format
+        # For GPT-5, raw_output can be a list of response objects or a string
         if isinstance(raw_output, list):
             response = ""
             for item in raw_output:
+                # Skip ToolAgentAction objects - they should not be in the user-facing response
+                if type(item).__name__ == 'ToolAgentAction':
+                    continue
+
                 if hasattr(item, 'content'):
                     # Handle structured response objects
                     for content in item.content:
@@ -1631,9 +1772,18 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
                             response += content.text
                 elif isinstance(item, str):
                     response += item
+                elif isinstance(item, dict):
+                    # Handle dict items from GPT-5 Responses API
+                    # Skip reasoning blocks, only extract text blocks
+                    if item.get('type') == 'text' and 'text' in item:
+                        response += item['text']
                 else:
-                    # For GPT-5 Responses API, extract text from response objects
+                    # Skip any objects that look like internal LangChain types
                     item_str = str(item)
+                    if 'ToolAgentAction' in item_str or 'AgentAction' in item_str:
+                        continue
+
+                    # Fallback: try to extract text from string representation
                     if '"text":' in item_str and '"type": "text"' in item_str:
                         # Try to extract just the text content from JSON-like format
                         try:
@@ -1653,6 +1803,11 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
                         response += item_str
             if not response:
                 response = "No response generated"
+
+            # Debug: Log the extracted response
+            import sys
+            print(f"[DEBUG] Extracted response length: {len(response)}", file=sys.stderr)
+            print(f"[DEBUG] Response preview: {response[:200]}", file=sys.stderr)
         else:
             # Handle string responses - extract text if it's in GPT-5 format
             response_str = str(raw_output)
@@ -1671,34 +1826,30 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
             else:
                 response = response_str
         
-        # Capture query results from messages for context
+        # Capture query results from intermediate_steps for context
         query_results = []
-        # Parse tool calls and results from messages
-        for i, msg in enumerate(messages):
-            if hasattr(msg, 'type'):
-                if msg.type == 'ai' and hasattr(msg, 'tool_calls') and msg.tool_calls:
-                    # AI message with tool calls
-                    for tool_call in msg.tool_calls:
-                        if tool_call.get('name') == 'execute_dbt_query':
-                            query_executed = tool_call.get('args', {}).get('query', 'Unknown query')
-                            # Find the corresponding tool result
-                            for j in range(i+1, len(messages)):
-                                result_msg = messages[j]
-                                if hasattr(result_msg, 'type') and result_msg.type == 'tool':
-                                    query_result = result_msg.content
-                                    # Truncate large results for conversation history (unless full history is requested)
-                                    if not show_full_history and len(query_result) > 2000:
-                                        truncated_result = query_result[:1500] + f"\n\n[TRUNCATED - Original result was {len(query_result)} characters. This truncation was applied to manage conversation history size for the AI model. The user saw the complete results above.]"
-                                        query_results.append(f"Query: {query_executed}\nResult: {truncated_result}")
-                                    else:
-                                        query_results.append(f"Query: {query_executed}\nResult: {query_result}")
-                                    break
+        # Parse tool calls and results from intermediate_steps
+        # intermediate_steps is a list of (AgentAction, observation) tuples
+        for step in intermediate_steps:
+            if isinstance(step, tuple) and len(step) == 2:
+                action, observation = step
+                # Check if this is a query execution
+                if hasattr(action, 'tool') and action.tool == 'execute_dbt_query':
+                    query_executed = action.tool_input.get('query', 'Unknown query') if isinstance(action.tool_input, dict) else str(action.tool_input)
+                    query_result = str(observation)
+
+                    # Truncate large results for conversation history (unless full history is requested)
+                    if not show_full_history and len(query_result) > 2000:
+                        truncated_result = query_result[:1500] + f"\n\n[TRUNCATED - Original result was {len(query_result)} characters. This truncation was applied to manage conversation history size for the AI model. The user saw the complete results above.]"
+                        query_results.append(f"Query: {query_executed}\nResult: {truncated_result}")
+                    else:
+                        query_results.append(f"Query: {query_executed}\nResult: {query_result}")
         
         # Build comprehensive response with truncated query results for history
         full_response = response
         if query_results:
             full_response = f"{response}\n\n--- Query Details ---\n" + "\n\n".join(query_results)
-        
+
         # Add assistant response with query results to conversation history
         conversation_history.append({"role": "assistant", "content": full_response})
 
@@ -1714,8 +1865,14 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
             # Don't fail the query if persistence fails
             logger.warning(f"Failed to save conversation history: {e}")
 
-        # Return the full response including tool call details for display
-        return full_response
+        # Return response - in web mode, return just the clean response since tool details were streamed
+        # In CLI mode, return full_response with query details
+        if event_notifier:
+            # Web mode: tool actions already streamed, just return final clean response
+            return response
+        else:
+            # CLI mode: return full response with query details
+            return full_response
         
     except KeyboardInterrupt:
         print("\n⚠️ Query interrupted by user")

@@ -1,0 +1,520 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@theme {
+  --color-card: hsl(240 10% 92%);
+  --color-card-foreground: hsl(240 10% 10%);
+  --color-accent: hsl(240 5% 88%);
+  --color-accent-foreground: hsl(240 5.9% 10%);
+  --color-background: hsl(0 0% 98%);
+  --color-foreground: hsl(240 10% 10%);
+  --color-border: hsl(240 5.9% 90%);
+  --color-muted: hsl(240 4.8% 95.9%);
+  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  --color-primary: hsl(217 91% 60%);
+  --color-primary-foreground: hsl(0 0% 100%);
+}
+
+/* ===== Shadcn-Inspired Design System (DeckBot Style) ===== */
+:root {
+  /* Base Colors - Light Theme */
+  --background: 0 0% 98%;
+  --foreground: 240 10% 10%;
+  --card: 240 10% 92%;
+  --card-foreground: 240 10% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 10%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 292 84% 61%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 5% 88%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 217 91% 60%;
+  --radius: 0.5rem;
+
+  /* Tailwind compatibility */
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+}
+
+[data-theme="dark"] {
+  --background: 240 10% 3.9%;
+  --foreground: 240 5% 90%;
+  --card: 240 6% 10%;
+  --card-foreground: 240 5% 90%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 240 5% 90%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 240 4% 16%;
+  --accent-foreground: 240 5% 90%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 240 5% 90%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+
+  /* Tailwind compatibility */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+
+    --color-background: hsl(var(--background));
+    --color-foreground: hsl(var(--foreground));
+    --color-border: hsl(var(--border));
+    --color-muted: hsl(var(--muted));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+    --color-accent: hsl(var(--accent));
+    --color-accent-foreground: hsl(var(--accent-foreground));
+  }
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  overflow: hidden;
+  transition: background-color 0.3s, color 0.3s;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Menu Bar (DeckBot Style) ===== */
+.menu-bar {
+  height: 40px;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.menu-left, .menu-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-item {
+  position: relative;
+}
+
+.menu-button {
+  background: none;
+  border: none;
+  color: hsl(var(--foreground));
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: calc(var(--radius) - 2px);
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.menu-button:hover {
+  background: hsl(var(--accent));
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  min-width: 200px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  z-index: 1000;
+  margin-top: 0px;
+  padding: 4px;
+  padding-top: 8px;
+}
+
+.menu-item:hover .dropdown-menu,
+.dropdown-menu:hover {
+  display: block;
+}
+
+.menu-item:hover::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: hsl(var(--foreground));
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: calc(var(--radius) - 4px);
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.dropdown-item:hover {
+  background: hsl(var(--accent));
+}
+
+.dropdown-item.checkable {
+  position: relative;
+  padding-left: 32px;
+}
+
+.dropdown-item.checkable.active::before {
+  content: '✓';
+  position: absolute;
+  left: 12px;
+  font-weight: 600;
+  color: hsl(var(--primary));
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: hsl(var(--border));
+  margin: 4px 0;
+}
+
+.kbd {
+  margin-left: auto;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-family: monospace;
+}
+
+/* Theme Selector */
+.theme-selector {
+  display: flex;
+  gap: 4px;
+  background: hsl(var(--muted));
+  padding: 4px;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.theme-btn {
+  background: none;
+  border: none;
+  color: hsl(var(--muted-foreground));
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: calc(var(--radius) - 4px);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-btn:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+
+.theme-btn.active {
+  background: hsl(var(--background));
+  color: hsl(var(--primary));
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* ===== Resizer ===== */
+.resizer {
+  width: 8px;
+  background: transparent;
+  cursor: ew-resize;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: hsl(var(--border));
+  transition: all 0.2s;
+}
+
+.resizer:hover::before {
+  width: 3px;
+  background: hsl(var(--primary));
+}
+
+.resizer.resizing::before {
+  width: 3px;
+  background: hsl(var(--primary));
+}
+
+/* ===== Prose Styling for Markdown Content ===== */
+.prose {
+  line-height: 1.75;
+}
+
+.prose h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+}
+
+.prose h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.prose h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.prose p {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose ul {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+  list-style-type: disc;
+}
+
+.prose li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.prose code {
+  background: hsl(var(--muted));
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: var(--font-mono);
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+/* ===== Message Components (DeckBot Style) ===== */
+.message-container {
+  animation: fadeIn 0.3s ease-out;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade-in animation */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Message avatar styling */
+.message-avatar {
+  transition: transform 0.2s;
+}
+
+.message-container:hover .message-avatar {
+  transform: scale(1.05);
+}
+
+/* Code block styling */
+.code-block-container {
+  margin: 0.75rem 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.code-block-container pre {
+  margin: 0;
+  max-height: 500px;
+  overflow: auto;
+  max-width: 100%;
+}
+
+.code-block-container code {
+  display: block;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre;
+  word-wrap: normal;
+}
+
+/* Data table styling */
+.data-table-container {
+  margin: 0.75rem 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.data-table-container table {
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+/* Ensure table cells don't cause overflow */
+.data-table-container td,
+.data-table-container th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+/* Allow cell content to be visible on hover */
+.data-table-container td:hover,
+.data-table-container th:hover {
+  overflow: visible;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.data-table-container th {
+  position: sticky;
+  top: 0;
+  background: hsl(var(--muted));
+  z-index: 10;
+}
+
+.data-table-container tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Scrollbar styling */
+.data-table-container > div:first-of-type::-webkit-scrollbar,
+.code-block-container pre::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.data-table-container > div:first-of-type::-webkit-scrollbar-track,
+.code-block-container pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.data-table-container > div:first-of-type::-webkit-scrollbar-thumb,
+.code-block-container pre::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+.data-table-container > div:first-of-type::-webkit-scrollbar-thumb:hover,
+.code-block-container pre::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Collapsible section styling */
+.collapsible-section {
+  margin: 0.5rem 0;
+}
+
+.collapsible-content {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Border left for system messages */
+.border-l-3 {
+  border-left-width: 3px;
+}

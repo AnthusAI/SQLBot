@@ -960,7 +960,13 @@ def main():
     if args.command:
         exit_code = handle_cli_subcommands(args)
         sys.exit(exit_code)
-    
+
+    # Handle web mode
+    if hasattr(args, 'web') and args.web:
+        from .webapp import run_webapp
+        run_webapp()
+        return
+
     # Apply theme early based on command line argument
     theme_map = {mode.value: mode for mode in ThemeMode}
     theme_manager = get_theme_manager()

@@ -76,7 +76,8 @@ def create_cli_parser():
     parser.add_argument('--theme', choices=['qbot', 'dark', 'light'], default='qbot', help='Color theme (default: qbot)')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging including raw LLM responses')
     parser.add_argument('--continue', dest='continue_session', action='store_true', help='Continue the most recent conversation session')
-    
+    parser.add_argument('--web', action='store_true', help='Start web interface for SQLBot')
+
     # Create subparsers (but make them optional)
     subparsers = parser.add_subparsers(dest='command', help='Available commands', required=False)
     
@@ -137,6 +138,7 @@ def parse_args_with_subcommands(args=None):
         parser.add_argument('--theme', choices=['qbot', 'dark', 'light'], default='qbot', help='Color theme (default: qbot)')
         parser.add_argument('--debug', action='store_true', help='Enable debug logging including raw LLM responses')
         parser.add_argument('--continue', dest='continue_session', action='store_true', help='Continue the most recent conversation session')
+        parser.add_argument('--web', action='store_true', help='Start web interface for SQLBot')
         parser.add_argument('--help', '-h', action='store_true', help='Show help')
         parser.add_argument('query', nargs='*', help='Query to execute')
         

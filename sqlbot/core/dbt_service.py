@@ -276,10 +276,10 @@ class DbtService:
             if result.returncode == 0:
                 # Parse dbt show JSON output
                 output = result.stdout.strip()
-                data, columns = self._parse_dbt_json_output(output)
+                data, columns, parse_success = self._parse_dbt_json_output(output)
 
-                # Check if parsing actually found data
-                if not columns and not data:
+                # Check if parsing failed (distinct from valid query returning 0 rows)
+                if not parse_success:
                     # JSON parsing failed - return error with debug info
                     return QueryResult(
                         success=False,
@@ -316,7 +316,14 @@ class DbtService:
             )
 
     def _parse_dbt_json_output(self, output: str):
-        """Parse dbt show JSON output into structured data."""
+        """Parse dbt show JSON output into structured data.
+
+        Returns:
+            Tuple of (data, columns, parse_success) where:
+            - data: List of row dicts (empty list if no rows)
+            - columns: List of column names (empty list if no rows)
+            - parse_success: True if JSON was valid and had 'show' key, False if parsing failed
+        """
         import json
 
         try:
@@ -327,21 +334,21 @@ class DbtService:
                 rows = obj['show']
 
                 if not rows:
-                    # No data returned
-                    return [], []
+                    # Valid query that returned 0 rows - this is a successful parse
+                    return [], [], True
 
                 # Extract columns from first row's keys
                 columns = list(rows[0].keys())
 
                 # Data is already in dict format
-                return rows, columns
+                return rows, columns, True
 
         except json.JSONDecodeError as e:
             # JSON parsing failed
             pass
 
-        # If we didn't find valid show data, return empty
-        return [], []
+        # If we didn't find valid show data, return empty with parse_success=False
+        return [], [], False
 
     def _parse_dbt_table_output(self, output: str):
         """Parse dbt show table output into structured data."""

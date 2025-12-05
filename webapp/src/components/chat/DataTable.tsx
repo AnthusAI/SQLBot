@@ -73,9 +73,22 @@ export function DataTable({ columns, rows, maxHeight = 400, showRowNumbers = tru
         {sessionId && queryIndex && (
           <div className="relative" style={{ position: 'relative' }}>
             <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
+              onClick={(e) => {
+                setShowExportMenu(!showExportMenu);
+                // Store button position for dropdown positioning
+                const rect = e.currentTarget.getBoundingClientRect();
+                (e.currentTarget as any).dataset.x = rect.left.toString();
+                (e.currentTarget as any).dataset.y = rect.bottom.toString();
+              }}
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-foreground hover:bg-accent rounded transition-colors"
               title="Export data"
+              ref={(el) => {
+                if (el && showExportMenu) {
+                  const rect = el.getBoundingClientRect();
+                  el.dataset.x = rect.right.toString();
+                  el.dataset.y = rect.bottom.toString();
+                }
+              }}
             >
               <Download size={14} />
               Export
@@ -89,35 +102,51 @@ export function DataTable({ columns, rows, maxHeight = 400, showRowNumbers = tru
                   onClick={() => setShowExportMenu(false)}
                 />
 
-                {/* Dropdown menu - positioned to open to the left */}
-                <div className="dropdown-menu" style={{ display: 'block', zIndex: 20, right: 0, left: 'auto' }}>
+                {/* Dropdown menu - positioned with fixed positioning to escape overflow */}
+                <div
+                  className="dropdown-menu"
+                  style={{
+                    display: 'block',
+                    position: 'fixed',
+                    zIndex: 20,
+                    top: document.querySelector('[title="Export data"]')?.getBoundingClientRect().bottom + 'px' || '0',
+                    right: (window.innerWidth - (document.querySelector('[title="Export data"]')?.getBoundingClientRect().right || 0)) + 'px',
+                    width: 'max-content',
+                    maxWidth: '200px',
+                    left: 'auto'
+                  }}
+                >
+                  <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 600, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Download as
+                  </div>
+                  <div className="dropdown-divider" />
                   <button
                     onClick={() => handleExport('csv')}
                     className="dropdown-item"
                   >
                     <FileType size={16} />
-                    Download as CSV
+                    CSV
                   </button>
                   <button
                     onClick={() => handleExport('excel')}
                     className="dropdown-item"
                   >
                     <FileSpreadsheet size={16} />
-                    Download as Excel
+                    Excel
                   </button>
                   <button
                     onClick={() => handleExport('parquet')}
                     className="dropdown-item"
                   >
                     <Database size={16} />
-                    Download as Parquet
+                    Parquet
                   </button>
                   <button
                     onClick={() => handleExport('hdf5')}
                     className="dropdown-item"
                   >
                     <Database size={16} />
-                    Download as HDF5
+                    HDF5
                   </button>
                 </div>
               </>

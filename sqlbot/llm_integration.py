@@ -8,7 +8,7 @@ Clean version with simple status messages and full query visibility.
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.tools import BaseTool
-from langchain.agents import create_agent
+from langchain.agents import create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Type
 from pydantic import BaseModel, Field
@@ -1442,14 +1442,14 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
 
         # Create agent using LangChain tool calling API
-        # Note: create_agent returns a runnable agent graph
-        agent = create_agent(
-            model=llm,
+        # Note: create_tool_calling_agent returns a runnable agent graph
+        agent = create_tool_calling_agent(
+            llm=llm,
             tools=tools,
-            system_prompt=system_prompt
+            prompt=system_prompt
         )
 
-        # Note: The new create_agent returns a graph that can be invoked directly
+        # Note: create_tool_calling_agent returns a graph that can be invoked directly
         # We need to adapt the interface to match the old AgentExecutor API
         # Store the callback for use during invocation
         agent._callbacks = [ToolTrackingCallback(unified_display, console, show_history)]

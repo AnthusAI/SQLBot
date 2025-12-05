@@ -77,7 +77,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   loadSession: async (sessionId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const sessionDetail = await api.sessions.load(sessionId);
+      const response: any = await api.sessions.load(sessionId);
+
+      // Flatten the response structure - API returns {session: {...}, queries: [...], conversation_history: {...}}
+      const sessionDetail: SessionDetail = {
+        ...response.session,
+        queries: response.queries,
+        conversation_history: response.conversation_history,
+        config: {
+          safeguard_mode: response.session.safeguard_mode,
+          preview_mode: response.session.preview_mode,
+          profile: response.session.profile,
+        }
+      };
 
       // Convert conversation history to messages
       const messages: Message[] = sessionDetail.conversation_history.messages.map((msg) => {

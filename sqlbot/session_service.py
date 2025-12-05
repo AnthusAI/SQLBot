@@ -158,8 +158,12 @@ class SessionService:
                     # Natural language query - use LLM
                     self._notify("thinking_start")
 
-                    from sqlbot.llm_integration import handle_llm_query
+                    from sqlbot.llm_integration import handle_llm_query, set_session_id
                     import sys
+
+                    # Set session ID for query result tracking
+                    set_session_id(self.session_id)
+
                     print(f"[SessionService] Calling handle_llm_query with: {user_input}", file=sys.stderr)
                     result = handle_llm_query(user_input, event_notifier=self._notify)
                     print(f"[SessionService] Got result type: {type(result)}, length: {len(result) if result else 0}", file=sys.stderr)

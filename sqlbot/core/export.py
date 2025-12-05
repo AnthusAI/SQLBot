@@ -14,7 +14,7 @@ from .types import QueryResult
 from .query_result_list import QueryResultEntry, get_query_result_list
 
 
-ExportFormat = Literal["csv", "excel", "parquet"]
+ExportFormat = Literal["csv", "excel", "parquet", "hdf5"]
 
 
 class DataExporter:
@@ -39,7 +39,7 @@ class DataExporter:
         Export the most recent query result to specified format
 
         Args:
-            format: Export format - "csv", "excel", or "parquet"
+            format: Export format - "csv", "excel", "parquet", or "hdf5"
             location: Directory path to save file (defaults to "./tmp")
 
         Returns:
@@ -82,7 +82,7 @@ class DataExporter:
 
         Args:
             index: Query result index (1-based)
-            format: Export format - "csv", "excel", or "parquet"
+            format: Export format - "csv", "excel", "parquet", or "hdf5"
             location: Directory path to save file (defaults to "./tmp")
 
         Returns:
@@ -155,6 +155,9 @@ class DataExporter:
             elif format == "parquet":
                 file_path = export_dir / f"{base_filename}.parquet"
                 df.to_parquet(file_path, index=False)
+            elif format == "hdf5":
+                file_path = export_dir / f"{base_filename}.h5"
+                df.to_hdf(file_path, key='data', mode='w', format='table', index=False)
             else:
                 return {
                     "success": False,
@@ -241,7 +244,7 @@ def export_latest_result(
 
     Args:
         session_id: Current session ID
-        format: Export format - "csv", "excel", or "parquet"
+        format: Export format - "csv", "excel", "parquet", or "hdf5"
         location: Directory path to save file (defaults to "./tmp")
 
     Returns:
@@ -263,7 +266,7 @@ def export_result_by_index(
     Args:
         session_id: Current session ID
         index: Query result index (1-based)
-        format: Export format - "csv", "excel", or "parquet"
+        format: Export format - "csv", "excel", "parquet", or "hdf5"
         location: Directory path to save file (defaults to "./tmp")
 
     Returns:

@@ -248,7 +248,9 @@ class DbtService:
                 "dbt", "show",
                 "--inline", clean_query,
                 "--profile", self.config.profile,
-                "--log-level", "warn"  # Reduce noise
+                "--log-level", "warn",  # Reduce noise
+                "--output", "json",  # Get JSON output instead of formatted table to avoid truncation
+                "--printer-width", "10000"  # Set very large width to prevent column truncation
             ]
 
             # Don't add --limit flag since we use macro to prevent dbt from adding LIMIT
@@ -272,29 +274,28 @@ class DbtService:
             execution_time = time.time() - start_time
 
             if result.returncode == 0:
-                # Parse dbt show table output
-                try:
-                    output = result.stdout.strip()
-                    data, columns = self._parse_dbt_table_output(output)
+                # Parse dbt show JSON output
+                output = result.stdout.strip()
+                data, columns = self._parse_dbt_json_output(output)
 
+                # Check if parsing actually found data
+                if not columns and not data:
+                    # JSON parsing failed - return error with debug info
                     return QueryResult(
-                        success=True,
+                        success=False,
                         query_type=QueryType.SQL,
                         execution_time=execution_time,
-                        data=data,
-                        columns=columns,
-                        row_count=len(data)
+                        error=f"Failed to parse dbt show output. Output preview: {output[:500]}"
                     )
-                except Exception as parse_error:
-                    # Fallback to raw output if parsing fails
-                    return QueryResult(
-                        success=True,
-                        query_type=QueryType.SQL,
-                        execution_time=execution_time,
-                        data=[{"raw_output": result.stdout.strip()}],
-                        columns=["raw_output"],
-                        row_count=1
-                    )
+
+                return QueryResult(
+                    success=True,
+                    query_type=QueryType.SQL,
+                    execution_time=execution_time,
+                    data=data,
+                    columns=columns,
+                    row_count=len(data)
+                )
             else:
                 # Command failed
                 error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
@@ -313,7 +314,34 @@ class DbtService:
                 execution_time=execution_time,
                 error=f"Query execution failed: {str(e)}"
             )
-    
+
+    def _parse_dbt_json_output(self, output: str):
+        """Parse dbt show JSON output into structured data."""
+        import json
+
+        try:
+            # dbt show --output json returns JSON with "show" key containing array of row objects
+            obj = json.loads(output)
+
+            if 'show' in obj and isinstance(obj['show'], list):
+                rows = obj['show']
+
+                if not rows:
+                    # No data returned
+                    return [], []
+
+                # Extract columns from first row's keys
+                columns = list(rows[0].keys())
+
+                # Data is already in dict format
+                return rows, columns
+
+        except json.JSONDecodeError as e:
+            # JSON parsing failed
+            pass
+
+        # If we didn't find valid show data, return empty
+        return [], []
 
     def _parse_dbt_table_output(self, output: str):
         """Parse dbt show table output into structured data."""

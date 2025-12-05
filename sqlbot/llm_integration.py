@@ -557,11 +557,11 @@ class DbtQueryTool(BaseTool):
                 # formatter.format_query_result(result)
                 
                 # Return the full data for conversation history (latest result gets full data)
-                if result.success and result.data:
+                if result.success:
                     # Return full JSON data for the LLM to see
                     import json
-                    # Use serialized data to handle Decimal objects
-                    serialized_data = result._serialize_data(result.data)
+                    # Use serialized data to handle Decimal objects (empty list if no data)
+                    serialized_data = result._serialize_data(result.data) if result.data else []
 
                     # Build performance context for LLM
                     exec_time = result.execution_time
@@ -577,9 +577,9 @@ class DbtQueryTool(BaseTool):
                         "query_index": entry.index,
                         "query": query.strip(),
                         "success": True,
-                        "columns": result.columns,
+                        "columns": result.columns or [],
                         "data": serialized_data,
-                        "row_count": result.row_count,
+                        "row_count": result.row_count or 0,
                         "execution_time": exec_time,
                         "execution_time_seconds": f"{exec_time:.2f}s",
                         "performance_note": perf_note
@@ -1632,11 +1632,9 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
 
                 def on_tool_end(self, output, **kwargs):
                     """Called when a tool finishes executing"""
-                    # Emit tool result
-                    self.notifier("message", {
-                        "role": "assistant",
-                        "content": f"Query result:\n```\n{str(output)[:500]}\n```"
-                    })
+                    # Tool results are already displayed in formatted tables above
+                    # No need to show raw JSON output
+                    pass
 
                 def on_agent_action(self, action, **kwargs):
                     """Called when agent takes an action"""

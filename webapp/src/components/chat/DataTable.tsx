@@ -4,18 +4,21 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, FileSpreadsheet, FileType, Database } from 'lucide-react';
 
 export interface DataTableProps {
   columns: string[];
   rows: any[][];
   maxHeight?: number;
   showRowNumbers?: boolean;
+  sessionId?: string;
+  queryIndex?: number;
 }
 
-export function DataTable({ columns, rows, maxHeight = 400, showRowNumbers = true }: DataTableProps) {
+export function DataTable({ columns, rows, maxHeight = 400, showRowNumbers = true, sessionId, queryIndex }: DataTableProps) {
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const handleSort = (columnIndex: number) => {
     if (sortColumn === columnIndex) {
@@ -23,6 +26,29 @@ export function DataTable({ columns, rows, maxHeight = 400, showRowNumbers = tru
     } else {
       setSortColumn(columnIndex);
       setSortDirection('asc');
+    }
+  };
+
+  const handleExport = async (format: 'csv' | 'excel' | 'parquet' | 'hdf5') => {
+    if (!sessionId || !queryIndex) {
+      console.error('Cannot export: missing sessionId or queryIndex');
+      return;
+    }
+
+    setShowExportMenu(false);
+
+    try {
+      const url = `/api/sessions/${sessionId}/query_results/${queryIndex}/export/${format}`;
+
+      // Trigger browser download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `query_${queryIndex}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Export failed:', error);
     }
   };
 
@@ -37,9 +63,67 @@ export function DataTable({ columns, rows, maxHeight = 400, showRowNumbers = tru
 
   return (
     <div className="data-table-container my-3 border border-border rounded-md overflow-hidden max-w-full">
-      {/* Table info header */}
-      <div className="px-4 py-2 bg-muted/30 border-b border-border text-xs text-muted-foreground">
-        {rows.length} row{rows.length !== 1 ? 's' : ''} × {columns.length} column{columns.length !== 1 ? 's' : ''}
+      {/* Table info header with export button */}
+      <div className="px-4 py-2 bg-muted/30 border-b border-border text-xs text-muted-foreground flex items-center justify-between">
+        <span>
+          {rows.length} row{rows.length !== 1 ? 's' : ''} × {columns.length} column{columns.length !== 1 ? 's' : ''}
+        </span>
+
+        {/* Export dropdown - only show if we have session context */}
+        {sessionId && queryIndex && (
+          <div className="relative" style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-foreground hover:bg-accent rounded transition-colors"
+              title="Export data"
+            >
+              <Download size={14} />
+              Export
+            </button>
+
+            {showExportMenu && (
+              <>
+                {/* Overlay to close menu */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowExportMenu(false)}
+                />
+
+                {/* Dropdown menu - positioned to open to the left */}
+                <div className="dropdown-menu" style={{ display: 'block', zIndex: 20, right: 0, left: 'auto' }}>
+                  <button
+                    onClick={() => handleExport('csv')}
+                    className="dropdown-item"
+                  >
+                    <FileType size={16} />
+                    Download as CSV
+                  </button>
+                  <button
+                    onClick={() => handleExport('excel')}
+                    className="dropdown-item"
+                  >
+                    <FileSpreadsheet size={16} />
+                    Download as Excel
+                  </button>
+                  <button
+                    onClick={() => handleExport('parquet')}
+                    className="dropdown-item"
+                  >
+                    <Database size={16} />
+                    Download as Parquet
+                  </button>
+                  <button
+                    onClick={() => handleExport('hdf5')}
+                    className="dropdown-item"
+                  >
+                    <Database size={16} />
+                    Download as HDF5
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Scrollable table - both vertical and horizontal */}

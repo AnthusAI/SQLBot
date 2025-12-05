@@ -10,6 +10,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Resizer } from './components/layout/Resizer';
 import { PreferencesModal } from './components/layout/PreferencesModal';
 import { Message, MessageFormatter } from './components/chat';
+import { QueryResultsPanel } from './components/QueryResultsPanel';
 import type { SSEEventType } from './lib/types';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -36,13 +37,19 @@ function App() {
       .catch(err => console.error('Failed to load intro banner:', err));
   }, []);
 
-  // Load sessions on mount and auto-create if none exist
+  // Load sessions on mount and auto-create/load if needed
   useEffect(() => {
     loadSessions().then(() => {
       const store = useSessionStore.getState();
-      if (!store.currentSession && store.sessions.length === 0) {
-        // Auto-create first session
-        createSession();
+      if (!store.currentSession) {
+        if (store.sessions.length === 0) {
+          // Auto-create first session
+          createSession();
+        } else {
+          // Auto-load the most recent session
+          const mostRecentSession = store.sessions[0]; // Sessions are sorted by modified date (newest first)
+          store.loadSession(mostRecentSession.session_id);
+        }
       }
     });
   }, [loadSessions, createSession]);
@@ -131,9 +138,9 @@ function App() {
 }
 
 function SessionView({ introBanner }: { introBanner: string }) {
-  const { currentSession, messages, queries, isThinking, executeQuery } = useSessionStore();
+  const { currentSession, messages, isThinking, executeQuery } = useSessionStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [sidebarWidth, setSidebarWidth] = useState(384); // 96 * 4 = 384px (w-96)
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(400); // Right sidebar (query results)
 
   const handleSubmit = (query: string) => {
     executeQuery(query);
@@ -187,35 +194,18 @@ function SessionView({ introBanner }: { introBanner: string }) {
       </div>
 
       {/* Resizer */}
-      <Resizer onResize={setSidebarWidth} minWidth={300} maxWidth={800} />
+      <Resizer onResize={setRightSidebarWidth} minWidth={300} maxWidth={1200} />
 
-      {/* Right panel - Queries */}
+      {/* Right panel - Query Results */}
       <div
-        className="flex flex-col bg-muted/20"
-        style={{ width: `${sidebarWidth}px` }}
+        className="flex flex-col bg-muted/20 overflow-hidden transition-all duration-300"
+        style={{ width: `${rightSidebarWidth}px` }}
       >
-        <div className="px-3 py-4 border-b border-border">
-          <h3 className="font-semibold">Query History</h3>
-        </div>
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
-          {queries.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No queries yet
-            </p>
-          ) : (
-            queries.map((query) => (
-              <div
-                key={query.id}
-                className="p-3 bg-card rounded-md hover:bg-accent cursor-pointer transition-colors"
-              >
-                <p className="text-sm font-mono truncate text-card-foreground">{query.user_input}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {new Date(query.timestamp).toLocaleTimeString()}
-                </p>
-              </div>
-            ))
-          )}
-        </div>
+        <QueryResultsPanel
+          onCollapsedChange={(collapsed) => {
+            setRightSidebarWidth(collapsed ? 48 : 400);
+          }}
+        />
       </div>
     </div>
   );

@@ -14,7 +14,7 @@ from queue import Queue, Empty
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Any
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context, send_from_directory
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context, send_from_directory, send_file
 
 from sqlbot.session_service import SessionService
 from sqlbot.state_manager import StateManager
@@ -53,7 +53,7 @@ def serve_assets(filename):
     return send_from_directory(static_dir, filename)
 
 
-@app.route('/<path:filename>')
+@app.route('/<filename>')
 def serve_root_files(filename):
     """Serve root-level files (vite.svg, etc) from build output."""
     # Only serve specific files, not all paths (to avoid conflicts with API routes)
@@ -346,6 +346,89 @@ def get_intro():
     )
 
     return jsonify({'content': banner_content})
+
+
+@app.route('/api/sessions/<session_id>/query_results', methods=['GET'])
+def get_query_results(session_id):
+    """Get query results for a session from QueryResultList."""
+    from sqlbot.core.query_result_list import get_query_result_list
+
+    try:
+        result_list = get_query_result_list(session_id)
+        all_results = result_list.get_all_results()
+
+        # Convert to JSON-serializable format
+        results_data = []
+        for entry in reversed(all_results):  # Newest first
+            results_data.append({
+                'index': entry.index,
+                'timestamp': entry.timestamp.isoformat(),
+                'query_text': entry.query_text,
+                'success': entry.result.success,
+                'row_count': entry.result.row_count,
+                'columns': entry.result.columns,
+                'data': entry.result.data if entry.result.success else None,
+                'error': entry.result.error,
+                'execution_time': entry.result.execution_time
+            })
+
+        return jsonify({'results': results_data})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/sessions/<session_id>/query_results/<int:query_index>/export/<format>', methods=['GET'])
+def export_query_result(session_id, query_index, format):
+    """Export query result to file and trigger download."""
+    from sqlbot.core.export import DataExporter
+
+    # Validate format
+    valid_formats = ['csv', 'excel', 'parquet', 'hdf5']
+    if format not in valid_formats:
+        return jsonify({'error': f'Invalid format. Must be one of: {valid_formats}'}), 400
+
+    try:
+        # Create exports directory in session folder
+        exports_dir = Path.home() / '.sqlbot_sessions' / session_id / 'exports'
+        exports_dir.mkdir(parents=True, exist_ok=True)
+
+        # Export the query result
+        exporter = DataExporter(session_id)
+        result = exporter.export_by_index(
+            index=query_index,
+            format=format,
+            location=str(exports_dir)
+        )
+
+        if not result['success']:
+            return jsonify({'error': result['error']}), 400
+
+        # MIME types and extensions
+        mime_types = {
+            'csv': 'text/csv',
+            'excel': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'parquet': 'application/octet-stream',
+            'hdf5': 'application/x-hdf'
+        }
+
+        extensions = {
+            'csv': 'csv',
+            'excel': 'xlsx',
+            'parquet': 'parquet',
+            'hdf5': 'h5'
+        }
+
+        # Send file for download
+        return send_file(
+            result['file_path'],
+            mimetype=mime_types[format],
+            as_attachment=True,
+            download_name=f"query_{query_index}.{extensions[format]}"
+        )
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 def _broadcast_event(event_type: str, data: Any):

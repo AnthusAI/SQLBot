@@ -1,3 +1,10 @@
+# [2.5.0](https://github.com/AnthusAI/SQLBot/compare/v2.4.0...v2.5.0) (2025-12-04)
+
+
+### Features
+
+* add web interface option to CLI for SQLBot ([442817f](https://github.com/AnthusAI/SQLBot/commit/442817f23ef2c7813520930a49278795c5126a4f))
+
 # [2.4.0](https://github.com/AnthusAI/SQLBot/compare/v2.3.8...v2.4.0) (2025-12-04)
 
 

@@ -30,7 +30,7 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
   const [selectedResult, setSelectedResult] = useState<QueryResult | null>(null);
   const [activeTab, setActiveTab] = useState<'result' | 'query'>('result');
   const [listWidth, setListWidth] = useState(180); // Query list width
-  const [isCollapsed, setIsCollapsed] = useState(true); // Start collapsed
+  const [isCollapsed, setIsCollapsed] = useState(false); // Start expanded
   const [hasInitialized, setHasInitialized] = useState(false); // Track if we've done initial load
 
   // Notify parent when collapsed state changes
@@ -90,7 +90,7 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
     return () => clearInterval(interval);
   }, [currentSession]);
 
-  // Auto-select newest result when results update AND auto-expand ONLY on initial load
+  // Auto-select newest result when results update
   useEffect(() => {
     if (queryResults.length > 0) {
       const newest = queryResults[0];
@@ -98,11 +98,6 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
       const isNewResult = !selectedResult || selectedResult.index !== newest.index;
       if (isNewResult) {
         setSelectedResult(newest);
-      }
-      // Auto-expand ONLY on initial load, not on subsequent updates
-      if (!hasInitialized && isCollapsed) {
-        handleCollapsedChange(false);
-        setHasInitialized(true);
       }
     }
   }, [queryResults]);
@@ -146,9 +141,6 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
         className="border-r border-border flex flex-col"
         style={{ width: `${listWidth}px` }}
       >
-        <div className="px-3 py-2 border-b border-border">
-          <h3 className="font-semibold text-sm">Query Results</h3>
-        </div>
         <div className="flex-1 overflow-y-auto">
           {queryResults.map((result) => (
             <div

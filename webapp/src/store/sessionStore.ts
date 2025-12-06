@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import type { Session, SessionDetail, Query, Message } from '../lib/types';
+import type { Session, SessionDetail, Query, Message, ProfileInfo } from '../lib/types';
 import { api } from '../lib/api';
 
 interface SessionStore {
@@ -17,6 +17,12 @@ interface SessionStore {
   isLoading: boolean;
   error: string | null;
 
+  // Profile state
+  rightSidebarTab: 'queries' | 'profile';
+  profileInfo: ProfileInfo | null;
+  isProfileLoading: boolean;
+  profileError: string | null;
+
   // Actions
   loadSessions: () => Promise<void>;
   createSession: () => Promise<void>;
@@ -24,6 +30,10 @@ interface SessionStore {
   deleteSession: (sessionId: string) => Promise<void>;
   executeQuery: (query: string) => Promise<void>;
   selectQuery: (queryId: string) => void;
+
+  // Profile actions
+  setRightSidebarTab: (tab: 'queries' | 'profile') => void;
+  loadProfileInfo: () => Promise<void>;
 
   // SSE event handlers
   handleMessage: (message: Message) => void;
@@ -45,6 +55,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   isThinking: false,
   isLoading: false,
   error: null,
+
+  // Profile initial state
+  rightSidebarTab: 'queries',
+  profileInfo: null,
+  isProfileLoading: false,
+  profileError: null,
 
   // Load all sessions
   loadSessions: async () => {
@@ -112,6 +128,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         isLoading: false,
         selectedQueryId: null,
       });
+
+      // Load profile info after session is loaded
+      get().loadProfileInfo();
     } catch (error) {
       set({ error: (error as Error).message, isLoading: false });
     }
@@ -150,6 +169,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   // Select query
   selectQuery: (queryId: string) => {
     set({ selectedQueryId: queryId });
+  },
+
+  // Profile actions
+  setRightSidebarTab: (tab: 'queries' | 'profile') => {
+    set({ rightSidebarTab: tab });
+  },
+
+  loadProfileInfo: async () => {
+    console.log('[sessionStore] loadProfileInfo called - fetching profile data...');
+    set({ isProfileLoading: true, profileError: null });
+    try {
+      const profileInfo = await api.profile.get();
+      console.log('[sessionStore] Profile data received:', profileInfo);
+      set({ profileInfo, isProfileLoading: false });
+      console.log('[sessionStore] Profile state updated');
+    } catch (error) {
+      console.error('[sessionStore] Error loading profile:', error);
+      set({
+        profileError: (error as Error).message,
+        isProfileLoading: false,
+      });
+    }
   },
 
   // Handle message from SSE

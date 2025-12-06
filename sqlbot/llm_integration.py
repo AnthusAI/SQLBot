@@ -8,7 +8,7 @@ Clean version with simple status messages and full query visibility.
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.tools import BaseTool
-from langchain.agents import create_tool_calling_agent
+from langchain.agents import create_agent as create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Type
 from pydantic import BaseModel, Field
@@ -405,19 +405,9 @@ class DbtQueryTool(BaseTool):
 
             log_to_file(f"✅ Tool execution flag set, unified_display available: {self._unified_display is not None}")
 
-            # Display tool call directly since callback system isn't working
-            if self._unified_display:
-                self._unified_display.display_impl.display_tool_call("Database Query", query)
-                log_to_file("✅ Tool call displayed directly")
-            else:
-                log_to_file("❌ No unified display available for tool call")
-            
             from rich.console import Console
             console = Console()
-            # Suppress database query output to avoid interfering with thinking indicator
-            # The final result will be shown in the AI response
-            # console.print(f"\n📡 Database query: {query}")
-            
+
             # Execute the query AS-IS (do not normalize). The agent should learn from errors.
 
             # FIRST PRIORITY: Execute query and show results to USER using ccdbi directly
@@ -427,13 +417,13 @@ class DbtQueryTool(BaseTool):
             project_root = os.path.dirname(os.path.abspath(__file__))
             if project_root not in sys.path:
                 sys.path.insert(0, project_root)
-            
+
             try:
                 # Use the new DbtService for all dbt operations
                 from .core.config import SQLBotConfig
                 from .core.dbt_service import get_dbt_service
                 from .interfaces.repl.formatting import ResultFormatter
-                
+
                 # Create config with current profile and respect global safeguard setting
                 # Import the global safeguard setting
                 try:
@@ -445,24 +435,27 @@ class DbtQueryTool(BaseTool):
                         safeguard_enabled = repl.READONLY_MODE
                     except ImportError:
                         safeguard_enabled = True  # Default to safeguards enabled
-                
+
                 config = SQLBotConfig.from_env(profile=get_current_profile())
                 config.dangerous = not safeguard_enabled  # Apply global safeguard setting
                 config.max_rows = 1000
-                
+
                 # Get dbt service and formatter
                 dbt_service = get_dbt_service(config)
                 formatter = ResultFormatter(console)
-                
-                # Emit query execution message
+
+                # Display tool call ONCE - either via unified_display OR event_notifier, not both
                 query_message = f"🔍 Executing SQL query:\n```sql\n{query.strip()}\n```"
-                if self._unified_display:
-                    self._unified_display.display_impl.display_tool_call("Database Query", query)
                 if self._event_notifier:
+                    # Web interface - send via event notifier
                     self._event_notifier("message", {
                         "role": "system",
                         "content": query_message
                     })
+                elif self._unified_display:
+                    # CLI interface - display via unified display
+                    self._unified_display.display_impl.display_tool_call("Database Query", query)
+                    log_to_file("✅ Tool call displayed via unified_display")
 
                 # Perform safety check if safeguards are enabled
                 safeguard_message = None
@@ -611,14 +604,46 @@ class DbtQueryTool(BaseTool):
                                 error_msg += f" - Diagnostics: {json.dumps(diagnostic_info)}"
 
                     error_result = f"Query #{entry.index} failed: {error_msg}"
-                    
-                    # Display tool result in real-time if we have unified display
-                    if self._unified_display:
+
+                    # Display error to user via event notifier or unified display
+                    error_display_message = f"❌ Query execution failed:\n{error_msg}"
+                    if self._event_notifier:
+                        # Web interface - send error via event notifier
+                        self._event_notifier("message", {
+                            "role": "system",
+                            "content": error_display_message
+                        })
+                    elif self._unified_display:
+                        # CLI interface - display via unified display
                         self._unified_display.display_impl.display_tool_result("Query Error", error_msg)
-                    
-                    # Suppress error output to avoid interfering with thinking indicator
-                    # console.print(f"[red]❌ Query failed: {error_msg}[/red]")
-                    return error_result
+
+                    # Return clear error message for LLM that it should stop and report the error
+                    import json
+
+                    # Check if this is a compilation error that cannot be fixed
+                    is_compilation_error = any(keyword in error_msg for keyword in [
+                        "is undefined", "Compilation Error", "does not exist",
+                        "Check for typos", "install package dependencies"
+                    ])
+
+                    if is_compilation_error:
+                        # CRITICAL: Compilation errors cannot be fixed by the agent
+                        return json.dumps({
+                            "query_index": entry.index,
+                            "query": query.strip(),
+                            "success": False,
+                            "error": error_msg,
+                            "CRITICAL_ERROR": "COMPILATION ERROR - CANNOT BE FIXED",
+                            "INSTRUCTION": "STOP IMMEDIATELY. Do NOT retry. Do NOT try variations. Report this error to the user NOW: The macro or function does not exist in the dbt project. This is a configuration issue that the user must fix."
+                        }, indent=2)
+                    else:
+                        return json.dumps({
+                            "query_index": entry.index,
+                            "query": query.strip(),
+                            "success": False,
+                            "error": error_msg,
+                            "message": "QUERY FAILED - Report this error to the user and do NOT retry more than once."
+                        }, indent=2)
                     
             except Exception as e:
                 error_result = f"Error executing query: {e}"
@@ -777,6 +802,7 @@ def get_profile_paths(profile_name):
 
     return schema_paths, macro_paths
 
+
 def ensure_schema_available_to_dbt():
     """
     Verify that the profile-specific schema exists and is accessible to dbt.
@@ -785,14 +811,14 @@ def ensure_schema_available_to_dbt():
     """
     try:
         schema_paths, _ = get_profile_paths(get_current_profile())
-        
+
         # Find the profile-specific schema
         profile_schema_path = None
         for path in schema_paths:
             if os.path.exists(path):
                 profile_schema_path = path
                 break
-        
+
         if profile_schema_path:
             from rich.console import Console
             console = Console()
@@ -801,7 +827,7 @@ def ensure_schema_available_to_dbt():
             from rich.console import Console
             console = Console()
             console.print(f"⚠️ No schema file found for profile '{get_current_profile()}'")
-            
+
     except Exception as e:
         # Don't fail if schema verification fails - just log it
         from rich.console import Console
@@ -823,7 +849,7 @@ def load_schema_info():
     try:
         # First, ensure dbt can find the schema
         ensure_schema_available_to_dbt()
-        
+
         schema_paths, _ = get_profile_paths(get_current_profile())
         
         schema_path = None
@@ -853,32 +879,16 @@ Example setup:
   # Copy your schema.yml to profiles/{get_current_profile()}/models/"""
         
         with open(schema_path, 'r') as f:
-            schema_data = yaml.safe_load(f)
-        
-        schema_info = []
-        
-        # Process sources
-        for source in schema_data.get('sources', []):
-            source_name = source.get('name', 'unknown')
-            schema_info.append(f"\nSource: {source_name}")
-            
-            for table in source.get('tables', []):
-                table_name = table.get('name', 'unknown')
-                table_desc = table.get('description', 'No description available')
-                schema_info.append(f"  - {table_name}: {table_desc}")
-                
-                # Add column info if available
-                columns = table.get('columns', [])
-                if columns:
-                    schema_info.append(f"    Columns:")
-                    for col in columns[:10]:  # Limit to first 10 columns
-                        col_name = col.get('name', 'unknown')
-                        col_desc = col.get('description', 'No description')
-                        schema_info.append(f"      • {col_name}: {col_desc}")
-                    if len(columns) > 10:
-                        schema_info.append(f"      ... and {len(columns) - 10} more columns")
-        
-        return "\n".join(schema_info) if schema_info else "No schema information available"
+            schema_content = f.read()
+
+        # Return the full raw content of the schema file
+        # This gives the LLM complete visibility into the schema structure
+        return f"""Schema file: {schema_path}
+
+Full schema.yml content:
+```yaml
+{schema_content}
+```"""
         
     except Exception as e:
         return f"Could not load schema: {e}"
@@ -918,36 +928,27 @@ Consider creating:
   2. profiles/{get_current_profile()}/macros/
   3. macros/ (legacy)"""
         
-        macro_info = []
-        
+        macro_info = [f"Macros directory: {macros_path}\n"]
+
         for filename in os.listdir(macros_path):
             if filename.endswith('.sql'):
                 filepath = os.path.join(macros_path, filename)
-                
+
                 try:
                     with open(filepath, 'r') as f:
                         content = f.read()
-                    
-                    # Extract macro definitions using regex
-                    # Pattern matches: {% macro macro_name(param1, param2) %}
-                    macro_pattern = r'{% *macro +(\w+) *\((.*?)\) *%}(.*?){% *endmacro *%}'
-                    macros = re.findall(macro_pattern, content, re.DOTALL)
-                    
-                    for macro_name, params, macro_body in macros:
-                        # Extract any comments from the macro body
-                        comment_match = re.search(r'-- *(.*)', macro_body)
-                        description = comment_match.group(1).strip() if comment_match else "No description"
-                        
-                        macro_info.append(f"• {macro_name}({params})")
-                        macro_info.append(f"  Description: {description}")
-                        # Use backticks instead of braces to avoid LangChain template conflicts
-                        macro_info.append(f"  Usage: `{macro_name}({params})`")
-                        macro_info.append("")
-                        
+
+                    # Return the full raw content of each macro file
+                    # This gives the LLM complete visibility into the macro implementations
+                    macro_info.append(f"\n--- {filename} ---")
+                    macro_info.append(f"```sql")
+                    macro_info.append(content)
+                    macro_info.append(f"```")
+
                 except Exception as e:
                     macro_info.append(f"• Error reading {filename}: {e}")
-        
-        return "\n".join(macro_info) if macro_info else "No macros found"
+
+        return "\n".join(macro_info) if len(macro_info) > 1 else "No macros found"
         
     except Exception as e:
         return f"Could not load macros: {e}"
@@ -1107,6 +1108,38 @@ KEY DATABASE TABLES:
 AVAILABLE DBT MACROS:
 {{ macro_info }}
 
+FILE EDITING CAPABILITIES:
+⚠️ CRITICAL: You MUST use the edit_dbt_files tool for ALL file operations. You CANNOT create, edit, or delete files any other way.
+
+SCHEMA FILES (schema.yml):
+• Define database sources, tables, columns, and metadata
+• Located in models/schema.yml within the profile directory
+• MUST use edit_dbt_files tool with operations: read_schema, update_schema, delete_schema
+• Always read current schema before making changes
+• Maintain YAML syntax and DBT structure: version, sources, tables, columns
+• Documentation: https://docs.getdbt.com/reference/source-properties
+
+MACRO FILES (.sql):
+• Reusable SQL/Jinja code snippets (like functions)
+• Stored in macros/ directory as .sql files
+• Syntax: {% macro name(params) %} ... {% endmacro %}
+• MUST use edit_dbt_files tool with operations: list_macros, read_macro, create_macro, update_macro, delete_macro
+• Use macros to avoid repeating code across queries
+• Documentation: https://docs.getdbt.com/docs/build/jinja-macros
+
+FILE EDITING WORKFLOW:
+1. To CREATE a macro: Use edit_dbt_files(operation='create_macro', filename='name.sql', content='...')
+2. To UPDATE a macro: Use edit_dbt_files(operation='update_macro', filename='name.sql', content='...')
+3. To DELETE a macro: Use edit_dbt_files(operation='delete_macro', filename='name.sql')
+4. To LIST macros: Use edit_dbt_files(operation='list_macros')
+5. To READ a macro: Use edit_dbt_files(operation='read_macro', filename='name.sql')
+
+IMPORTANT:
+• NEVER say you "created" or "updated" a file unless you ACTUALLY called the edit_dbt_files tool
+• ALWAYS show the user that you're using the tool by calling it
+• All file operations are sandboxed to the current profile directory for security
+• After creating/updating a macro, test it immediately by running a query that uses it
+
 STRICT SYNTAX RULES (dbt + Jinja):
 • ALWAYS reference tables with direct table names: film, customer, actor, rental, etc.
 • NEVER use dbt source() syntax for this database - use direct table names only.
@@ -1120,6 +1153,7 @@ STRICT SYNTAX RULES (dbt + Jinja):
 BEHAVIOR:
 • Always execute queries immediately using the provided tool; do not just propose SQL.
 • Use direct table names for all table references (film, customer, actor, etc.).
+• When asked to create/edit macros or schema files, ALWAYS use the edit_dbt_files tool - NEVER claim to edit files without using it.
 • Focus on directly answering the user's question with the query results.
 • STOP after successfully answering the question - do not perform additional analysis unless specifically requested.
 
@@ -1132,8 +1166,17 @@ RESPONSE FORMAT:
 COMPLETION CRITERIA:
 • If your query successfully returns the requested data, you are DONE
 • Do not perform exhaustive analysis unless specifically requested
-• If a query fails with syntax error, fix the specific syntax issue - do NOT try multiple different approaches
+• If a query fails with a compilation error (macro not found, undefined variable, etc.), STOP immediately and report the error to the user - do NOT retry
+• If a query fails with a syntax error, you may fix it ONCE, but if it fails again, STOP and report the error
 • Maximum 2 query attempts per user request - get it right or ask for clarification
+
+ERROR HANDLING - CRITICAL INSTRUCTIONS:
+• IMMEDIATELY CHECK TOOL RESULTS: After EVERY tool execution, check if "success": false or if "CRITICAL_ERROR" appears
+• If you see "CRITICAL_ERROR" or "COMPILATION ERROR", you MUST STOP ALL ACTIONS and report to user
+• If you see "is undefined" or "Compilation Error" in any tool result, STOP IMMEDIATELY - do NOT retry
+• Compilation errors (macro not found, undefined variable, does not exist) CANNOT be fixed by retrying
+• When a tool returns an error, your ONLY action is to report it to the user - do NOT execute any more queries
+• NEVER say "I'll try again" or "I'll run" after seeing an error - just report the error and stop
 """
 
 # Global counter for LLM requests in current session
@@ -1385,14 +1428,19 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
         
         # Create tools - both query execution and result lookup
         from .core.query_result_lookup_tool import create_query_result_lookup_tool
-        
+        from .core.file_editing_tool import FileEditingTool
+
         # Use session ID from global context or default
         session_id = getattr(create_llm_agent, '_session_id', 'default_session')
-        
+
+        # Get current profile for file editing tool
+        profile_name = get_current_profile()
+
         tools = [
             DbtQueryTool(session_id, unified_display, event_notifier),
             create_query_result_lookup_tool(session_id),
-            create_export_data_tool(session_id)
+            create_export_data_tool(session_id),
+            FileEditingTool(profile_name)
         ]
         
         # Create dynamic prompt with current schema/macro info
@@ -1442,11 +1490,11 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
 
         # Create agent using LangChain tool calling API
-        # Note: create_tool_calling_agent returns a runnable agent graph
+        # Note: create_agent (formerly create_tool_calling_agent) returns a runnable agent graph
         agent = create_tool_calling_agent(
-            llm=llm,
+            model=llm,
             tools=tools,
-            prompt=system_prompt
+            system_prompt=system_prompt
         )
 
         # Note: create_tool_calling_agent returns a graph that can be invoked directly
@@ -1464,7 +1512,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
 _dbt_setup_cache = None
 _dbt_setup_cache_time = 0
 
-def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None) -> str:
+def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None, chat_history=None) -> str:
     """
     Handle natural language query via LLM agent with retry logic.
 
@@ -1473,6 +1521,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
         max_retries: Maximum number of retry attempts (default: 3)
         timeout_seconds: Timeout for LLM requests in seconds (default: 120)
         event_notifier: Optional callback for streaming events (for web interface)
+        chat_history: Optional pre-loaded conversation history from session
 
     Returns:
         str: Agent's response with query results and analysis
@@ -1502,7 +1551,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
             if attempt > 0:
                 console.print(f"🔄 [yellow]Retrying LLM request (attempt {attempt + 1}/{max_retries})...[/yellow]")
             
-            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history, show_full_history, event_notifier)
+            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history, show_full_history, event_notifier, chat_history)
             
         except Exception as e:
             error_msg = str(e)
@@ -1524,7 +1573,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
                 console.print(f"❌ [red]LLM query failed after {attempt + 1} attempts: {error_msg}[/red]")
                 return f"LLM query failed: {error_msg}"
 
-def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None) -> str:
+def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None, chat_history=None) -> str:
     """
     Execute the actual LLM query with timeout handling.
 
@@ -1532,6 +1581,7 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         query_text: User's natural language question
         console: Rich console for output
         timeout_seconds: Timeout in seconds
+        chat_history: Optional pre-loaded conversation history from session
 
     Returns:
         str: LLM response
@@ -1553,38 +1603,41 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         if not conversation_history or conversation_history[-1].get("role") != "user" or conversation_history[-1].get("content") != query_text:
             conversation_history.append({"role": "user", "content": query_text})
         
-        # Use the new conversation memory manager
-        from .conversation_memory import ConversationMemoryManager
-        
-        # Initialize memory manager if not already done
-        if not hasattr(_execute_llm_query, '_memory_manager'):
-            _execute_llm_query._memory_manager = ConversationMemoryManager()
-        
-        memory_manager = _execute_llm_query._memory_manager
-        
-        # Convert our internal conversation history to LangChain format
-        chat_history = []
-        
-        
-        if len(conversation_history) > 1:
-            # Removed print statement to avoid interfering with thinking indicator
-            # print(f"📝 Converting {len(conversation_history)} messages to LangChain format...")
-            
-            # Clear and rebuild the memory manager's history from our conversation_history
-            memory_manager.clear_history()
-            
-            # Process ALL messages in conversation history (the current query is handled separately)
-            for msg in conversation_history:
-                if msg["role"] == "user":
-                    memory_manager.add_user_message(msg["content"])
-                elif msg["role"] == "assistant":
-                    memory_manager.add_assistant_message(msg["content"])
-            
-            # Get the processed conversation context
-            chat_history = memory_manager.get_filtered_context()
-            
-        else:
+        # Use chat_history if provided (from session), otherwise build from global conversation_history
+        if chat_history is None:
+            # Use the new conversation memory manager
+            from .conversation_memory import ConversationMemoryManager
+
+            # Initialize memory manager if not already done
+            if not hasattr(_execute_llm_query, '_memory_manager'):
+                _execute_llm_query._memory_manager = ConversationMemoryManager()
+
+            memory_manager = _execute_llm_query._memory_manager
+
+            # Convert our internal conversation history to LangChain format
             chat_history = []
+
+
+            if len(conversation_history) > 1:
+                # Removed print statement to avoid interfering with thinking indicator
+                # print(f"📝 Converting {len(conversation_history)} messages to LangChain format...")
+
+                # Clear and rebuild the memory manager's history from our conversation_history
+                memory_manager.clear_history()
+
+                # Process ALL messages in conversation history (the current query is handled separately)
+                for msg in conversation_history:
+                    if msg["role"] == "user":
+                        memory_manager.add_user_message(msg["content"])
+                    elif msg["role"] == "assistant":
+                        memory_manager.add_assistant_message(msg["content"])
+
+                # Get the processed conversation context
+                chat_history = memory_manager.get_filtered_context()
+
+            else:
+                chat_history = []
+        # else: chat_history was provided by the session, use it as-is
         
         
         sys.stdout.flush()  # Force immediate display
@@ -1620,21 +1673,118 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
                 def on_tool_start(self, serialized, input_str, **kwargs):
                     """Called when a tool starts executing"""
                     tool_name = serialized.get('name', 'unknown')
+
                     if tool_name == 'execute_dbt_query':
                         # Extract query from input
                         query = input_str
                         if isinstance(input_str, dict):
                             query = input_str.get('query', str(input_str))
                         self.notifier("message", {
-                            "role": "assistant",
-                            "content": f"Executing query:\n```sql\n{query}\n```"
+                            "role": "system",
+                            "content": f"🔧 Executing query:\n```sql\n{query}\n```"
+                        })
+
+                    elif tool_name == 'edit_dbt_files':
+                        # Display file editing tool call with detailed debugging
+                        import sys
+                        print(f"[DEBUG] edit_dbt_files tool call - input_str type: {type(input_str)}, value: {input_str}", file=sys.stderr)
+
+                        if isinstance(input_str, dict):
+                            operation = input_str.get('operation', 'unknown')
+                            filename = input_str.get('filename')
+                            content_preview = input_str.get('content', '')[:100] if input_str.get('content') else ''
+
+                            if operation in ['create_macro', 'update_macro', 'delete_macro'] and filename:
+                                self.notifier("message", {
+                                    "role": "system",
+                                    "content": f"📝 {operation}: `{filename}`"
+                                })
+                            elif operation == 'read_macro' and filename:
+                                self.notifier("message", {
+                                    "role": "system",
+                                    "content": f"📖 Reading macro: `{filename}`"
+                                })
+                            elif operation == 'list_macros':
+                                self.notifier("message", {
+                                    "role": "system",
+                                    "content": "📂 Listing all macros..."
+                                })
+                            elif operation in ['read_schema', 'update_schema', 'delete_schema']:
+                                self.notifier("message", {
+                                    "role": "system",
+                                    "content": f"📋 {operation}"
+                                })
+                            else:
+                                self.notifier("message", {
+                                    "role": "system",
+                                    "content": f"🔧 File operation: {operation} (input: {str(input_str)[:200]})"
+                                })
+                        else:
+                            # Show what we actually received for debugging
+                            self.notifier("message", {
+                                "role": "system",
+                                "content": f"🔧 Tool call: {tool_name} (input type: {type(input_str).__name__}, value: {str(input_str)[:200]})"
+                            })
+
+                    else:
+                        # Display other tool calls generically
+                        self.notifier("message", {
+                            "role": "system",
+                            "content": f"🔧 Tool call: {tool_name}"
                         })
 
                 def on_tool_end(self, output, **kwargs):
                     """Called when a tool finishes executing"""
-                    # Tool results are already displayed in formatted tables above
-                    # No need to show raw JSON output
-                    pass
+                    # Get the tool name from kwargs
+                    serialized = kwargs.get('serialized', {})
+                    tool_name = serialized.get('name', 'unknown')
+
+                    # Debug: log what we received
+                    import sys
+                    print(f"[DEBUG on_tool_end] tool_name={tool_name}, output={str(output)[:200]}, kwargs keys={list(kwargs.keys())}", file=sys.stderr)
+
+                    # Detect edit_dbt_files by checking output content (more reliable than tool_name)
+                    is_file_edit = (
+                        tool_name == 'edit_dbt_files' or
+                        'Successfully created macro' in str(output) or
+                        'Successfully updated macro' in str(output) or
+                        'Successfully deleted macro' in str(output) or
+                        'Successfully updated schema' in str(output) or
+                        'Successfully created' in str(output) or
+                        'Successfully deleted schema' in str(output) or
+                        'Macro file:' in str(output) or
+                        'Schema file location:' in str(output)
+                    )
+
+                    # For edit_dbt_files, always show the result (success or failure)
+                    if is_file_edit:
+                        # Show the tool output
+                        result_preview = str(output)[:500] if len(str(output)) > 500 else str(output)
+
+                        # Check if it's an error
+                        if 'Error' in str(output) or 'failed' in str(output).lower():
+                            self.notifier("message", {
+                                "role": "system",
+                                "content": f"❌ File operation failed:\n```\n{result_preview}\n```"
+                            })
+                        else:
+                            self.notifier("message", {
+                                "role": "system",
+                                "content": f"✅ File operation result:\n```\n{result_preview}\n```"
+                            })
+
+                            # Trigger profile refresh if the operation was successful and modified files
+                            # Check if output indicates a successful create/update/delete operation
+                            if any(keyword in str(output) for keyword in ['Successfully created', 'Successfully updated', 'Successfully deleted']):
+                                self.notifier("profile_updated", {})
+
+                    # For other tools (except execute_dbt_query which handles its own display)
+                    elif tool_name != 'execute_dbt_query' and output:
+                        result_preview = str(output)[:200] if len(str(output)) > 200 else str(output)
+                        self.notifier("message", {
+                            "role": "system",
+                            "content": f"📊 {tool_name} result: {result_preview}"
+                        })
 
                 def on_agent_action(self, action, **kwargs):
                     """Called when agent takes an action"""

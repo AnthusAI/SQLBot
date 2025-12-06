@@ -348,6 +348,430 @@ def get_intro():
     return jsonify({'content': banner_content})
 
 
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    """Get current DBT profile information including connection status, schema, and macros."""
+    global current_service
+
+    # Check if session is active
+    if not current_service:
+        return jsonify({'error': 'No active session'}), 400
+
+    try:
+        from sqlbot.core.schema import SchemaLoader
+        from sqlbot.core.dbt_service import get_dbt_service
+        from sqlbot.core.config import SQLBotConfig
+        import glob
+
+        # Get DBT service using the profile from the session
+        # Note: safeguard_mode (True=safe) is the opposite of dangerous (True=dangerous)
+        safeguard_mode = current_service.context.get('safeguard_mode', True)
+        config = SQLBotConfig(
+            profile=current_service.profile,
+            dangerous=not safeguard_mode,  # dangerous is opposite of safeguard
+            preview_mode=current_service.context.get('preview_mode', False)
+        )
+        dbt_service = get_dbt_service(config)
+
+        # Get basic profile configuration
+        config_info = dbt_service.get_dbt_config_info()
+        profile_name = config_info.get('profile_name', 'Unknown')
+        profiles_dir = config_info.get('profiles_dir', '')
+        is_using_local_dbt = config_info.get('is_using_local_dbt', False)
+
+        # Get connection status via dbt debug
+        debug_result = dbt_service.debug()
+        connection_ok = debug_result.get('connection_ok', False)
+
+        connection_status = {
+            'status': 'connected' if connection_ok else 'disconnected',
+            'error': debug_result.get('error'),
+            'last_checked': datetime.now().isoformat() + 'Z'
+        }
+
+        # Get schema information
+        schema_info = {
+            'sources_count': 0,
+            'tables_count': 0,
+            'location': None,
+            'content': None
+        }
+
+        try:
+            schema_loader = SchemaLoader(profile_name)
+            profile_paths = schema_loader.get_profile_paths()
+
+            # Try to find schema files
+            for profile_path in profile_paths:
+                schema_path = profile_path / 'models' / 'schema.yml'
+                if schema_path.exists():
+                    schema_info['location'] = str(schema_path)
+                    # Load and count sources/tables
+                    import yaml
+                    with open(schema_path, 'r') as f:
+                        schema_content = f.read()
+                        schema_info['content'] = schema_content
+                        schema_data = yaml.safe_load(schema_content)
+                        if schema_data and 'sources' in schema_data:
+                            sources = schema_data['sources']
+                            schema_info['sources_count'] = len(sources)
+                            # Count total tables across all sources
+                            for source in sources:
+                                if 'tables' in source:
+                                    schema_info['tables_count'] += len(source['tables'])
+                    break
+        except Exception as e:
+            print(f"Error loading schema info: {e}")
+
+        # Get macros information
+        macros_info = {
+            'count': 0,
+            'location': None,
+            'available': [],
+            'files': []
+        }
+
+        try:
+            # Check for macros in profile-specific directory
+            for profile_path in [Path(f'.sqlbot/profiles/{profile_name}/macros'), Path(f'profiles/{profile_name}/macros')]:
+                if profile_path.exists():
+                    macros_info['location'] = str(profile_path)
+                    # List .sql files in macros directory
+                    macro_files = list(profile_path.glob('*.sql'))
+                    macros_info['count'] = len(macro_files)
+                    macros_info['available'] = [f.stem for f in macro_files]
+
+                    # Read contents of each macro file
+                    for macro_file in macro_files:
+                        try:
+                            with open(macro_file, 'r') as f:
+                                macros_info['files'].append({
+                                    'name': macro_file.stem,
+                                    'filename': macro_file.name,
+                                    'content': f.read()
+                                })
+                        except Exception as e:
+                            print(f"Error reading macro file {macro_file}: {e}")
+                    break
+        except Exception as e:
+            print(f"Error loading macros info: {e}")
+
+        # Build response
+        profile_data = {
+            'profile_name': profile_name,
+            'connection': connection_status,
+            'config': {
+                'profiles_dir': profiles_dir,
+                'is_using_local_dbt': is_using_local_dbt
+            },
+            'schema': schema_info,
+            'macros': macros_info
+        }
+
+        return jsonify(profile_data)
+
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to get profile information: {str(e)}'
+        }), 500
+
+
+@app.route('/api/files/schema', methods=['GET'])
+def get_schema_file():
+    """Get schema file content."""
+    global current_service
+
+    if not current_service:
+        return jsonify({'error': 'No active session'}), 400
+
+    try:
+        from sqlbot.core.file_security import FileSecurityValidator
+
+        profile_name = current_service.profile
+        validator = FileSecurityValidator(profile_name)
+
+        # Get validated schema path
+        schema_path = validator.validate_schema_path()
+
+        # Check if file exists
+        if not schema_path.exists():
+            return jsonify({
+                'location': str(schema_path),
+                'content': ''
+            })
+
+        # Read file content
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        return jsonify({
+            'location': str(schema_path),
+            'content': content
+        })
+
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to get schema file: {str(e)}'
+        }), 500
+
+
+@app.route('/api/files/schema', methods=['PUT'])
+def update_schema_file():
+    """Update schema file with validation."""
+    global current_service
+
+    if not current_service:
+        return jsonify({'error': 'No active session'}), 400
+
+    try:
+        from sqlbot.core.file_security import FileSecurityValidator
+        from sqlbot.core.file_validation import FileValidator
+
+        # Get content from request
+        data = request.get_json()
+        if not data or 'content' not in data:
+            return jsonify({'error': 'Missing content in request body'}), 400
+
+        content = data['content']
+
+        # Validate schema file (size, YAML syntax, DBT structure)
+        is_valid, error_message = FileValidator.validate_schema_file(content)
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': error_message
+            }), 400
+
+        # Get validated path
+        profile_name = current_service.profile
+        validator = FileSecurityValidator(profile_name)
+        schema_path = validator.validate_schema_path()
+
+        # Create parent directories if needed
+        validator.create_directory_if_needed(schema_path)
+
+        # Write atomically (temp file → rename)
+        temp_path = schema_path.with_suffix('.tmp')
+        temp_path.write_text(content, encoding='utf-8')
+        temp_path.rename(schema_path)
+
+        return jsonify({
+            'success': True,
+            'location': str(schema_path)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update schema file: {str(e)}'
+        }), 500
+
+
+@app.route('/api/files/macros', methods=['GET'])
+def list_macro_files():
+    """List all macro files."""
+    global current_service
+
+    if not current_service:
+        return jsonify({'error': 'No active session'}), 400
+
+    try:
+        from sqlbot.core.file_security import FileSecurityValidator
+
+        profile_name = current_service.profile
+        validator = FileSecurityValidator(profile_name)
+
+        # List all macro files
+        macro_files = validator.list_macro_files()
+
+        # Convert to response format
+        files_data = []
+        for macro_path in macro_files:
+            files_data.append({
+                'name': macro_path.stem,  # Filename without extension
+                'filename': macro_path.name  # Full filename with .sql
+            })
+
+        return jsonify({
+            'files': files_data
+        })
+
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to list macro files: {str(e)}'
+        }), 500
+
+
+@app.route('/api/files/macros/<filename>', methods=['GET'])
+def get_macro_file(filename):
+    """Get specific macro file."""
+    global current_service
+
+    if not current_service:
+        return jsonify({'error': 'No active session'}), 400
+
+    try:
+        from sqlbot.core.file_security import FileSecurityValidator
+
+        profile_name = current_service.profile
+        validator = FileSecurityValidator(profile_name)
+
+        # Validate and get macro path
+        macro_path = validator.validate_macro_path(filename)
+
+        # Check if file exists
+        if not macro_path.exists():
+            return jsonify({
+                'error': f'Macro file not found: {filename}'
+            }), 404
+
+        # Read file content
+        with open(macro_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        return jsonify({
+            'filename': filename,
+            'content': content
+        })
+
+    except ValueError as e:
+        # Security validation error
+        return jsonify({
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to get macro file: {str(e)}'
+        }), 500
+
+
+@app.route('/api/files/macros/<filename>', methods=['PUT'])
+def update_macro_file(filename):
+    """Update existing macro file."""
+    global current_service
+
+    if not current_service:
+        return jsonify({'error': 'No active session'}), 400
+
+    try:
+        from sqlbot.core.file_security import FileSecurityValidator
+        from sqlbot.core.file_validation import FileValidator
+
+        # Get content from request
+        data = request.get_json()
+        if not data or 'content' not in data:
+            return jsonify({'error': 'Missing content in request body'}), 400
+
+        content = data['content']
+
+        # Validate macro file (size, SQL syntax - returns warnings)
+        is_valid, warning_message = FileValidator.validate_macro_file(content)
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': warning_message
+            }), 400
+
+        # Get validated path
+        profile_name = current_service.profile
+        validator = FileSecurityValidator(profile_name)
+        macro_path = validator.validate_macro_path(filename)
+
+        # Check if file exists
+        if not macro_path.exists():
+            return jsonify({
+                'success': False,
+                'error': f'Macro file not found: {filename}'
+            }), 404
+
+        # Write atomically (temp file → rename)
+        temp_path = macro_path.with_suffix('.tmp')
+        temp_path.write_text(content, encoding='utf-8')
+        temp_path.rename(macro_path)
+
+        return jsonify({
+            'success': True,
+            'location': str(macro_path),
+            'warning': warning_message  # Include warnings if any
+        })
+
+    except ValueError as e:
+        # Security validation error
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update macro file: {str(e)}'
+        }), 500
+
+
+@app.route('/api/files/macros/<filename>', methods=['POST'])
+def create_macro_file(filename):
+    """Create new macro file."""
+    global current_service
+
+    if not current_service:
+        return jsonify({'error': 'No active session'}), 400
+
+    try:
+        from sqlbot.core.file_security import FileSecurityValidator
+        from sqlbot.core.file_validation import FileValidator
+
+        # Get content from request
+        data = request.get_json()
+        if not data or 'content' not in data:
+            return jsonify({'error': 'Missing content in request body'}), 400
+
+        content = data['content']
+
+        # Validate macro file (size, SQL syntax - returns warnings)
+        is_valid, warning_message = FileValidator.validate_macro_file(content)
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': warning_message
+            }), 400
+
+        # Get validated path
+        profile_name = current_service.profile
+        validator = FileSecurityValidator(profile_name)
+        macro_path = validator.validate_macro_path(filename)
+
+        # Check if file already exists
+        if macro_path.exists():
+            return jsonify({
+                'success': False,
+                'error': f'Macro file already exists: {filename}. Use PUT to update it.'
+            }), 409
+
+        # Create parent directories if needed
+        validator.create_directory_if_needed(macro_path)
+
+        # Write file
+        macro_path.write_text(content, encoding='utf-8')
+
+        return jsonify({
+            'success': True,
+            'location': str(macro_path),
+            'warning': warning_message  # Include warnings if any
+        }), 201
+
+    except ValueError as e:
+        # Security validation error
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to create macro file: {str(e)}'
+        }), 500
+
+
 @app.route('/api/sessions/<session_id>/query_results', methods=['GET'])
 def get_query_results(session_id):
     """Get query results for a session from QueryResultList."""

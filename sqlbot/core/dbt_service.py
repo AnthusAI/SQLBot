@@ -103,7 +103,10 @@ class DbtService:
 
         # Copy source definitions if they exist
         self._copy_sources_to_temp_project(temp_dir)
-        
+
+        # Copy profile-specific macros if they exist
+        self._copy_macros_to_temp_project(temp_dir)
+
         # Add macro to prevent dbt from adding LIMIT clauses
         self._add_no_limit_macro(temp_dir)
 
@@ -156,6 +159,45 @@ class DbtService:
             # Don't fail if schema copying fails - just log it
             if os.environ.get('SQLBOT_DEBUG'):
                 print(f"🔍 DEBUG: Could not copy schema file: {e}")
+
+    def _copy_macros_to_temp_project(self, temp_dir: Path) -> None:
+        """
+        Copy profile-specific macros to the temporary dbt project.
+
+        Args:
+            temp_dir: Path to the temporary dbt project directory
+        """
+        import shutil
+        from ..llm_integration import get_profile_paths
+
+        try:
+            profile_name = self.config.profile
+            _, macro_paths = get_profile_paths(profile_name)
+
+            # Find the first existing macros directory
+            source_macros_dir = None
+            for path in macro_paths:
+                if os.path.exists(path) and os.path.isdir(path):
+                    source_macros_dir = path
+                    break
+
+            if source_macros_dir:
+                # Create macros directory in temp project
+                macros_dir = temp_dir / 'macros'
+                macros_dir.mkdir(exist_ok=True)
+
+                # Copy all .sql macro files
+                for macro_file in Path(source_macros_dir).glob('*.sql'):
+                    dest_file = macros_dir / macro_file.name
+                    shutil.copy2(macro_file, dest_file)
+
+                    if os.environ.get('SQLBOT_DEBUG'):
+                        print(f"🔍 DEBUG: Copied macro file from {macro_file} to {dest_file}")
+
+        except Exception as e:
+            # Don't fail if macro copying fails - just log it
+            if os.environ.get('SQLBOT_DEBUG'):
+                print(f"🔍 DEBUG: Could not copy macro files: {e}")
 
     def _add_no_limit_macro(self, temp_dir: Path) -> None:
         """

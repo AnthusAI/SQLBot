@@ -10,7 +10,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Resizer } from './components/layout/Resizer';
 import { PreferencesModal } from './components/layout/PreferencesModal';
 import { Message, MessageFormatter } from './components/chat';
-import { QueryResultsPanel } from './components/QueryResultsPanel';
+import { RightSidebar } from './components/RightSidebar';
 import type { SSEEventType } from './lib/types';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -23,6 +23,7 @@ function App() {
     handleQueryComplete,
     handleThinkingStart,
     handleThinkingEnd,
+    loadProfileInfo,
   } = useSessionStore();
 
   const [theme, setTheme] = useState<Theme>('system');
@@ -108,6 +109,15 @@ function App() {
         handleThinkingEnd();
         break;
 
+      case 'profile_updated':
+        console.log('[App] Profile updated event received - refreshing profile info');
+        loadProfileInfo().then(() => {
+          console.log('[App] Profile refresh completed');
+        }).catch(err => {
+          console.error('[App] Profile refresh failed:', err);
+        });
+        break;
+
       case 'error':
         console.error('Server error:', data);
         break;
@@ -115,7 +125,7 @@ function App() {
       default:
         console.log('Unhandled event:', eventType, data);
     }
-  }, [handleMessage, handleQueryComplete, handleThinkingStart, handleThinkingEnd]);
+  }, [handleMessage, handleQueryComplete, handleThinkingStart, handleThinkingEnd, loadProfileInfo]);
 
   // Connect to SSE
   useSSE(handleSSEEvent);
@@ -196,12 +206,12 @@ function SessionView({ introBanner }: { introBanner: string }) {
       {/* Resizer */}
       <Resizer onResize={setRightSidebarWidth} minWidth={300} maxWidth={1200} />
 
-      {/* Right panel - Query Results */}
+      {/* Right panel - Profile and Query Results */}
       <div
         className="flex flex-col bg-muted/20 overflow-hidden transition-all duration-300"
         style={{ width: `${rightSidebarWidth}px` }}
       >
-        <QueryResultsPanel
+        <RightSidebar
           onCollapsedChange={(collapsed) => {
             setRightSidebarWidth(collapsed ? 48 : 400);
           }}

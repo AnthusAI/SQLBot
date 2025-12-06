@@ -165,7 +165,9 @@ class SessionService:
                     set_session_id(self.session_id)
 
                     print(f"[SessionService] Calling handle_llm_query with: {user_input}", file=sys.stderr)
-                    result = handle_llm_query(user_input, event_notifier=self._notify)
+                    # Pass conversation history from this session's conversation manager
+                    chat_history = self.conversation_manager.get_filtered_context()
+                    result = handle_llm_query(user_input, event_notifier=self._notify, chat_history=chat_history)
                     print(f"[SessionService] Got result type: {type(result)}, length: {len(result) if result else 0}", file=sys.stderr)
                     print(f"[SessionService] Result preview: {str(result)[:200]}", file=sys.stderr)
 

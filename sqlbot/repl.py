@@ -894,9 +894,11 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
         from sqlbot.core.config import SQLBotConfig
         config = SQLBotConfig.from_env(profile=profile)
         # Initialize READONLY_MODE based on config (unless overridden by CLI)
-        global READONLY_MODE
+        global READONLY_MODE, READONLY_CLI_MODE
         if not READONLY_CLI_MODE:  # Only if not explicitly set by --dangerous flag
             READONLY_MODE = not config.dangerous  # dangerous=false means safeguards enabled
+            with open('/tmp/sqlbot_debug.log', 'a') as f:
+                f.write(f"show_banner(): Reset READONLY_MODE={READONLY_MODE} from config (READONLY_CLI_MODE={READONLY_CLI_MODE})\n")
         dbt_service = get_dbt_service(config)
         dbt_config_info = dbt_service.get_dbt_config_info()
     except Exception:
@@ -945,49 +947,85 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
 def main():
     """Main entry point for SQLBot."""
     import sys
-    
+
     # Global variable declarations
     global PREVIEW_MODE, READONLY_MODE, READONLY_CLI_MODE, SHOW_HISTORY, SHOW_FULL_HISTORY
-    
+
+    # DEBUG: Log at start
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"\n=== MAIN() START ===\n")
+        f.write(f"Initial: READONLY_MODE={READONLY_MODE}, READONLY_CLI_MODE={READONLY_CLI_MODE}\n")
+
     # Parse arguments with subcommand support
     from .cli import parse_args_with_subcommands, handle_cli_subcommands
-    
+
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"About to parse args...\n")
+
     args = parse_args_with_subcommands()
+
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"Args parsed: args is None = {args is None}\n")
+
     if args is None:
+        with open('/tmp/sqlbot_debug.log', 'a') as f:
+            f.write(f"Returning early - args is None\n")
         return  # Help was shown
     
     # Handle subcommands first
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"Checking subcommands: args.command = {args.command}\n")
+
     if args.command:
         exit_code = handle_cli_subcommands(args)
         sys.exit(exit_code)
 
     # Handle web mode
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"Checking web mode: args.web = {getattr(args, 'web', False)}\n")
+
     if hasattr(args, 'web') and args.web:
         from .webapp import run_webapp
-        run_webapp()
+        # Pass dangerous flag to webapp
+        dangerous_mode = getattr(args, 'dangerous', False)
+        run_webapp(dangerous=dangerous_mode)
         return
 
     # Apply theme early based on command line argument
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"Setting theme: args.theme = {args.theme}\n")
+
     theme_map = {mode.value: mode for mode in ThemeMode}
     theme_manager = get_theme_manager()
     theme_manager.set_theme(theme_map[args.theme])
-    
+
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"Theme set successfully\n")
+
     # Theme is now set - all subsequent UI should use theme colors
-    
+
     # Global variable declarations
     global dbt, LLM_AVAILABLE
-    
+
     # Show banner first ONLY for CLI mode with query (not for Textual app)
     # Banner logic: Don't show banner when query is provided from command line
     # Banner will be shown later in interactive mode startup if appropriate
     
     # Initialize everything after banner display
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"About to initialize dbt...\n")
+
     if dbt is None:
         from dbt.cli.main import dbtRunner
         dbt = dbtRunner()
-    
+
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"dbt initialized\n")
+
     # Handle conversation continuation
     if hasattr(args, 'continue_session') and args.continue_session:
+        with open('/tmp/sqlbot_debug.log', 'a') as f:
+            f.write(f"Handling continue_session...\n")
         # Load previous conversation instead of clearing
         try:
             from .conversation_persistence import load_conversation_history
@@ -1155,26 +1193,35 @@ def main():
             except ImportError:
                 # If we can't import the module, just skip setting the flag
                 pass
-    
+
+    # Set global mode flags BEFORE checking for query (applies to both interactive and non-interactive modes)
+    with open('/tmp/sqlbot_debug.log', 'a') as f:
+        f.write(f"REACHED FLAG-SETTING CODE!\n")
+        f.write(f"main(): About to check flags: args.dangerous={getattr(args, 'dangerous', 'NOT FOUND')}, args.preview={getattr(args, 'preview', 'NOT FOUND')}\n")
+
+    if args.preview:
+        PREVIEW_MODE = True
+
+    if hasattr(args, 'dangerous') and args.dangerous:
+        READONLY_MODE = False
+        READONLY_CLI_MODE = True  # CLI mode - safeguards explicitly disabled
+        with open('/tmp/sqlbot_debug.log', 'a') as f:
+            f.write(f"main(): Set READONLY_MODE={READONLY_MODE}, READONLY_CLI_MODE={READONLY_CLI_MODE}\n")
+    else:
+        with open('/tmp/sqlbot_debug.log', 'a') as f:
+            f.write(f"main(): NOT setting dangerous mode: hasattr={hasattr(args, 'dangerous')}, value={getattr(args, 'dangerous', None)}\n")
+
+    if args.history:
+        SHOW_HISTORY = True
+
+    if args.full_history:
+        SHOW_HISTORY = True  # Enable history display
+        SHOW_FULL_HISTORY = True  # Enable full history mode
+
     # Check for command line input
     if args.query:
         # Join all query arguments as a single query
         query = ' '.join(args.query)
-
-        # Set global mode flags (but don't print messages yet - banner must come first)
-        if args.preview:
-            PREVIEW_MODE = True
-
-        if args.dangerous:
-            READONLY_MODE = False
-            READONLY_CLI_MODE = True  # CLI mode - safeguards explicitly disabled
-        
-        if args.history:
-            SHOW_HISTORY = True
-        
-        if args.full_history:
-            SHOW_HISTORY = True  # Enable history display
-            SHOW_FULL_HISTORY = True  # Enable full history mode
         
         # Execute query using appropriate interface
         if args.textual and LLM_AVAILABLE:

@@ -108,11 +108,13 @@ def create_session():
     profile = data.get('profile', os.getenv('DBT_PROFILE_NAME'))
 
     # Create session context
+    # Get default safeguard mode from webapp config
+    default_safeguard = getattr(run_webapp, '_default_safeguard_mode', True)
     session_context = {
         'session_id': session_id,
         'session_name': session_name,
         'profile': profile,
-        'safeguard_mode': True,  # Enable by default
+        'safeguard_mode': default_safeguard,  # Use configured default
         'preview_mode': False,
         'created': now.isoformat() + 'Z',
         'modified': now.isoformat() + 'Z'
@@ -871,15 +873,23 @@ def _broadcast_event(event_type: str, data: Any):
                 print(f"Error broadcasting to client: {e}")
 
 
-def run_webapp(host='127.0.0.1', port=5000):
-    """
-    Run the Flask web application.
+def run_webapp(host='127.0.0.1', port=5000, dangerous=False):
+    """Run the SQLBot web interface
 
     Args:
-        host: Host to bind to (default: localhost only)
-        port: Port to listen on (default: 5000)
+        host: Host to bind to
+        port: Port to listen on
+        dangerous: If True, disable safeguards (allow EXEC, DROP, etc.)
     """
+    # Store default safeguard mode for session creation
+    # safeguard_mode is opposite of dangerous
+    run_webapp._default_safeguard_mode = not dangerous
+
     print(f"Starting SQLBot web interface on http://{host}:{port}")
+    if dangerous:
+        print("⚠️  DANGEROUS MODE ENABLED - Safeguards disabled, all operations allowed")
+    else:
+        print("🔒 Safeguards enabled - dangerous operations blocked")
     print("Press Ctrl+C to stop")
     app.run(host=host, port=port, threaded=True)
 

@@ -8,7 +8,7 @@ Clean version with simple status messages and full query visibility.
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.tools import BaseTool
-from langchain.agents import create_agent as create_tool_calling_agent
+from langchain.agents import create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Type
 from pydantic import BaseModel, Field
@@ -369,12 +369,13 @@ class DbtQueryTool(BaseTool):
     """
     args_schema: Type[BaseModel] = DbtQueryInput
     
-    def __init__(self, session_id: str = 'default_session', unified_display=None, event_notifier=None):
-        """Initialize with session ID for query result tracking, unified display, and event notifier"""
+    def __init__(self, session_id: str = 'default_session', unified_display=None, event_notifier=None, config=None):
+        """Initialize with session ID for query result tracking, unified display, event notifier, and config"""
         super().__init__()
         self._session_id = session_id
         self._unified_display = unified_display
         self._event_notifier = event_notifier
+        self._config = config  # Store config if provided
     
     def _run(self, query: str) -> str:
         """Execute the dbt query and ALWAYS show results to user"""
@@ -424,21 +425,39 @@ class DbtQueryTool(BaseTool):
                 from .core.dbt_service import get_dbt_service
                 from .interfaces.repl.formatting import ResultFormatter
 
-                # Create config with current profile and respect global safeguard setting
-                # Import the global safeguard setting
-                try:
-                    from . import repl
-                    safeguard_enabled = repl.READONLY_MODE
-                except ImportError:
+                # Use provided config if available, otherwise create from environment
+                if self._config is not None:
+                    config = self._config
+                    print(f"[DEBUG] Using provided config: dangerous={config.dangerous}", file=sys.stderr)
+                    # Write to file for debugging
+                    with open('/tmp/sqlbot_debug.log', 'a') as f:
+                        f.write(f"Using provided config: dangerous={config.dangerous}\n")
+                else:
+                    # Create config with current profile and respect global safeguard setting
+                    # Import the global safeguard setting
+                    import sys
+                    safeguard_enabled = True  # Default
                     try:
-                        import repl
+                        from . import repl
                         safeguard_enabled = repl.READONLY_MODE
-                    except ImportError:
-                        safeguard_enabled = True  # Default to safeguards enabled
+                        print(f"[DEBUG] Imported repl.READONLY_MODE={repl.READONLY_MODE}", file=sys.stderr)
+                    except ImportError as e:
+                        print(f"[DEBUG] Failed to import .repl: {e}", file=sys.stderr)
+                        try:
+                            import repl
+                            safeguard_enabled = repl.READONLY_MODE
+                            print(f"[DEBUG] Imported repl.READONLY_MODE={repl.READONLY_MODE}", file=sys.stderr)
+                        except ImportError as e2:
+                            print(f"[DEBUG] Failed to import repl: {e2}", file=sys.stderr)
+                            safeguard_enabled = True  # Default to safeguards enabled
 
-                config = SQLBotConfig.from_env(profile=get_current_profile())
-                config.dangerous = not safeguard_enabled  # Apply global safeguard setting
-                config.max_rows = 1000
+                    config = SQLBotConfig.from_env(profile=get_current_profile())
+                    config.dangerous = not safeguard_enabled  # Apply global safeguard setting
+                    print(f"[DEBUG] After setting: config.dangerous={config.dangerous}, safeguard_enabled={safeguard_enabled}", file=sys.stderr)
+                    # Write to file for debugging
+                    with open('/tmp/sqlbot_debug.log', 'a') as f:
+                        f.write(f"Created config from READONLY_MODE: dangerous={config.dangerous}, safeguard_enabled={safeguard_enabled}\n")
+                    config.max_rows = 1000
 
                 # Get dbt service and formatter
                 dbt_service = get_dbt_service(config)
@@ -459,9 +478,19 @@ class DbtQueryTool(BaseTool):
 
                 # Perform safety check if safeguards are enabled
                 safeguard_message = None
-                if safeguard_enabled:
+
+                # DEBUG: Log safety check decision
+                import sys
+                print(f"[DEBUG] Safety check: config.dangerous={config.dangerous}", file=sys.stderr)
+                with open('/tmp/sqlbot_debug.log', 'a') as f:
+                    f.write(f"Safety check point: config.dangerous={config.dangerous}, query={query[:50]}\n")
+
+                if not config.dangerous:  # Only check safety if dangerous mode is disabled
+                    print(f"[DEBUG] Performing safety check (dangerous mode disabled)", file=sys.stderr)
+                    with open('/tmp/sqlbot_debug.log', 'a') as f:
+                        f.write(f"PERFORMING SAFETY CHECK (blocking dangerous queries)\n")
                     from .core.safety import analyze_sql_safety
-                    safety_analysis = analyze_sql_safety(query, dangerous_mode=False)
+                    safety_analysis = analyze_sql_safety(query, dangerous_mode=config.dangerous)
 
                     if safety_analysis.is_read_only and safety_analysis.level.value == "safe":
                         # Query is safe
@@ -1043,6 +1072,15 @@ def build_system_prompt():
     # Extract macro function names from loaded macros to provide as template variables
     macro_functions = extract_macro_function_names()
 
+    # Format macro info to avoid including raw Jinja syntax that would confuse LangChain's ChatPromptTemplate
+    formatted_macro_info = []
+    if isinstance(macro_info, list):
+        for macro in macro_info:
+            if isinstance(macro, dict) and 'name' in macro and 'file' in macro:
+                # Only include name and file, not the raw content with Jinja syntax
+                formatted_macro_info.append(f"  • {macro['name']}: {macro['file']}")
+    macro_info_text = "\n".join(formatted_macro_info) if formatted_macro_info else "No macros available"
+
     # Use Jinja2 to render the template with schema and macro info
     try:
         from jinja2 import Template
@@ -1051,7 +1089,7 @@ def build_system_prompt():
         # Create template variables with only basic info, avoiding macro functions that contain dots
         template_vars = {
             'schema_info': schema_info,
-            'macro_info': macro_info
+            'macro_info': macro_info_text  # Use formatted text instead of raw dict
             # Skip macro_functions to avoid Jinja2 parsing issues with dots in SQL
         }
 
@@ -1386,10 +1424,13 @@ def set_session_id(session_id: str):
     """Set the session ID for LLM agent creation"""
     create_llm_agent._session_id = session_id
 
-def create_llm_agent(unified_display=None, console=None, show_history=False, show_full_history=False, event_notifier=None):
+def create_llm_agent(unified_display=None, console=None, show_history=False, show_full_history=False, event_notifier=None, config=None):
     """
     Create LangChain agent with dbt query tool for database analysis.
-    
+
+    Args:
+        config: SQLBotConfig instance to use for tool execution (including dangerous mode setting)
+
     Returns:
         AgentExecutor: Configured agent ready to handle natural language queries
     """
@@ -1437,7 +1478,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
         profile_name = get_current_profile()
 
         tools = [
-            DbtQueryTool(session_id, unified_display, event_notifier),
+            DbtQueryTool(session_id, unified_display, event_notifier, config),
             create_query_result_lookup_tool(session_id),
             create_export_data_tool(session_id),
             FileEditingTool(profile_name)
@@ -1490,19 +1531,34 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
 
         # Create agent using LangChain tool calling API
-        # Note: create_agent (formerly create_tool_calling_agent) returns a runnable agent graph
-        agent = create_tool_calling_agent(
-            model=llm,
+        from langchain.agents import AgentExecutor
+
+        # Create the prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("placeholder", "{chat_history}"),
+            ("human", "{input}"),
+            ("placeholder", "{agent_scratchpad}")
+        ])
+
+        # Create the agent runnable
+        agent_runnable = create_tool_calling_agent(
+            llm=llm,
             tools=tools,
-            system_prompt=system_prompt
+            prompt=prompt
         )
 
-        # Note: create_tool_calling_agent returns a graph that can be invoked directly
-        # We need to adapt the interface to match the old AgentExecutor API
-        # Store the callback for use during invocation
-        agent._callbacks = [ToolTrackingCallback(unified_display, console, show_history)]
+        # Wrap in AgentExecutor for proper execution flow
+        agent_executor = AgentExecutor(
+            agent=agent_runnable,
+            tools=tools,
+            callbacks=[ToolTrackingCallback(unified_display, console, show_history)],
+            verbose=False,
+            handle_parsing_errors=True,
+            return_intermediate_steps=True
+        )
 
-        return agent
+        return agent_executor
         
     except Exception as e:
         logger.error(f"Failed to create LLM agent: {e}")
@@ -1512,7 +1568,7 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
 _dbt_setup_cache = None
 _dbt_setup_cache_time = 0
 
-def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None, chat_history=None) -> str:
+def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int = 120, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None, chat_history=None, dangerous_mode: bool = None) -> str:
     """
     Handle natural language query via LLM agent with retry logic.
 
@@ -1522,6 +1578,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
         timeout_seconds: Timeout for LLM requests in seconds (default: 120)
         event_notifier: Optional callback for streaming events (for web interface)
         chat_history: Optional pre-loaded conversation history from session
+        dangerous_mode: If provided, overrides the global READONLY_MODE setting
 
     Returns:
         str: Agent's response with query results and analysis
@@ -1551,7 +1608,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
             if attempt > 0:
                 console.print(f"🔄 [yellow]Retrying LLM request (attempt {attempt + 1}/{max_retries})...[/yellow]")
             
-            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history, show_full_history, event_notifier, chat_history)
+            return _execute_llm_query(query_text, console, timeout_seconds, unified_display, show_history, show_full_history, event_notifier, chat_history, dangerous_mode)
             
         except Exception as e:
             error_msg = str(e)
@@ -1573,7 +1630,7 @@ def handle_llm_query(query_text: str, max_retries: int = 3, timeout_seconds: int
                 console.print(f"❌ [red]LLM query failed after {attempt + 1} attempts: {error_msg}[/red]")
                 return f"LLM query failed: {error_msg}"
 
-def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None, chat_history=None) -> str:
+def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_display=None, show_history: bool = False, show_full_history: bool = False, event_notifier=None, chat_history=None, dangerous_mode: bool = None) -> str:
     """
     Execute the actual LLM query with timeout handling.
 
@@ -1582,6 +1639,7 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         console: Rich console for output
         timeout_seconds: Timeout in seconds
         chat_history: Optional pre-loaded conversation history from session
+        dangerous_mode: If provided, overrides the global READONLY_MODE setting
 
     Returns:
         str: LLM response
@@ -1639,17 +1697,48 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
                 chat_history = []
         # else: chat_history was provided by the session, use it as-is
         
-        
+
         sys.stdout.flush()  # Force immediate display
+
+        # Create config with proper dangerous mode setting
+        from .core.config import SQLBotConfig
+        agent_config = SQLBotConfig.from_env(profile=get_current_profile())
+
+        # Apply dangerous mode from parameter if provided, otherwise fall back to global READONLY_MODE flag
+        if dangerous_mode is not None:
+            # Use the explicitly provided dangerous mode (from web session)
+            agent_config.dangerous = dangerous_mode
+            print(f"[DEBUG] LLM Agent Config: dangerous={agent_config.dangerous} (from parameter)", file=sys.stderr)
+            with open('/tmp/sqlbot_debug.log', 'a') as f:
+                f.write(f"_execute_llm_query: Using provided dangerous_mode={dangerous_mode}\n")
+        else:
+            # Fall back to global READONLY_MODE flag (for CLI mode)
+            try:
+                from . import repl
+                agent_config.dangerous = not repl.READONLY_MODE
+                print(f"[DEBUG] LLM Agent Config: dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}", file=sys.stderr)
+                with open('/tmp/sqlbot_debug.log', 'a') as f:
+                    f.write(f"_execute_llm_query: Creating agent config with dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}\n")
+            except ImportError as e:
+                try:
+                    import repl
+                    agent_config.dangerous = not repl.READONLY_MODE
+                    print(f"[DEBUG] LLM Agent Config: dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}", file=sys.stderr)
+                    with open('/tmp/sqlbot_debug.log', 'a') as f:
+                        f.write(f"_execute_llm_query: Creating agent config with dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}\n")
+                except ImportError as e2:
+                    print(f"[DEBUG] Could not import repl module, using default dangerous=False", file=sys.stderr)
+                    with open('/tmp/sqlbot_debug.log', 'a') as f:
+                        f.write(f"_execute_llm_query: FAILED to import repl, using dangerous=False, errors: {e}, {e2}\n")
+                    agent_config.dangerous = False
+
         # Create agent (fresh instance ensures latest schema/macro info)
-        agent = create_llm_agent(unified_display, console, show_history, show_full_history, event_notifier)
+        agent = create_llm_agent(unified_display, console, show_history, show_full_history, event_notifier, agent_config)
 
         # Execute query with chat history (conversation history now shown by callback before each LLM call)
-        # create_tool_calling_agent expects: input, chat_history, intermediate_steps
-        # Pass callbacks via config parameter
-        config = {}
-        if hasattr(agent, '_callbacks'):
-            config['callbacks'] = agent._callbacks
+        # AgentExecutor expects: input, chat_history
+        # Callbacks are already registered with the executor
+        config = {"callbacks": []}
 
         # Add streaming callback if we have an event notifier
         import sys
@@ -1803,15 +1892,15 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
                 config['callbacks'] = []
             config['callbacks'].append(streaming_callback)
 
-        # Build messages list for the new create_agent API
-        messages_list = []
-        for msg in chat_history:
-            messages_list.append(msg)
-        messages_list.append({"role": "user", "content": query_text})
+        # Build input for the AgentExecutor
+        agent_input = {
+            "input": query_text,
+            "chat_history": chat_history
+        }
 
         result = agent.invoke(
-            {"messages": messages_list},
-            config=config if config else None
+            agent_input,
+            config=config
         )
 
         # Debug: Log what type of result we got
@@ -1822,58 +1911,36 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
             print(f"[DEBUG] Result is dict with keys: {list(result.keys())}", file=sys.stderr)
 
         # Extract the output from the agent result
-        # create_tool_calling_agent returns an AgentFinish object with return_values
-        if hasattr(result, 'return_values') and isinstance(result.return_values, dict):
-            # AgentFinish object from LangChain
-            raw_output = result.return_values.get("output", "No response generated")
-            # intermediate_steps should be empty for AgentFinish
-            intermediate_steps = []
+        # The agent returns a dict with 'output' and 'intermediate_steps'
+        import sys
+        print(f"[DEBUG] Agent result type: {type(result)}", file=sys.stderr)
+        print(f"[DEBUG] Agent result keys: {list(result.keys()) if isinstance(result, dict) else 'N/A'}", file=sys.stderr)
 
-            # Debug: Always log raw_output info to stderr
-            import sys
-            print(f"[DEBUG] result type = {type(result)}", file=sys.stderr)
-            print(f"[DEBUG] raw_output type = {type(raw_output)}", file=sys.stderr)
+        if isinstance(result, dict):
+            # Get output and intermediate_steps from result
+            raw_output = result.get("output", "No response generated")
+            intermediate_steps = result.get("intermediate_steps", [])
+
+            print(f"[DEBUG] raw_output type: {type(raw_output)}", file=sys.stderr)
+            print(f"[DEBUG] intermediate_steps count: {len(intermediate_steps)}", file=sys.stderr)
+
+            # If raw_output is a list, filter out ToolAgentAction objects and extract text
             if isinstance(raw_output, list):
                 print(f"[DEBUG] raw_output is list with {len(raw_output)} items", file=sys.stderr)
-                for i, item in enumerate(raw_output[:3]):  # First 3 items only
-                    print(f"[DEBUG]   Item {i}: type={type(item).__name__}, repr={repr(item)[:100]}", file=sys.stderr)
-            else:
-                print(f"[DEBUG] raw_output = {str(raw_output)[:300]}", file=sys.stderr)
-
-            # Debug: Check if output extraction worked
-            if DEBUG_MODE:
-                print(f"DEBUG: result type = {type(result)}")
-                print(f"DEBUG: raw_output type = {type(raw_output)}")
-                print(f"DEBUG: raw_output = {str(raw_output)[:300]}")
-        elif isinstance(result, dict):
-            # LangChain 1.1.0 create_agent returns dict with 'messages' key
-            if "messages" in result:
-                # Extract the last AI message from the messages list
-                messages = result["messages"]
-                raw_output = None
-                for msg in reversed(messages):
-                    # Look for AIMessage (the last assistant response)
-                    if hasattr(msg, 'type') and msg.type == 'ai':
-                        raw_output = msg.content
-                        break
-                    elif hasattr(msg, 'role') and msg.role == 'assistant':
-                        raw_output = msg.content
-                        break
-
-                if raw_output is None:
-                    raw_output = "No response generated"
-                intermediate_steps = []
-            else:
-                # Fallback: old dict format with output key
-                raw_output = result.get("output", "No response generated")
-                intermediate_steps = result.get("intermediate_steps", [])
-
-            # If raw_output is a list, filter out ToolAgentAction objects
-            if isinstance(raw_output, list):
-                raw_output = [item for item in raw_output if type(item).__name__ != 'ToolAgentAction']
+                filtered_output = []
+                for i, item in enumerate(raw_output):
+                    item_type = type(item).__name__
+                    print(f"[DEBUG]   Item {i}: type={item_type}", file=sys.stderr)
+                    # Skip internal LangChain objects
+                    if item_type in ['ToolAgentAction', 'AgentAction', 'AgentStep']:
+                        continue
+                    filtered_output.append(item)
+                raw_output = filtered_output
+                print(f"[DEBUG] After filtering: {len(raw_output)} items remain", file=sys.stderr)
         else:
             raw_output = str(result)
             intermediate_steps = []
+            print(f"[DEBUG] Result is not dict, converting to string", file=sys.stderr)
 
         # Debug logging: Log raw response structure before formatting
         if DEBUG_MODE:

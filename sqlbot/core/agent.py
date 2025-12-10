@@ -222,10 +222,10 @@ class SQLBotAgent:
     def _should_allow_dangerous(self) -> bool:
         """
         Determine if dangerous operations should be allowed
-        
+
         This can be overridden by specific interfaces for user confirmation
         """
-        return False  # Default to safe behavior
+        return self.config.dangerous  # Check config setting
     
     def _cleanup_temp_files(self):
         """Clean up temporary files from previous runs"""

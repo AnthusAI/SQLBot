@@ -158,10 +158,10 @@ class CommandHandler:
         """Toggle dangerous mode (disables safeguards)"""
         # Import the global safeguard state
         import sqlbot.repl as repl_module
-        
+
         if not args.strip():
-            # Show current status
-            if repl_module.READONLY_MODE:
+            # Show current status - check agent config as source of truth
+            if not self.agent.config.dangerous:
                 # Safeguards are enabled (safe mode)
                 self.formatter.format_success("🔒 Safeguards are ENABLED")
                 self.formatter.format_system_message("Dangerous operations are blocked.")
@@ -172,17 +172,23 @@ class CommandHandler:
                 self.formatter.format_system_message("All operations allowed - safeguards disabled.")
                 self.formatter.format_system_message("Use '/dangerous off' to re-enable safeguards.")
         elif args.strip().lower() in ['on', 'enable', 'true']:
+            # Update both the global variable and the agent config
             repl_module.READONLY_MODE = False  # Disable safeguards = enable dangerous mode
+            self.agent.config.dangerous = True
+            self.agent.safety_analyzer.dangerous_mode = True
             self.formatter.format_success("⚠️  Dangerous mode ENABLED")
             self.formatter.format_system_message("Safeguards are DISABLED - all operations allowed.")
         elif args.strip().lower() in ['off', 'disable', 'false']:
+            # Update both the global variable and the agent config
             repl_module.READONLY_MODE = True   # Enable safeguards = disable dangerous mode
+            self.agent.config.dangerous = False
+            self.agent.safety_analyzer.dangerous_mode = False
             self.formatter.format_success("🔒 Safeguards ENABLED")
             self.formatter.format_system_message("Dangerous operations blocked.")
         else:
             self.formatter.format_error(f"Unknown dangerous option: {args}")
             self.formatter.format_system_message("Usage: /dangerous [on|off]")
-        
+
         return True
     
     def _cmd_preview(self, args: str) -> bool:

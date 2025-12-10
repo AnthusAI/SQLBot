@@ -167,7 +167,11 @@ class SessionService:
                     print(f"[SessionService] Calling handle_llm_query with: {user_input}", file=sys.stderr)
                     # Pass conversation history from this session's conversation manager
                     chat_history = self.conversation_manager.get_filtered_context()
-                    result = handle_llm_query(user_input, event_notifier=self._notify, chat_history=chat_history)
+                    # Convert session's safeguard_mode to dangerous_mode (opposite meaning)
+                    safeguard_mode = self.context.get('safeguard_mode', True)
+                    dangerous_mode = not safeguard_mode
+                    print(f"[SessionService] Session config: safeguard_mode={safeguard_mode}, passing dangerous_mode={dangerous_mode}", file=sys.stderr)
+                    result = handle_llm_query(user_input, event_notifier=self._notify, chat_history=chat_history, dangerous_mode=dangerous_mode)
                     print(f"[SessionService] Got result type: {type(result)}, length: {len(result) if result else 0}", file=sys.stderr)
                     print(f"[SessionService] Result preview: {str(result)[:200]}", file=sys.stderr)
 

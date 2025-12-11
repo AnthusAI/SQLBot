@@ -1,3 +1,17 @@
+# [2.7.0](https://github.com/AnthusAI/SQLBot/compare/v2.6.0...v2.7.0) (2025-12-11)
+
+
+### Features
+
+* **logging:** Introduce debug logging utility and refactor logging in SQLBot ([383191b](https://github.com/AnthusAI/SQLBot/commit/383191b1bccfe10fb54e1ef9558b5564ab4ab145))
+
+# [2.6.0](https://github.com/AnthusAI/SQLBot/compare/v2.5.0...v2.6.0) (2025-12-10)
+
+
+### Features
+
+* **web-app:** Enhance web application port handling ([ec47967](https://github.com/AnthusAI/SQLBot/commit/ec479675f001b821d97a11c7ea90472d498fccf6))
+
 # [2.5.0](https://github.com/AnthusAI/SQLBot/compare/v2.4.0...v2.5.0) (2025-12-04)
 
 

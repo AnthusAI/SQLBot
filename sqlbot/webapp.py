@@ -894,12 +894,41 @@ def run_webapp(host='127.0.0.1', port=5000, dangerous=False):
 
     Args:
         host: Host to bind to
-        port: Port to listen on
+        port: Port to listen on (will auto-increment if in use)
         dangerous: If True, disable safeguards (allow EXEC, DROP, etc.)
     """
+    import socket
+
     # Store default safeguard mode for session creation
     # safeguard_mode is opposite of dangerous
     run_webapp._default_safeguard_mode = not dangerous
+
+    # Find an available port starting from the requested port
+    original_port = port
+    max_attempts = 10
+
+    for attempt in range(max_attempts):
+        try:
+            # Try to bind to the port to check if it's available
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            test_socket.bind((host, port))
+            test_socket.close()
+
+            # Port is available, use it
+            break
+        except OSError:
+            # Port is in use, try the next one
+            port += 1
+            if attempt < max_attempts - 1:
+                continue
+            else:
+                print(f"Error: Could not find an available port between {original_port} and {port}")
+                return
+
+    # Show which port we're using
+    if port != original_port:
+        print(f"Port {original_port} is in use, using port {port} instead")
 
     print(f"Starting SQLBot web interface on http://{host}:{port}")
     if dangerous:

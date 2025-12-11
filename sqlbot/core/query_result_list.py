@@ -109,16 +109,16 @@ class QueryResultList:
     def __init__(self, session_id: str, storage_path: Optional[Path] = None):
         """
         Initialize QueryResultList
-        
+
         Args:
             session_id: Unique identifier for this session
             storage_path: Optional path for persistent storage
         """
         self.session_id = session_id
-        self.storage_path = storage_path or Path(f".sqlbot/query_results/{session_id}.json")
+        self.storage_path = storage_path or (Path.home() / '.sqlbot' / 'query_results' / f"{session_id}.json")
         self._entries: List[QueryResultEntry] = []
         self._index_counter = 0
-        
+
         # Ensure storage directory exists
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         

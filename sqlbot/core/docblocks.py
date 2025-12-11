@@ -193,10 +193,13 @@ def discover_doc_blocks(profile_name: str) -> Tuple[Dict[str, DocBlock], Dict[st
             except OSError:
                 continue
 
+            # Track mtime for ALL scanned files, not just those with new blocks
+            # This ensures cache detects changes even if file has no blocks or only duplicates
+            file_mtimes[str(file_path)] = mtime
+
             for block in parse_doc_blocks_from_file(file_path):
                 if block.name not in doc_blocks:
                     doc_blocks[block.name] = block
-                    file_mtimes[str(file_path)] = mtime
 
     return doc_blocks, file_mtimes
 

@@ -3,7 +3,7 @@
  * Similar to the textual app's right panel
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSessionStore } from '../store/sessionStore';
 import { DataTable } from './chat/DataTable';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -31,7 +31,10 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
   const [activeTab, setActiveTab] = useState<'result' | 'query'>('result');
   const [listWidth, setListWidth] = useState(180); // Query list width
   const [isCollapsed, setIsCollapsed] = useState(false); // Start expanded
-  const [hasInitialized, setHasInitialized] = useState(false); // Track if we've done initial load
+  const hasInitializedRef = useRef<boolean>(false); // Track if we've done initial load (use ref to avoid stale closures!)
+  const lastNewestIndexRef = useRef<number>(-1);
+  const userHasSelectedRef = useRef<boolean>(false); // Track if user has manually selected a result
+  const lastFetchedResultsRef = useRef<QueryResult[]>([]); // Track last fetched results to avoid unnecessary updates
 
   // Notify parent when collapsed state changes
   const handleCollapsedChange = (collapsed: boolean) => {
@@ -49,7 +52,8 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
     // Reset state when session changes
     setQueryResults([]);
     setSelectedResult(null);
-    setHasInitialized(false);
+    hasInitializedRef.current = false;
+    // DO NOT reset lastNewestIndexRef - let it persist to prevent unwanted auto-selection
 
     if (!currentSession) {
       return;
@@ -57,7 +61,6 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
 
     const fetchResults = async () => {
       try {
-        console.log(`[QueryResultsPanel] Fetching results for session: ${currentSession.session_id}`);
         const response = await fetch(`/api/sessions/${currentSession.session_id}/query_results`);
 
         if (!response.ok) {
@@ -66,15 +69,26 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
         }
 
         const data = await response.json();
-        console.log(`[QueryResultsPanel] Received data:`, data);
-        console.log(`[QueryResultsPanel] Results count: ${data.results?.length || 0}`);
 
         if (data.results) {
-          setQueryResults(data.results);
-          // Auto-select the most recent result on initial load
-          if (data.results.length > 0 && !hasInitialized) {
-            console.log(`[QueryResultsPanel] Auto-selecting first result:`, data.results[0]);
+          // Only update if results have actually changed (compare with last fetched results)
+          const lastResults = lastFetchedResultsRef.current;
+          const hasChanged = data.results.length !== lastResults.length || 
+                           (data.results.length > 0 && lastResults.length > 0 && data.results[0].index !== lastResults[0].index);
+          
+          if (hasChanged) {
+            lastFetchedResultsRef.current = data.results;
+            setQueryResults(data.results);
+          }
+          
+          // Auto-select the most recent result on initial load for this session
+          if (data.results.length > 0 && !hasInitializedRef.current) {
             setSelectedResult(data.results[0]);
+            hasInitializedRef.current = true;
+            // Initialize lastNewestIndexRef if it's still at -1 (first time ever)
+            if (lastNewestIndexRef.current === -1) {
+              lastNewestIndexRef.current = data.results[0].index;
+            }
           }
         }
       } catch (error) {
@@ -88,15 +102,21 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
     // Poll for updates every 2 seconds
     const interval = setInterval(fetchResults, 2000);
     return () => clearInterval(interval);
-  }, [currentSession]);
+  }, [currentSession?.session_id]);
 
   // Auto-select newest result when results update
   useEffect(() => {
     if (queryResults.length > 0) {
       const newest = queryResults[0];
-      // Only update if it's a new result (different index)
-      const isNewResult = !selectedResult || selectedResult.index !== newest.index;
-      if (isNewResult) {
+
+      // Initialize ref if first run
+      if (lastNewestIndexRef.current === -1) {
+        lastNewestIndexRef.current = newest.index;
+      }
+
+      // Only switch if we have a GENUINELY new result AND user hasn't manually selected
+      if (newest.index > lastNewestIndexRef.current && !userHasSelectedRef.current) {
+        lastNewestIndexRef.current = newest.index;
         setSelectedResult(newest);
       }
     }
@@ -142,12 +162,17 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
         style={{ width: `${listWidth}px` }}
       >
         <div className="flex-1 overflow-y-auto">
-          {queryResults.map((result) => (
+          {queryResults.map((result) => {
+            const isSelected = selectedResult?.index === result.index;
+            return (
             <div
               key={result.index}
-              onClick={() => setSelectedResult(result)}
+              onClick={() => {
+                userHasSelectedRef.current = true; // Mark that user has made a selection
+                setSelectedResult(result);
+              }}
               className={`px-3 py-2 cursor-pointer transition-colors border-b border-border/50 ${
-                selectedResult?.index === result.index
+                isSelected
                   ? 'bg-accent'
                   : 'hover:bg-muted/50'
               }`}
@@ -163,7 +188,8 @@ export function QueryResultsPanel({ onCollapsedChange }: QueryResultsPanelProps)
                 )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
 
         {/* Collapse button at bottom of query list */}

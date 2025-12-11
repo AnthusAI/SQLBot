@@ -8,9 +8,9 @@ Clean version with simple status messages and full query visibility.
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.tools import BaseTool
-from langchain.agents import create_tool_calling_agent
+from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
-from typing import Type
+from typing import Type, Tuple
 from pydantic import BaseModel, Field
 import os
 import logging
@@ -18,6 +18,9 @@ import subprocess
 import sys
 import yaml
 import re
+
+from .core.config import SQLBotConfig
+from .core.docblocks import DocBlockCache, build_doc_block_digest
 
 # Load environment variables
 load_dotenv()
@@ -33,17 +36,18 @@ def get_current_profile():
 
     # Fall back to loading from config system
     try:
-        from .core.config import SQLBotConfig
         config = SQLBotConfig.from_env()
-        return config.profile
-    except Exception as e:
-        # Last resort: check environment variable
-        import os
-        profile = os.getenv('DBT_PROFILE_NAME') or os.getenv('SQLBOT_PROFILE')
+        profile = getattr(config, "profile", None)
         if profile:
             return profile
-        # If still nothing, return a default
-        return 'sqlbot'
+    except Exception:
+        pass
+
+    # Last resort: check environment variable or default
+    profile = os.getenv('DBT_PROFILE_NAME') or os.getenv('SQLBOT_PROFILE')
+    if profile:
+        return profile
+    return 'sqlbot'
 
 def check_dbt_setup():
     """
@@ -671,7 +675,7 @@ class DbtQueryTool(BaseTool):
                             "query": query.strip(),
                             "success": False,
                             "error": error_msg,
-                            "message": "QUERY FAILED - Report this error to the user and do NOT retry more than once."
+                            "message": "Query failed - report this error to the user and do NOT retry more than once."
                         }, indent=2)
                     
             except Exception as e:
@@ -863,40 +867,32 @@ def ensure_schema_available_to_dbt():
         console = Console()
         console.print(f"⚠️ Could not verify profile schema: {e}")
 
-def load_schema_info():
+def load_schema_info() -> str:
     """
-    Load schema information with profile discovery priority:
-    1. .sqlbot/profiles/{profile}/models/schema.yml (preferred)
-    2. profiles/{profile}/models/schema.yml (fallback)
-    3. models/schema.yml (legacy)
-    
-    Also ensures dbt can find the schema by copying it to models/schema.yml
-    
-    Returns:
-        str: Formatted schema information for system prompt
+    Wrapper that returns legacy schema text plus doc block digest for compatibility.
+    """
+    schema_text, doc_section = load_schema_prompt_assets()
+    if doc_section:
+        return f"{schema_text}\n\n{doc_section}"
+    return schema_text
+
+
+def load_schema_prompt_assets() -> Tuple[str, str]:
+    """
+    Load schema text and doc block digest separately for reuse.
     """
     try:
-        # First, ensure dbt can find the schema
         ensure_schema_available_to_dbt()
-
         schema_paths, _ = get_profile_paths(get_current_profile())
-        
+
         schema_path = None
-        path_type = "unknown"
-        
-        for i, path in enumerate(schema_paths):
+        for path in schema_paths:
             if os.path.exists(path):
                 schema_path = path
-                if i == 0:
-                    path_type = "profile (.sqlbot/profiles/)"
-                elif i == 1:
-                    path_type = "profile (./profiles/)"
-                else:
-                    path_type = "legacy (./models/)"
                 break
-        
+
         if not schema_path:
-            return f"""Schema file not found for profile '{get_current_profile()}'.
+            message = f"""Schema file not found for profile '{get_current_profile()}'.
 
 Please create one of:
   1. .sqlbot/profiles/{get_current_profile()}/models/schema.yml (recommended)
@@ -906,21 +902,30 @@ Please create one of:
 Example setup:
   mkdir -p profiles/{get_current_profile()}/models
   # Copy your schema.yml to profiles/{get_current_profile()}/models/"""
-        
+            return message, ""
+
         with open(schema_path, 'r') as f:
             schema_content = f.read()
 
-        # Return the full raw content of the schema file
-        # This gives the LLM complete visibility into the schema structure
-        return f"""Schema file: {schema_path}
+        doc_section = ""
+        try:
+            doc_blocks = DocBlockCache.get_or_load(get_current_profile())
+            doc_section = build_doc_block_digest(schema_content, doc_blocks)
+        except Exception as exc:
+            doc_section = f"⚠️ Failed to process doc blocks: {exc}"
+
+        schema_text = f"""Schema file: {schema_path}
 
 Full schema.yml content:
 ```yaml
 {schema_content}
 ```"""
-        
+
+        return schema_text, doc_section
+
     except Exception as e:
-        return f"Could not load schema: {e}"
+        return f"Could not load schema: {e}", ""
+
 
 def load_macro_info():
     """
@@ -1062,7 +1067,8 @@ def build_system_prompt():
     Returns:
         str: Complete system prompt for the LLM
     """
-    schema_info = load_schema_info()
+    schema_text, doc_section = load_schema_prompt_assets()
+    schema_info = schema_text
     macro_info = load_macro_info()
 
     # Load profile-specific system prompt template
@@ -1074,12 +1080,15 @@ def build_system_prompt():
 
     # Format macro info to avoid including raw Jinja syntax that would confuse LangChain's ChatPromptTemplate
     formatted_macro_info = []
+    macro_info_text = "No macros available"
     if isinstance(macro_info, list):
         for macro in macro_info:
             if isinstance(macro, dict) and 'name' in macro and 'file' in macro:
-                # Only include name and file, not the raw content with Jinja syntax
                 formatted_macro_info.append(f"  • {macro['name']}: {macro['file']}")
-    macro_info_text = "\n".join(formatted_macro_info) if formatted_macro_info else "No macros available"
+        if formatted_macro_info:
+            macro_info_text = "\n".join(formatted_macro_info)
+    elif isinstance(macro_info, str):
+        macro_info_text = macro_info
 
     # Use Jinja2 to render the template with schema and macro info
     try:
@@ -1094,11 +1103,13 @@ def build_system_prompt():
         }
 
         system_prompt = template.render(**template_vars)
+        if doc_section:
+            system_prompt += f"\n\n{doc_section}"
         return system_prompt
     except Exception as e:
         # Enhanced fallback that handles missing template gracefully
         print(f"Warning: Template rendering failed ({e}), using fallback template")
-        return f"""You are a helpful database analyst assistant.
+        fallback_prompt = f"""You are a helpful database analyst assistant.
 
 DATABASE TABLES:
 {schema_info}
@@ -1108,6 +1119,9 @@ AVAILABLE MACROS:
 
 Use direct table names and available macros. Always execute queries using the tool.
 """
+        if doc_section:
+            fallback_prompt += f"\n\n{doc_section}"
+        return fallback_prompt
 
 def load_profile_system_prompt_template(profile_name: str) -> str:
     """
@@ -1531,8 +1545,6 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
 
         # Create agent using LangChain tool calling API
-        from langchain.agents import AgentExecutor
-
         # Create the prompt template
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),

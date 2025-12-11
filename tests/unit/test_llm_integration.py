@@ -86,7 +86,7 @@ class TestLLMIntegration:
         )
         
         with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_success_result):
-            with patch('os.path.dirname', return_value=str(tmp_path)):
+            with patch('os.getcwd', return_value=str(tmp_path)):
                 result = tool._run("SELECT 1")
                 
                 assert "success" in result.lower()
@@ -108,7 +108,7 @@ class TestLLMIntegration:
         )
         
         with patch('sqlbot.core.dbt_service.DbtService.execute_query', return_value=mock_error_result):
-            with patch('os.path.dirname', return_value=str(tmp_path)):
+            with patch('os.getcwd', return_value=str(tmp_path)):
                 result = tool._run("INVALID SQL")
                 
                 # Check that the result contains error information
@@ -123,7 +123,7 @@ class TestLLMIntegration:
         tool = DbtQueryTool()
         
         with patch('subprocess.run', side_effect=subprocess.TimeoutExpired('dbt', 60)):
-            with patch('os.path.dirname', return_value=str(tmp_path)):
+            with patch('os.getcwd', return_value=str(tmp_path)):
                 result = tool._run("SELECT * FROM large_table")
                 
                 assert "timed out" in result
@@ -150,7 +150,7 @@ sources:
         schema_file.parent.mkdir(exist_ok=True)
         schema_file.write_text(schema_content)
         
-        with patch('os.path.dirname', return_value=str(tmp_path)):
+        with patch('os.getcwd', return_value=str(tmp_path)):
             result = load_schema_info()
             
             assert "your_source" in result
@@ -161,7 +161,7 @@ sources:
         """Test loading schema info when file is missing."""
         from sqlbot.llm_integration import load_schema_info
         
-        with patch('os.path.dirname', return_value=str(tmp_path)):
+        with patch('os.getcwd', return_value=str(tmp_path)):
             result = load_schema_info()
             
             assert "Schema file not found" in result
@@ -182,7 +182,7 @@ WHERE id = {{ report_id }}
         macros_dir.mkdir(exist_ok=True)
         (macros_dir / "report_lookups.sql").write_text(macro_content)
         
-        with patch('os.path.dirname', return_value=str(tmp_path)):
+        with patch('os.getcwd', return_value=str(tmp_path)):
             result = load_macro_info()
             
             assert "find_report_by_id" in result
@@ -223,7 +223,7 @@ WHERE id = {{ report_id }}
         from sqlbot.llm_integration import build_system_prompt
 
         # Mock schema and macro loading
-        with patch('sqlbot.llm_integration.load_schema_info', return_value="Test schema"):
+        with patch('sqlbot.llm_integration.load_schema_prompt_assets', return_value=("Test schema", "")):
             with patch('sqlbot.llm_integration.load_macro_info', return_value="Test macros"):
                 with patch('sqlbot.llm_integration.get_current_profile', return_value='sqlbot'):
                     prompt = build_system_prompt()

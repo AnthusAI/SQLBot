@@ -118,6 +118,9 @@ class QueryResultSidebar(ListView):
         """Handle selection of a query result"""
         if event.item and hasattr(event.item, 'entry'):
             self.selected_entry = event.item.entry
+            # region agent log
+            _log_debug("User selected entry", {"index": self.selected_entry.index})
+            # endregion
             # Post a message to notify parent widget
             self.post_message(QueryResultSelected(self.selected_entry))
 

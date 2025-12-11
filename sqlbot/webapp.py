@@ -64,6 +64,22 @@ def serve_root_files(filename):
     return jsonify({'error': 'Not found'}), 404
 
 
+@app.route('/api/debug-log', methods=['POST'])
+def debug_log():
+    """Receive debug logs from frontend."""
+    try:
+        log_entry = request.json
+        log_file = Path('.cursor/debug.log')
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(log_file, 'a') as f:
+            f.write(json.dumps(log_entry) + '\n')
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/sessions', methods=['GET'])
 def list_sessions():
     """List all saved sessions."""

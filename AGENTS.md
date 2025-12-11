@@ -99,6 +99,8 @@ sources:
 - ✅ **Enhanced LLM context** - Column descriptions improve query generation
 - ✅ **Better suggestions** - More accurate field selection and joins
 
+> **Doc blocks supported** — When descriptions reference `{{ doc('...') }}` entries, SQLBot now pre-loads the corresponding dbt doc blocks, resolves them into readable summaries, and appends the digest to the system prompt. Doc blocks are cached per profile at session start and automatically invalidated whenever the file-editing tool modifies schema or macro files, so the prompt always reflects the latest documentation without rescanning every query.
+
 **Level 3: Custom Macros (Optional)**
 ```sql
 -- profiles/my_profile/macros/business_metrics.sql
@@ -352,16 +354,31 @@ profiles/
 ├── qbot/                    # Default profile
 │   ├── models/
 │   │   └── schema.yml      # Default schema
-│   └── macros/
-│       └── *.sql           # Default macros
+│   ├── macros/
+│   │   └── *.sql           # Default macros
+│   └── docs/               # Optional: doc blocks for schema descriptions
+│       └── *.md             # Markdown files with {% docs name %} blocks
 └── Sakila/                 # Example profile (Sakila sample database)
     ├── models/
     │   └── schema.yml      # Client schema
-    └── macros/
-        └── *.sql           # Client macros
+    ├── macros/
+    │   └── *.sql           # Client macros
+    └── docs/               # Optional: doc blocks for schema descriptions
+        └── *.md             # Markdown files with {% docs name %} blocks
 ```
 
 **Usage:** `sqlbot --profile Sakila` loads client-specific configuration
+
+**Doc Block File Locations:**
+SQLBot searches for doc blocks in the following locations (in priority order):
+1. `.sqlbot/profiles/{profile}/docs/` (preferred for profile-specific docs)
+2. `profiles/{profile}/docs/` (fallback)
+3. `docs/` (project root - standard dbt location)
+4. `.sqlbot/profiles/{profile}/models/` and `.sqlbot/profiles/{profile}/macros/` (doc blocks embedded in model/macro files)
+5. `profiles/{profile}/models/` and `profiles/{profile}/macros/` (doc blocks embedded in model/macro files)
+6. `models/` and `macros/` (project root - doc blocks embedded in files)
+
+**Best Practice:** Place doc blocks in dedicated `.md` files within the `docs/` folder for better organization. Doc blocks can also be embedded directly in model (`.sql`) or macro (`.sql`) files if preferred.
 
 #### Schema Configuration (`models/schema.yml`)
 ```yaml
@@ -381,6 +398,39 @@ sources:
 ```
 
 **Critical for LLM:** Column descriptions directly influence query generation quality.
+
+**Using Doc Blocks in Schema Descriptions:**
+You can reference doc blocks in your schema descriptions using `{{ doc('doc_name') }}`:
+
+```yaml
+# profiles/my_profile/models/schema.yml
+version: 2
+sources:
+  - name: analytics
+    tables:
+      - name: customers
+        description: "{{ doc('customer_table_overview') }}"
+        columns:
+          - name: lifetime_value
+            description: "{{ doc('ltv_definition') }}"
+```
+
+Then create the corresponding doc blocks in `profiles/my_profile/docs/`:
+
+```markdown
+# profiles/my_profile/docs/customer_docs.md
+{% docs customer_table_overview %}
+The customers table contains all active customer accounts, including both retail and wholesale buyers. 
+Each customer record includes contact information, account status, and purchase history.
+{% enddocs %}
+
+{% docs ltv_definition %}
+Lifetime Value (LTV) is calculated as the sum of gross margin over the past 12 months. 
+This metric helps identify high-value customers for targeted marketing campaigns.
+{% enddocs %}
+```
+
+SQLBot will automatically discover these doc blocks, resolve the references, and include the expanded documentation in the system prompt for better LLM context.
 
 #### How LLM Uses Schema Information
 

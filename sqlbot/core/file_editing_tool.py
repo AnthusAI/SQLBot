@@ -9,6 +9,7 @@ from typing import Optional, Type
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
 
+from sqlbot.core.docblocks import DocBlockCache
 from sqlbot.core.file_security import FileSecurityValidator
 from sqlbot.core.file_validation import FileValidator
 
@@ -177,6 +178,8 @@ Examples:
             temp_path.write_text(content, encoding='utf-8')
             temp_path.rename(schema_path)
 
+            self._invalidate_doc_blocks()
+
             return f"Successfully updated schema file at: {schema_path}\n\nThe schema has been validated and saved."
 
         except Exception as e:
@@ -242,6 +245,8 @@ Examples:
             if warning_message:
                 result += f"\n\nWarning: {warning_message}"
 
+            self._invalidate_doc_blocks()
+
             return result
 
         except ValueError as e:
@@ -273,6 +278,8 @@ Examples:
             if warning_message:
                 result += f"\n\nWarning: {warning_message}"
 
+            self._invalidate_doc_blocks()
+
             return result
 
         except ValueError as e:
@@ -291,6 +298,8 @@ Examples:
             # Delete the file
             schema_path.unlink()
 
+            self._invalidate_doc_blocks()
+
             return f"Successfully deleted schema file at: {schema_path}\n\nThe schema file has been removed."
 
         except Exception as e:
@@ -308,12 +317,22 @@ Examples:
             # Delete the file
             macro_path.unlink()
 
+            self._invalidate_doc_blocks()
+
             return f"Successfully deleted macro file: {filename}\nLocation was: {macro_path}\n\nThe macro has been removed."
 
         except ValueError as e:
             return f"Invalid filename: {str(e)}"
         except Exception as e:
             return f"Error deleting macro: {str(e)}"
+
+    def _invalidate_doc_blocks(self) -> None:
+        """Clear cached doc blocks for this profile."""
+        try:
+            DocBlockCache.invalidate(self.profile_name)
+        except Exception:
+            # Cache invalidation failures should never block file operations
+            pass
 
     async def _arun(
         self,

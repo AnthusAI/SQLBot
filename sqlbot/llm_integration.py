@@ -8,8 +8,8 @@ Clean version with simple status messages and full query visibility.
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.tools import BaseTool
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
+# AgentExecutor and create_tool_calling_agent imported inside create_llm_agent() to avoid import errors during test collection
+# ChatPromptTemplate imported inside create_llm_agent() for the same reason
 from typing import Type, Tuple
 from pydantic import BaseModel, Field
 from pathlib import Path
@@ -867,14 +867,24 @@ def ensure_schema_available_to_dbt():
         console = Console()
         console.print(f"⚠️ Could not verify profile schema: {e}")
 
-def load_schema_info() -> str:
-    """
-    Wrapper that returns legacy schema text plus doc block digest for compatibility.
-    """
-    schema_text, doc_section = load_schema_prompt_assets()
-    if doc_section:
+_SCHEMA_PROMPT_CACHE: Tuple[str, str] | None = None
+
+
+def _format_schema_text(schema_text: str, doc_section: str, include_doc_section: bool) -> str:
+    """Helper to format schema text with optional doc block digest."""
+    if include_doc_section and doc_section:
         return f"{schema_text}\n\n{doc_section}"
     return schema_text
+
+
+def load_schema_info(include_doc_section: bool = True) -> str:
+    """
+    Wrapper that returns schema text with optional doc block digest for compatibility.
+    """
+    global _SCHEMA_PROMPT_CACHE
+    schema_text, doc_section = load_schema_prompt_assets()
+    _SCHEMA_PROMPT_CACHE = (schema_text, doc_section)
+    return _format_schema_text(schema_text, doc_section, include_doc_section)
 
 
 def load_schema_prompt_assets() -> Tuple[str, str]:
@@ -1067,8 +1077,12 @@ def build_system_prompt():
     Returns:
         str: Complete system prompt for the LLM
     """
-    schema_text, doc_section = load_schema_prompt_assets()
-    schema_info = schema_text
+    global _SCHEMA_PROMPT_CACHE
+    _SCHEMA_PROMPT_CACHE = None
+    schema_info = load_schema_info(include_doc_section=False)
+    doc_section = ""
+    if _SCHEMA_PROMPT_CACHE:
+        _, doc_section = _SCHEMA_PROMPT_CACHE
     macro_info = load_macro_info()
 
     # Load profile-specific system prompt template
@@ -1115,7 +1129,7 @@ DATABASE TABLES:
 {schema_info}
 
 AVAILABLE MACROS:
-{macro_info}
+{macro_info_text}
 
 Use direct table names and available macros. Always execute queries using the tool.
 """
@@ -1545,6 +1559,10 @@ def create_llm_agent(unified_display=None, console=None, show_history=False, sho
                         self.unified_display.display_impl.display_tool_result(tool_name, result_preview)
 
         # Create agent using LangChain tool calling API
+        # Import here to avoid import errors during test collection
+        from langchain.agents import AgentExecutor, create_tool_calling_agent
+        from langchain_core.prompts import ChatPromptTemplate
+        
         # Create the prompt template
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),

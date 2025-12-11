@@ -255,6 +255,17 @@ def dbt_docs_serve():
     """Serve dbt documentation"""
     return run_dbt(["docs", "serve"])
 
+def _is_non_interactive_environment() -> bool:
+    """
+    Detect whether we are running without an interactive terminal (e.g. pytest subprocess).
+    """
+    try:
+        stdin_is_tty = sys.stdin.isatty()
+    except Exception:
+        stdin_is_tty = False
+    return bool(os.getenv("PYTEST_CURRENT_TEST") or not stdin_is_tty)
+
+
 def execute_clean_sql(sql_query):
     """Execute SQL query using dbt SDK (no subprocess)"""
     try:
@@ -1209,8 +1220,23 @@ def main():
         SHOW_HISTORY = True  # Enable history display
         SHOW_FULL_HISTORY = True  # Enable full history mode
 
+    # Detect non-interactive execution (e.g., pytest subprocess, piped input)
+    non_interactive_env = _is_non_interactive_environment()
+
     # Check for command line input
     if args.query:
+        if non_interactive_env and not args.no_repl:
+            banner_llm_model = None
+            if LLM_AVAILABLE:
+                banner_llm_model = os.getenv('SQLBOT_LLM_MODEL', 'gpt-5')
+            show_banner(
+                is_no_repl=False,
+                profile=DBT_PROFILE_NAME,
+                llm_model=banner_llm_model,
+                llm_available=LLM_AVAILABLE,
+                unified_display=None,
+            )
+
         # Join all query arguments as a single query
         query = ' '.join(args.query)
         
@@ -1244,6 +1270,10 @@ def main():
                 rich_console.print("\n[dim]Exiting (--no-repl mode)[/dim]")
                 return  # Exit after query execution
             else:
+                if non_interactive_env:
+                    rich_console.print("\n[dim]Interactive REPL skipped (non-interactive environment).[/dim]")
+                    return
+
                 # Continue to interactive CLI mode (banner will be shown by start_unified_repl)
                 _start_cli_interactive_mode(rich_console)
                 return

@@ -12,6 +12,7 @@ from langchain.agents import create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Type
 from pydantic import BaseModel, Field
+from pathlib import Path
 import os
 import logging
 import subprocess
@@ -21,6 +22,9 @@ import re
 
 # Load environment variables
 load_dotenv()
+
+# Import utilities
+from sqlbot.utils import debug_log
 
 # Global dbt profile configuration (can be set from CLI or environment)
 # Note: This will be dynamically checked, not cached at import time
@@ -430,8 +434,7 @@ class DbtQueryTool(BaseTool):
                     config = self._config
                     print(f"[DEBUG] Using provided config: dangerous={config.dangerous}", file=sys.stderr)
                     # Write to file for debugging
-                    with open('/tmp/sqlbot_debug.log', 'a') as f:
-                        f.write(f"Using provided config: dangerous={config.dangerous}\n")
+                    debug_log(f"Using provided config: dangerous={config.dangerous}")
                 else:
                     # Create config with current profile and respect global safeguard setting
                     # Import the global safeguard setting
@@ -455,8 +458,7 @@ class DbtQueryTool(BaseTool):
                     config.dangerous = not safeguard_enabled  # Apply global safeguard setting
                     print(f"[DEBUG] After setting: config.dangerous={config.dangerous}, safeguard_enabled={safeguard_enabled}", file=sys.stderr)
                     # Write to file for debugging
-                    with open('/tmp/sqlbot_debug.log', 'a') as f:
-                        f.write(f"Created config from READONLY_MODE: dangerous={config.dangerous}, safeguard_enabled={safeguard_enabled}\n")
+                    debug_log(f"Created config from READONLY_MODE: dangerous={config.dangerous}, safeguard_enabled={safeguard_enabled}")
                     config.max_rows = 1000
 
                 # Get dbt service and formatter
@@ -482,13 +484,11 @@ class DbtQueryTool(BaseTool):
                 # DEBUG: Log safety check decision
                 import sys
                 print(f"[DEBUG] Safety check: config.dangerous={config.dangerous}", file=sys.stderr)
-                with open('/tmp/sqlbot_debug.log', 'a') as f:
-                    f.write(f"Safety check point: config.dangerous={config.dangerous}, query={query[:50]}\n")
+                debug_log(f"Safety check point: config.dangerous={config.dangerous}, query={query[:50]}")
 
                 if not config.dangerous:  # Only check safety if dangerous mode is disabled
                     print(f"[DEBUG] Performing safety check (dangerous mode disabled)", file=sys.stderr)
-                    with open('/tmp/sqlbot_debug.log', 'a') as f:
-                        f.write(f"PERFORMING SAFETY CHECK (blocking dangerous queries)\n")
+                    debug_log(f"PERFORMING SAFETY CHECK (blocking dangerous queries)")
                     from .core.safety import analyze_sql_safety
                     safety_analysis = analyze_sql_safety(query, dangerous_mode=config.dangerous)
 
@@ -1709,27 +1709,23 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
             # Use the explicitly provided dangerous mode (from web session)
             agent_config.dangerous = dangerous_mode
             print(f"[DEBUG] LLM Agent Config: dangerous={agent_config.dangerous} (from parameter)", file=sys.stderr)
-            with open('/tmp/sqlbot_debug.log', 'a') as f:
-                f.write(f"_execute_llm_query: Using provided dangerous_mode={dangerous_mode}\n")
+            debug_log(f"_execute_llm_query: Using provided dangerous_mode={dangerous_mode}")
         else:
             # Fall back to global READONLY_MODE flag (for CLI mode)
             try:
                 from . import repl
                 agent_config.dangerous = not repl.READONLY_MODE
                 print(f"[DEBUG] LLM Agent Config: dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}", file=sys.stderr)
-                with open('/tmp/sqlbot_debug.log', 'a') as f:
-                    f.write(f"_execute_llm_query: Creating agent config with dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}\n")
+                debug_log(f"_execute_llm_query: Creating agent config with dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}")
             except ImportError as e:
                 try:
                     import repl
                     agent_config.dangerous = not repl.READONLY_MODE
                     print(f"[DEBUG] LLM Agent Config: dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}", file=sys.stderr)
-                    with open('/tmp/sqlbot_debug.log', 'a') as f:
-                        f.write(f"_execute_llm_query: Creating agent config with dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}\n")
+                    debug_log(f"_execute_llm_query: Creating agent config with dangerous={agent_config.dangerous}, READONLY_MODE={repl.READONLY_MODE}")
                 except ImportError as e2:
                     print(f"[DEBUG] Could not import repl module, using default dangerous=False", file=sys.stderr)
-                    with open('/tmp/sqlbot_debug.log', 'a') as f:
-                        f.write(f"_execute_llm_query: FAILED to import repl, using dangerous=False, errors: {e}, {e2}\n")
+                    debug_log(f"_execute_llm_query: FAILED to import repl, using dangerous=False, errors: {e}, {e2}")
                     agent_config.dangerous = False
 
         # Create agent (fresh instance ensures latest schema/macro info)
@@ -1945,7 +1941,8 @@ def _execute_llm_query(query_text: str, console, timeout_seconds: int, unified_d
         # Debug logging: Log raw response structure before formatting
         if DEBUG_MODE:
             import json
-            debug_log_path = os.path.join(os.path.expanduser("~"), ".sqlbot_debug.log")
+            debug_log_path = Path.home() / '.sqlbot' / 'debug.log'
+            debug_log_path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with open(debug_log_path, 'a', encoding='utf-8') as f:
                     import datetime

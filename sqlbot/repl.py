@@ -25,6 +25,12 @@ from sqlbot.interfaces.theme_system import get_theme_manager, ThemeMode
 # Load environment variables using dotenv as fallback (dotyaml will override these)
 load_dotenv()
 
+# Import utilities
+from sqlbot.utils import debug_log, get_sqlbot_dir
+
+# Ensure .sqlbot directory exists for logs and other data
+_sqlbot_dir = get_sqlbot_dir()
+
 # Initialize configuration system early to load YAML config and set environment variables
 # This ensures OPENAI_API_KEY and other config values are available before LLM initialization
 # Skip this during tests to avoid overriding test environment variables
@@ -897,8 +903,7 @@ def show_banner(is_no_repl=False, profile=None, llm_model=None, llm_available=Fa
         global READONLY_MODE, READONLY_CLI_MODE
         if not READONLY_CLI_MODE:  # Only if not explicitly set by --dangerous flag
             READONLY_MODE = not config.dangerous  # dangerous=false means safeguards enabled
-            with open('/tmp/sqlbot_debug.log', 'a') as f:
-                f.write(f"show_banner(): Reset READONLY_MODE={READONLY_MODE} from config (READONLY_CLI_MODE={READONLY_CLI_MODE})\n")
+            debug_log(f"show_banner(): Reset READONLY_MODE={READONLY_MODE} from config (READONLY_CLI_MODE={READONLY_CLI_MODE})")
         dbt_service = get_dbt_service(config)
         dbt_config_info = dbt_service.get_dbt_config_info()
     except Exception:
@@ -952,37 +957,31 @@ def main():
     global PREVIEW_MODE, READONLY_MODE, READONLY_CLI_MODE, SHOW_HISTORY, SHOW_FULL_HISTORY
 
     # DEBUG: Log at start
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"\n=== MAIN() START ===\n")
-        f.write(f"Initial: READONLY_MODE={READONLY_MODE}, READONLY_CLI_MODE={READONLY_CLI_MODE}\n")
+    debug_log(f"\n=== MAIN() START ===")
+    debug_log(f"Initial: READONLY_MODE={READONLY_MODE}, READONLY_CLI_MODE={READONLY_CLI_MODE}")
 
     # Parse arguments with subcommand support
     from .cli import parse_args_with_subcommands, handle_cli_subcommands
 
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"About to parse args...\n")
+    debug_log(f"About to parse args...")
 
     args = parse_args_with_subcommands()
 
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"Args parsed: args is None = {args is None}\n")
+    debug_log(f"Args parsed: args is None = {args is None}")
 
     if args is None:
-        with open('/tmp/sqlbot_debug.log', 'a') as f:
-            f.write(f"Returning early - args is None\n")
+        debug_log(f"Returning early - args is None")
         return  # Help was shown
     
     # Handle subcommands first
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"Checking subcommands: args.command = {args.command}\n")
+    debug_log(f"Checking subcommands: args.command = {args.command}")
 
     if args.command:
         exit_code = handle_cli_subcommands(args)
         sys.exit(exit_code)
 
     # Handle web mode
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"Checking web mode: args.web = {getattr(args, 'web', False)}\n")
+    debug_log(f"Checking web mode: args.web = {getattr(args, 'web', False)}")
 
     if hasattr(args, 'web') and args.web:
         from .webapp import run_webapp
@@ -992,15 +991,13 @@ def main():
         return
 
     # Apply theme early based on command line argument
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"Setting theme: args.theme = {args.theme}\n")
+    debug_log(f"Setting theme: args.theme = {args.theme}")
 
     theme_map = {mode.value: mode for mode in ThemeMode}
     theme_manager = get_theme_manager()
     theme_manager.set_theme(theme_map[args.theme])
 
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"Theme set successfully\n")
+    debug_log(f"Theme set successfully")
 
     # Theme is now set - all subsequent UI should use theme colors
 
@@ -1012,20 +1009,17 @@ def main():
     # Banner will be shown later in interactive mode startup if appropriate
     
     # Initialize everything after banner display
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"About to initialize dbt...\n")
+    debug_log(f"About to initialize dbt...")
 
     if dbt is None:
         from dbt.cli.main import dbtRunner
         dbt = dbtRunner()
 
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"dbt initialized\n")
+    debug_log(f"dbt initialized")
 
     # Handle conversation continuation
     if hasattr(args, 'continue_session') and args.continue_session:
-        with open('/tmp/sqlbot_debug.log', 'a') as f:
-            f.write(f"Handling continue_session...\n")
+        debug_log(f"Handling continue_session...")
         # Load previous conversation instead of clearing
         try:
             from .conversation_persistence import load_conversation_history
@@ -1195,9 +1189,8 @@ def main():
                 pass
 
     # Set global mode flags BEFORE checking for query (applies to both interactive and non-interactive modes)
-    with open('/tmp/sqlbot_debug.log', 'a') as f:
-        f.write(f"REACHED FLAG-SETTING CODE!\n")
-        f.write(f"main(): About to check flags: args.dangerous={getattr(args, 'dangerous', 'NOT FOUND')}, args.preview={getattr(args, 'preview', 'NOT FOUND')}\n")
+    debug_log(f"REACHED FLAG-SETTING CODE!")
+    debug_log(f"main(): About to check flags: args.dangerous={getattr(args, 'dangerous', 'NOT FOUND')}, args.preview={getattr(args, 'preview', 'NOT FOUND')}")
 
     if args.preview:
         PREVIEW_MODE = True
@@ -1205,11 +1198,9 @@ def main():
     if hasattr(args, 'dangerous') and args.dangerous:
         READONLY_MODE = False
         READONLY_CLI_MODE = True  # CLI mode - safeguards explicitly disabled
-        with open('/tmp/sqlbot_debug.log', 'a') as f:
-            f.write(f"main(): Set READONLY_MODE={READONLY_MODE}, READONLY_CLI_MODE={READONLY_CLI_MODE}\n")
+        debug_log(f"main(): Set READONLY_MODE={READONLY_MODE}, READONLY_CLI_MODE={READONLY_CLI_MODE}")
     else:
-        with open('/tmp/sqlbot_debug.log', 'a') as f:
-            f.write(f"main(): NOT setting dangerous mode: hasattr={hasattr(args, 'dangerous')}, value={getattr(args, 'dangerous', None)}\n")
+        debug_log(f"main(): NOT setting dangerous mode: hasattr={hasattr(args, 'dangerous')}, value={getattr(args, 'dangerous', None)}")
 
     if args.history:
         SHOW_HISTORY = True

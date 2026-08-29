@@ -593,3 +593,11 @@ This includes:
 - **SQL Injection**: Mitigated by using dbt's compilation, which inherently parameterizes inputs.
 - **Credentials**: API keys and database passwords are loaded securely from environment variables.
 - **Permissions**: We strongly recommend running SQLBot with a read-only database user.
+
+---
+
+Built by [Anthus AI Solutions](https://anth.us). We run this class of system in production.
+
+Built so you can ask the warehouse a business question, not write the joins.
+
+If you need this operated, not just cloned, [talk to us](https://anth.us).
